@@ -7,6 +7,9 @@ export const chatService = {
   getPinned: () =>
     api.get('/chat/pinned').then((r) => r.data),
 
+  getUnreadCount: () =>
+    api.get('/chat/unread').then((r) => r.data),
+
   sendMediaMessage: (formData) =>
     api.post('/chat', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },

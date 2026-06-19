@@ -111,12 +111,20 @@ const ChatPage = () => {
   const inputAreaRef = useRef(null);
   const containerRef = useRef(null);
   const touchStartRef = useRef(null);
+  const swipeDirectionRef = useRef(null);
   const longPressTimer = useRef(null);
   const [inputAreaHeight, setInputAreaHeight] = useState(64);
   const typingTimerRef = useRef(null);
+  const forceScrollRef = useRef(false);
 
-  const scrollToBottom = useCallback((smooth = true) => {
-    bottomRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'instant' });
+  const scrollToBottom = useCallback((smooth = true, force = false) => {
+    if (!containerRef.current) return;
+    const container = containerRef.current;
+    const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 250;
+    
+    if (force || isNearBottom) {
+      bottomRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'instant' });
+    }
   }, []);
 
   // Load messages
@@ -125,6 +133,12 @@ const ChatPage = () => {
       try {
         const res = await chatService.getMessages();
         if (res.success) setMessages(res.data.messages);
+        
+        // Mark as read immediately on load
+        chatService.markSeen().catch(console.error);
+        const s = getSocket();
+        if (s) s.emit('chat:seen');
+
         const pinned = await chatService.getPinned();
         if (pinned.success && pinned.data.length > 0) setPinnedMessage(pinned.data[0]);
         
@@ -144,12 +158,13 @@ const ChatPage = () => {
   }, []);
 
   useEffect(() => {
-    if (!loading) scrollToBottom(false);
-  }, [loading]);
+    if (!loading) scrollToBottom(false, true);
+  }, [loading, scrollToBottom]);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    scrollToBottom(true, forceScrollRef.current);
+    forceScrollRef.current = false;
+  }, [messages, isTyping, scrollToBottom]);
 
   // Measure input area height dynamically
   useEffect(() => {
@@ -257,6 +272,7 @@ const ChatPage = () => {
         createdAt: new Date().toISOString(),
         isSending: true
       };
+      forceScrollRef.current = true;
       setMessages(prev => [...prev, fakeMsg]);
 
       if (mediaFile) {
@@ -313,6 +329,7 @@ const ChatPage = () => {
       createdAt: new Date().toISOString(),
       isSending: true
     };
+    forceScrollRef.current = true;
     setMessages(prev => [...prev, fakeMsg]);
 
     s?.emit('chat:send', {
@@ -385,20 +402,35 @@ const ChatPage = () => {
   };
 
   const handleTouchStart = (e) => {
-    touchStartRef.current = e.touches[0].clientX;
+    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    swipeDirectionRef.current = null;
   };
 
   const handleTouchMove = (e) => {
-    if (touchStartRef.current === null) return;
-    const deltaX = e.touches[0].clientX - touchStartRef.current;
-    if (deltaX < 0 && containerRef.current) {
-      containerRef.current.style.setProperty('--swipe-x', `${Math.max(-60, deltaX)}px`);
-      containerRef.current.classList.add('is-swiping');
+    if (!touchStartRef.current) return;
+    
+    const deltaX = e.touches[0].clientX - touchStartRef.current.x;
+    const deltaY = e.touches[0].clientY - touchStartRef.current.y;
+
+    if (!swipeDirectionRef.current) {
+      if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 5) {
+        swipeDirectionRef.current = 'vertical';
+      } else if (Math.abs(deltaX) > 10) {
+        swipeDirectionRef.current = 'horizontal';
+      }
+    }
+
+    if (swipeDirectionRef.current === 'horizontal') {
+      if (deltaX < 0 && containerRef.current) {
+        containerRef.current.style.setProperty('--swipe-x', `${Math.max(-60, deltaX)}px`);
+        containerRef.current.classList.add('is-swiping');
+      }
     }
   };
 
   const handleTouchEnd = () => {
     touchStartRef.current = null;
+    swipeDirectionRef.current = null;
     if (containerRef.current) {
       containerRef.current.style.setProperty('--swipe-x', `0px`);
       containerRef.current.classList.remove('is-swiping');
@@ -407,20 +439,35 @@ const ChatPage = () => {
 
   // Mouse drag support for desktop
   const handleMouseDown = (e) => {
-    touchStartRef.current = e.clientX;
+    touchStartRef.current = { x: e.clientX, y: e.clientY };
+    swipeDirectionRef.current = null;
   };
 
   const handleMouseMove = (e) => {
-    if (touchStartRef.current === null) return;
-    const deltaX = e.clientX - touchStartRef.current;
-    if (deltaX < 0 && containerRef.current) {
-      containerRef.current.style.setProperty('--swipe-x', `${Math.max(-60, deltaX)}px`);
-      containerRef.current.classList.add('is-swiping');
+    if (!touchStartRef.current) return;
+    
+    const deltaX = e.clientX - touchStartRef.current.x;
+    const deltaY = e.clientY - touchStartRef.current.y;
+
+    if (!swipeDirectionRef.current) {
+      if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 5) {
+        swipeDirectionRef.current = 'vertical';
+      } else if (Math.abs(deltaX) > 10) {
+        swipeDirectionRef.current = 'horizontal';
+      }
+    }
+
+    if (swipeDirectionRef.current === 'horizontal') {
+      if (deltaX < 0 && containerRef.current) {
+        containerRef.current.style.setProperty('--swipe-x', `${Math.max(-60, deltaX)}px`);
+        containerRef.current.classList.add('is-swiping');
+      }
     }
   };
 
   const handleMouseUp = () => {
     touchStartRef.current = null;
+    swipeDirectionRef.current = null;
     if (containerRef.current) {
       containerRef.current.style.setProperty('--swipe-x', `0px`);
       containerRef.current.classList.remove('is-swiping');
@@ -527,6 +574,7 @@ const ChatPage = () => {
 
       <div 
         className={`chat-messages-container ${pinnedMessage ? 'has-pinned' : ''}`} 
+        style={{ paddingBottom: inputAreaHeight + 20 }}
         ref={containerRef}
         onClick={() => { setReactingTo(null); setShowStickers(false); }}
         onTouchStart={handleTouchStart}
@@ -637,9 +685,6 @@ const ChatPage = () => {
                         <div style={{ fontSize: '0.65rem', color: '#a0aec0', marginTop: '4px', textAlign: mine ? 'right' : 'left', fontStyle: 'italic', paddingRight: '4px' }}>Đang gửi...</div>
                       )}
 
-                      {/* Hidden swipe timestamp */}
-                      <span className="hidden-time">{formatTime(msg.createdAt)}</span>
-
                       {/* Seen */}
                       {mine && msg._id === messages[messages.length - 1]?._id && msg.isRead && (
                         <span className="seen-label">Đã xem ✓</span>
@@ -717,6 +762,9 @@ const ChatPage = () => {
                         </motion.div>
                       )}
                     </AnimatePresence>
+                    
+                    {/* Hidden swipe timestamp */}
+                    <span className="hidden-time">{formatTime(msg.createdAt)}</span>
                   </motion.div>
               </Fragment>
             );
@@ -732,6 +780,15 @@ const ChatPage = () => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
             >
+              <div className="msg-avatar-container">
+                <div className={`msg-avatar ${partner?.gender === 'male' ? 'male' : 'female'}`}>
+                  {partner?.avatar ? (
+                    <img src={partner.avatar} alt="avatar" />
+                  ) : (
+                    partner?.displayName?.substring(0, 2).toUpperCase() || '👤'
+                  )}
+                </div>
+              </div>
               <div className="typing-bubble">
                 <span className="dot" /><span className="dot" /><span className="dot" />
               </div>
@@ -927,12 +984,12 @@ const ChatPage = () => {
           ) : (
             <motion.button
               className="poke-btn"
-              onClick={handlePoke}
-              whileTap={{ scale: 0.85, rotate: 20 }}
+              onClick={() => handleSendSticker({ url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/2764_fe0f/512.gif', label: 'Trái tim' })}
+              whileTap={{ scale: 0.85 }}
               animate={{ scale: [1, 1.1, 1] }}
               transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
             >
-              💕
+              ❤️
             </motion.button>
           )}
         </div>

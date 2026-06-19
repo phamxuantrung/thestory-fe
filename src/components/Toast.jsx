@@ -11,7 +11,8 @@ const toastVariants = {
 let showToastFn = null;
 
 export const showToast = (message, type = 'success') => {
-  if (showToastFn) showToastFn(message, type);
+  // Disabled by user request
+  // if (showToastFn) showToastFn(message, type);
 };
 
 const Toast = () => {
