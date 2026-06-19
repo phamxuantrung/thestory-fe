@@ -37,7 +37,7 @@
   border-bottom: 1px solid rgba(242, 105, 137, 0.12);
   padding: 10px 16px;
   z-index: 50;
-  margin-top: 64px;
+  margin-top: calc(4.5rem + env(safe-area-inset-top));
 }
 
 .pin-icon {
@@ -124,7 +124,7 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin-top: 64px;
+  margin-top: calc(4.5rem + env(safe-area-inset-top));
   scrollbar-width: none;
   z-index: 1;
 }
