@@ -160,7 +160,20 @@ const ChatPage = () => {
       }
     });
     observer.observe(inputAreaRef.current);
-    return () => observer.disconnect();
+    
+    // Aggressively fix iOS Safari scroll bounce bug
+    const handleScrollFix = () => {
+      window.scrollTo(0, 0);
+      document.body.scrollTop = 0;
+    };
+    window.visualViewport?.addEventListener('resize', handleScrollFix);
+    window.visualViewport?.addEventListener('scroll', handleScrollFix);
+    
+    return () => {
+      observer.disconnect();
+      window.visualViewport?.removeEventListener('resize', handleScrollFix);
+      window.visualViewport?.removeEventListener('scroll', handleScrollFix);
+    };
   }, [replyTo, mediaPreview]);
 
   // Socket listeners — re-register whenever socket becomes available
@@ -884,7 +897,9 @@ const ChatPage = () => {
 
           {/* Text input */}
           <div className="input-bubble-wrapper">
-            <textarea
+            <input
+              type="text"
+              enterKeyHint="send"
               className="chat-input"
               placeholder="Nhắn tin cho người thương..."
               value={input}
@@ -906,12 +921,11 @@ const ChatPage = () => {
                 }, 100);
               }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                if (e.key === 'Enter') {
                   e.preventDefault();
                   handleSend();
                 }
               }}
-              rows={1}
             />
           </div>
 
