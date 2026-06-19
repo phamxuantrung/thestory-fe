@@ -4,7 +4,7 @@
   font-family: 'Plus Jakarta Sans', sans-serif;
   background: linear-gradient(to bottom, #fadce6 0%, #fef0f5 25%, #ffffff 50%, #ffffff 100%);
   color: #1b1c1c;
-  min-height: 100vh;
+  min-height: 100dvh;
   padding-bottom: 100px; /* accommodate docked bottom nav */
   overflow-x: hidden;
 }
@@ -41,7 +41,7 @@
 
 /* Main Content */
 .home-main-content {
-  margin-top: 5rem;
+  margin-top: calc(5rem + env(safe-area-inset-top));
   padding: 0 1.5rem;
   max-width: 800px;
   margin-left: auto;

@@ -110,6 +110,7 @@ const ChatPage = () => {
   const inputAreaRef = useRef(null);
   const containerRef = useRef(null);
   const touchStartRef = useRef(null);
+  const longPressTimer = useRef(null);
   const [inputAreaHeight, setInputAreaHeight] = useState(64);
 
   const scrollToBottom = useCallback((smooth = true) => {
@@ -410,6 +411,21 @@ const ChatPage = () => {
     }
   };
 
+  const handleLongPressTouchStart = (msgId) => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    longPressTimer.current = setTimeout(() => {
+      setReactingTo(prev => prev === msgId ? null : msgId);
+      if (navigator.vibrate) navigator.vibrate(50);
+    }, 500);
+  };
+
+  const handleTouchEndOrMove = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
   const handleMediaSelect = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -550,14 +566,20 @@ const ChatPage = () => {
                           (msg.type === 'image' || msg.type === 'video') && (!msg.content || msg.content.trim() === '') ? 'bubble-media-only' : ''
                         }`}
                         onDoubleClick={() => handleReact(msg._id, '❤️')}
-                        onLongPress={() => setReactingTo(msg._id)}
+                        onTouchStart={() => handleLongPressTouchStart(msg._id)}
+                        onTouchEnd={handleTouchEndOrMove}
+                        onTouchMove={handleTouchEndOrMove}
+                        onTouchCancel={handleTouchEndOrMove}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (reactingTo === msg._id) setReactingTo(null);
                         }}
                         onContextMenu={(e) => {
                           e.preventDefault();
-                          setReactingTo(reactingTo === msg._id ? null : msg._id);
+                          // Desktop fallback if needed
+                          if (e.pointerType === 'mouse') {
+                            setReactingTo(reactingTo === msg._id ? null : msg._id);
+                          }
                         }}
                       >
                         {/* Media */}

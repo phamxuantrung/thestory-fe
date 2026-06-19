@@ -12,8 +12,8 @@ export default defineConfig({
         name: 'TheStory',
         short_name: 'TheStory',
         description: 'A private messaging and memory app for couples',
-        theme_color: '#ffffff',
-        background_color: '#ffffff',
+        theme_color: '#fadce6',
+        background_color: '#fadce6',
         display: 'standalone',
         icons: [
           {
