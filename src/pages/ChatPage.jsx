@@ -884,7 +884,8 @@ const ChatPage = () => {
 
           {/* Text input */}
           <div className="input-bubble-wrapper">
-            <textarea
+            <input
+              type="text"
               className="chat-input"
               placeholder="Nhắn tin cho người thương..."
               value={input}
@@ -901,12 +902,11 @@ const ChatPage = () => {
                 if (socket) socket.emit('chat:typing', { isTyping: false });
               }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                if (e.key === 'Enter') {
                   e.preventDefault();
                   handleSend();
                 }
               }}
-              rows={1}
             />
           </div>
 
