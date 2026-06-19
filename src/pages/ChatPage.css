@@ -637,6 +637,10 @@
   padding-top: 4px;
 }
 
+.chat-input-area.keyboard-open {
+  padding-bottom: 12px;
+}
+
 /* Reply banner */
 .reply-banner {
   display: flex;

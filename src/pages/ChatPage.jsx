@@ -76,6 +76,7 @@ const ChatPage = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [pinnedMessage, setPinnedMessage] = useState(null);
   const [replyTo, setReplyTo] = useState(null);
+  const [isInputFocused, setIsInputFocused] = useState(false);
   const [reactingTo, setReactingTo] = useState(null);
   const [showStickers, setShowStickers] = useState(false);
   const [showPokeAnim, setShowPokeAnim] = useState(null);
@@ -112,6 +113,7 @@ const ChatPage = () => {
   const touchStartRef = useRef(null);
   const longPressTimer = useRef(null);
   const [inputAreaHeight, setInputAreaHeight] = useState(64);
+  const typingTimerRef = useRef(null);
 
   const scrollToBottom = useCallback((smooth = true) => {
     bottomRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'instant' });
@@ -167,7 +169,17 @@ const ChatPage = () => {
     if (!s) return;
 
     const onMessage = (msg) => {
-      setMessages((prev) => [...prev, msg]);
+      setMessages((prev) => {
+        if (msg.sender._id === user?._id) {
+          const fakeIdx = prev.findIndex(m => m.isSending && m.type === msg.type && m.content === msg.content);
+          if (fakeIdx !== -1) {
+            const newMsgs = [...prev];
+            newMsgs[fakeIdx] = msg;
+            return newMsgs;
+          }
+        }
+        return [...prev, msg];
+      });
       if (msg.sender._id !== user?._id) s.emit('chat:seen');
     };
     const onTyping = ({ isTyping: t }) => setIsTyping(t);
@@ -234,6 +246,19 @@ const ChatPage = () => {
     s.emit('chat:typing', { isTyping: false });
 
     try {
+      const tempId = `temp-${Date.now()}`;
+      const fakeMsg = {
+        _id: tempId,
+        sender: user,
+        content: text,
+        type: mediaFile ? (mediaFile.type.startsWith('video') ? 'video' : 'image') : 'text',
+        mediaUrl: mediaFile ? URL.createObjectURL(mediaFile) : null,
+        replyTo: replyTo,
+        createdAt: new Date().toISOString(),
+        isSending: true
+      };
+      setMessages(prev => [...prev, fakeMsg]);
+
       if (mediaFile) {
         // Upload media via REST
         const formData = new FormData();
@@ -242,8 +267,8 @@ const ChatPage = () => {
         if (replyTo) formData.append('replyTo', replyTo._id);
         const res = await chatService.sendMediaMessage(formData);
         if (res.success) {
-          // Optimistic: hiển thị ngay cho người gửi
-          setMessages((prev) => [...prev, res.data]);
+          // Thay thế tin nhắn ảo bằng thật
+          setMessages((prev) => prev.map(m => m._id === tempId ? res.data : m));
           // Broadcast cho partner qua socket (server dùng _preloaded, không lưu DB lại)
           s.emit('chat:send', {
             content: text || '',
@@ -268,6 +293,8 @@ const ChatPage = () => {
       setReplyTo(null);
     } catch (err) {
       console.error(err);
+      // Remove optimistic message if error
+      setMessages(prev => prev.filter(m => !m.isSending || m.content !== text));
       showToast('Không thể gửi tin nhắn', 'error');
     } finally {
       setIsSending(false);
@@ -276,6 +303,18 @@ const ChatPage = () => {
 
   const handleSendSticker = (sticker) => {
     const s = getSocket();
+    
+    const fakeMsg = {
+      _id: `temp-${Date.now()}`,
+      sender: user,
+      content: sticker.url,
+      type: 'sticker',
+      replyTo: null,
+      createdAt: new Date().toISOString(),
+      isSending: true
+    };
+    setMessages(prev => [...prev, fakeMsg]);
+
     s?.emit('chat:send', {
       content: sticker.url,
       type: 'sticker',
@@ -433,13 +472,6 @@ const ChatPage = () => {
     const reader = new FileReader();
     reader.onload = (ev) => setMediaPreview(ev.target.result);
     reader.readAsDataURL(file);
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
   };
 
   const isMine = (msg) => msg.sender?._id === user?._id;
@@ -600,6 +632,10 @@ const ChatPage = () => {
                           msg.content && <span className="bubble-text">{msg.content}</span>
                         )}
                       </div>
+                      
+                      {msg.isSending && (
+                        <div style={{ fontSize: '0.65rem', color: '#a0aec0', marginTop: '4px', textAlign: mine ? 'right' : 'left', fontStyle: 'italic', paddingRight: '4px' }}>Đang gửi...</div>
+                      )}
 
                       {/* Hidden swipe timestamp */}
                       <span className="hidden-time">{formatTime(msg.createdAt)}</span>
@@ -729,7 +765,16 @@ const ChatPage = () => {
                 recentStickers.length > 0 ? (
                   recentStickers.map((s, idx) => (
                     <button key={`recent-${idx}`} className="sticker-btn" onClick={() => handleSendSticker(s)}>
-                      <img src={s.url} alt={s.label || 'sticker'} className="sticker-btn-img" />
+                      <img 
+                        src={s.url} 
+                        alt={s.label || 'sticker'} 
+                        className="sticker-btn-img" 
+                        onError={() => {
+                          const updatedRecents = recentStickers.filter(item => item.url !== s.url);
+                          setRecentStickers(updatedRecents);
+                          localStorage.setItem('thestory_recent_stickers', JSON.stringify(updatedRecents));
+                        }}
+                      />
                       {s.label && <span className="sticker-label">{s.label}</span>}
                     </button>
                   ))
@@ -777,7 +822,7 @@ const ChatPage = () => {
       </AnimatePresence>
 
       {/* Input area */}
-      <div className="chat-input-area" ref={inputAreaRef}>
+      <div className={`chat-input-area ${isInputFocused ? 'keyboard-open' : ''}`} ref={inputAreaRef}>
         {/* Reply banner */}
         <AnimatePresence>
           {replyTo && (
@@ -844,7 +889,23 @@ const ChatPage = () => {
               placeholder="Nhắn tin cho người thương..."
               value={input}
               onChange={(e) => handleTyping(e.target.value)}
-              onKeyDown={handleKeyDown}
+              onFocus={() => {
+                setIsInputFocused(true);
+                setShowStickers(false);
+                const socket = getSocket();
+                if (socket) socket.emit('chat:typing', { isTyping: true });
+              }}
+              onBlur={() => {
+                setIsInputFocused(false);
+                const socket = getSocket();
+                if (socket) socket.emit('chat:typing', { isTyping: false });
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
               rows={1}
             />
           </div>

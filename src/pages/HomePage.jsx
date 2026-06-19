@@ -502,7 +502,6 @@ const HomePage = () => {
                   placeholder="Ví dụ: Trà sữa ít ngọt, Hoa hồng..."
                   value={hobbyInput}
                   onChange={(e) => setHobbyInput(e.target.value)}
-                  autoFocus
                 />
               </div>
 
@@ -560,7 +559,6 @@ const HomePage = () => {
                   placeholder="Nhập lời nhắn của bạn..."
                   value={dailyMessageInput}
                   onChange={(e) => setDailyMessageInput(e.target.value)}
-                  autoFocus
                   style={{ resize: 'none', padding: '12px', minHeight: '100px' }}
                 />
               </div>
