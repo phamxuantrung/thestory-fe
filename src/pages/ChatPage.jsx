@@ -290,6 +290,7 @@ const ChatPage = () => {
         });
       }
       setInput('');
+      if (inputRef.current) inputRef.current.textContent = '';
       setReplyTo(null);
     } catch (err) {
       console.error(err);
@@ -885,12 +886,13 @@ const ChatPage = () => {
 
           {/* Text input */}
           <div className="input-bubble-wrapper">
-            <input
-              type="text"
+            <div
+              ref={inputRef}
               className="chat-input"
-              placeholder="Nhắn tin cho người thương..."
-              value={input}
-              onChange={(e) => handleTyping(e.target.value)}
+              contentEditable
+              suppressContentEditableWarning
+              data-placeholder="Nhắn tin cho người thương..."
+              onInput={(e) => handleTyping(e.currentTarget.textContent)}
               onFocus={() => {
                 setIsInputFocused(true);
                 setShowStickers(false);
@@ -903,10 +905,16 @@ const ChatPage = () => {
                 if (socket) socket.emit('chat:typing', { isTyping: false });
               }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
+                if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
                   handleSend();
                 }
+              }}
+              style={{
+                outline: 'none',
+                minHeight: '24px',
+                wordBreak: 'break-word',
+                whiteSpace: 'pre-wrap'
               }}
             />
           </div>

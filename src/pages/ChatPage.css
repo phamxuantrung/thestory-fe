@@ -765,6 +765,19 @@
   color: rgba(121, 84, 101, 0.45);
 }
 
+.chat-input[contenteditable]:empty::before {
+  content: attr(data-placeholder);
+  color: rgba(121, 84, 101, 0.45);
+  pointer-events: none;
+  display: block;
+}
+
+.chat-input[contenteditable] {
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: text;
+}
+
 .send-btn {
   width: 44px;
   height: 44px;
