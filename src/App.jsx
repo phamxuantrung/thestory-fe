@@ -7,6 +7,8 @@ import HomePage from './pages/HomePage';
 import MemoriesPage from './pages/MemoriesPage';
 import AddMemoryPage from './pages/AddMemoryPage';
 import ChatPage from './pages/ChatPage';
+import { subscribeToPushNotifications } from './services/pushService';
+import { useEffect } from 'react';
 
 // Protected route wrapper
 const ProtectedRoute = ({ children }) => {
@@ -67,6 +69,14 @@ const PublicRoute = ({ children }) => {
 };
 
 const AppRoutes = () => {
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      subscribeToPushNotifications();
+    }
+  }, [user]);
+
   return (
     <div className="app-container">
       <Toast />

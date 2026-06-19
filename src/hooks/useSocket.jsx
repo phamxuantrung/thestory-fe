@@ -1,40 +1,61 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 import { useAuth } from './useAuth';
 
-let socket = null;
+let globalSocket = null;
+let activeCount = 0;
+let disconnectTimer = null;
 
 export const useSocket = () => {
   const { user, updatePartnerStatus } = useAuth();
-  const connectedRef = useRef(false);
+  const [socket, setSocket] = useState(globalSocket);
 
   useEffect(() => {
-    if (!user || connectedRef.current) return;
+    if (!user) return;
 
-    socket = io(import.meta.env.VITE_SOCKET_URL || 'https://thestory-be.onrender.com', {
-      transports: ['websocket'],
-    });
+    activeCount++;
 
-    socket.on('connect', () => {
-      console.log('🔌 Socket connected');
-      socket.emit('user:join', user._id);
-      connectedRef.current = true;
-    });
+    if (disconnectTimer) {
+      clearTimeout(disconnectTimer);
+      disconnectTimer = null;
+    }
 
-    socket.on('partner:online', ({ isOnline, lastSeen }) => {
+    if (!globalSocket) {
+      globalSocket = io(import.meta.env.VITE_SOCKET_URL || 'https://thestory-be.onrender.com', {
+        transports: ['websocket'],
+      });
+
+      globalSocket.on('connect', () => {
+        console.log('🔌 Socket connected');
+        globalSocket.emit('user:join', user._id);
+      });
+
+      globalSocket.on('disconnect', () => {
+        console.log('🔌 Socket disconnected');
+      });
+    }
+
+    setSocket(globalSocket);
+
+    const onPartnerOnline = ({ isOnline, lastSeen }) => {
       updatePartnerStatus(isOnline, lastSeen);
-    });
+    };
 
-    socket.on('disconnect', () => {
-      console.log('🔌 Socket disconnected');
-      connectedRef.current = false;
-    });
+    globalSocket.on('partner:online', onPartnerOnline);
 
     return () => {
-      if (socket) {
-        socket.disconnect();
-        socket = null;
-        connectedRef.current = false;
+      activeCount--;
+      if (globalSocket) {
+        globalSocket.off('partner:online', onPartnerOnline);
+        
+        if (activeCount === 0) {
+          disconnectTimer = setTimeout(() => {
+            if (activeCount === 0 && globalSocket) {
+              globalSocket.disconnect();
+              globalSocket = null;
+            }
+          }, 2000); // Delay disconnect for page transitions
+        }
       }
     };
   }, [user]);
@@ -42,4 +63,4 @@ export const useSocket = () => {
   return socket;
 };
 
-export const getSocket = () => socket;
+export const getSocket = () => globalSocket;
