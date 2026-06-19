@@ -290,7 +290,6 @@ const ChatPage = () => {
         });
       }
       setInput('');
-      if (inputRef.current) inputRef.current.textContent = '';
       setReplyTo(null);
     } catch (err) {
       console.error(err);
@@ -801,7 +800,7 @@ const ChatPage = () => {
                       {isAiProcessing ? 'Đang tách nền AI...' : isUploadingSticker ? 'Đang tải lên...' : 'Thêm mới'}
                     </span>
                   </button>
-                  <input type="file" ref={stickerInputRef} accept="image/*" style={{ display: 'none' }} onChange={handleStickerFileChange} tabIndex={-1} />
+                  <input type="file" ref={stickerInputRef} accept="image/*" style={{ display: 'none' }} onChange={handleStickerFileChange} />
                   
                   {customStickers.map((s) => (
                     <div key={s._id} className="custom-sticker-wrapper">
@@ -881,18 +880,15 @@ const ChatPage = () => {
             accept="image/*,video/*"
             style={{ display: 'none' }}
             onChange={handleMediaSelect}
-            tabIndex={-1}
           />
 
           {/* Text input */}
           <div className="input-bubble-wrapper">
-            <div
-              ref={inputRef}
+            <textarea
               className="chat-input"
-              contentEditable
-              suppressContentEditableWarning
-              data-placeholder="Nhắn tin cho người thương..."
-              onInput={(e) => handleTyping(e.currentTarget.textContent)}
+              placeholder="Nhắn tin cho người thương..."
+              value={input}
+              onChange={(e) => handleTyping(e.target.value)}
               onFocus={() => {
                 setIsInputFocused(true);
                 setShowStickers(false);
@@ -910,12 +906,7 @@ const ChatPage = () => {
                   handleSend();
                 }
               }}
-              style={{
-                outline: 'none',
-                minHeight: '24px',
-                wordBreak: 'break-word',
-                whiteSpace: 'pre-wrap'
-              }}
+              rows={1}
             />
           </div>
 
