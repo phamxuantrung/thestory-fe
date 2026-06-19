@@ -110,7 +110,6 @@ const ChatPage = () => {
   const stickerInputRef = useRef(null);
   const inputAreaRef = useRef(null);
   const containerRef = useRef(null);
-  const chatInputRef = useRef(null);
   const touchStartRef = useRef(null);
   const longPressTimer = useRef(null);
   const [inputAreaHeight, setInputAreaHeight] = useState(64);
@@ -161,20 +160,7 @@ const ChatPage = () => {
       }
     });
     observer.observe(inputAreaRef.current);
-    
-    // Aggressively fix iOS Safari scroll bounce bug
-    const handleScrollFix = () => {
-      window.scrollTo(0, 0);
-      document.body.scrollTop = 0;
-    };
-    window.visualViewport?.addEventListener('resize', handleScrollFix);
-    window.visualViewport?.addEventListener('scroll', handleScrollFix);
-    
-    return () => {
-      observer.disconnect();
-      window.visualViewport?.removeEventListener('resize', handleScrollFix);
-      window.visualViewport?.removeEventListener('scroll', handleScrollFix);
-    };
+    return () => observer.disconnect();
   }, [replyTo, mediaPreview]);
 
   // Socket listeners — re-register whenever socket becomes available
@@ -304,9 +290,6 @@ const ChatPage = () => {
         });
       }
       setInput('');
-      if (chatInputRef.current) {
-        chatInputRef.current.textContent = '';
-      }
       setReplyTo(null);
     } catch (err) {
       console.error(err);
@@ -901,13 +884,11 @@ const ChatPage = () => {
 
           {/* Text input */}
           <div className="input-bubble-wrapper">
-            <div
-              ref={chatInputRef}
-              className="chat-input content-editable"
-              contentEditable={true}
-              suppressContentEditableWarning={true}
-              data-placeholder="Nhắn tin cho người thương..."
-              onInput={(e) => handleTyping(e.currentTarget.textContent)}
+            <textarea
+              className="chat-input"
+              placeholder="Nhắn tin cho người thương..."
+              value={input}
+              onChange={(e) => handleTyping(e.target.value)}
               onFocus={() => {
                 setIsInputFocused(true);
                 setShowStickers(false);
@@ -918,11 +899,6 @@ const ChatPage = () => {
                 setIsInputFocused(false);
                 const socket = getSocket();
                 if (socket) socket.emit('chat:typing', { isTyping: false });
-                // Fix iOS Safari bug: reset viewport when keyboard dismisses
-                setTimeout(() => {
-                  window.scrollTo(0, 0);
-                  document.body.scrollTop = 0;
-                }, 100);
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -930,7 +906,8 @@ const ChatPage = () => {
                   handleSend();
                 }
               }}
-            ></div>
+              rows={1}
+            />
           </div>
 
           {/* Poke / Send */}

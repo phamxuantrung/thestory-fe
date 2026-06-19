@@ -752,29 +752,17 @@
   background: transparent;
   border: none;
   outline: none;
-  font-family: inherit;
   font-size: 0.95rem;
-  color: #795465;
+  color: #4f4448;
+  padding: 10px 8px;
+  resize: none;
+  max-height: 100px;
+  line-height: 1.5;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 .chat-input::placeholder {
-  color: rgba(121, 84, 101, 0.5);
-}
-
-.chat-input.content-editable {
-  min-height: 20px;
-  max-height: 100px;
-  overflow-y: auto;
-  word-break: break-word;
-  padding: 12px 0;
-  line-height: 1.4;
-}
-
-.chat-input.content-editable:empty:before {
-  content: attr(data-placeholder);
-  color: rgba(121, 84, 101, 0.5);
-  pointer-events: none;
-  display: block;
+  color: rgba(121, 84, 101, 0.45);
 }
 
 .send-btn {
