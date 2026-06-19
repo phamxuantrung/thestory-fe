@@ -11,7 +11,7 @@ export const useSocket = () => {
   useEffect(() => {
     if (!user || connectedRef.current) return;
 
-    socket = io('http://localhost:5000', {
+    socket = io(import.meta.env.VITE_SOCKET_URL || 'https://thestory-be.onrender.com', {
       transports: ['websocket'],
     });
 
