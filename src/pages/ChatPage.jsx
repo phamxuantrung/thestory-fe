@@ -110,6 +110,7 @@ const ChatPage = () => {
   const stickerInputRef = useRef(null);
   const inputAreaRef = useRef(null);
   const containerRef = useRef(null);
+  const chatInputRef = useRef(null);
   const touchStartRef = useRef(null);
   const longPressTimer = useRef(null);
   const [inputAreaHeight, setInputAreaHeight] = useState(64);
@@ -303,6 +304,9 @@ const ChatPage = () => {
         });
       }
       setInput('');
+      if (chatInputRef.current) {
+        chatInputRef.current.textContent = '';
+      }
       setReplyTo(null);
     } catch (err) {
       console.error(err);
@@ -897,13 +901,13 @@ const ChatPage = () => {
 
           {/* Text input */}
           <div className="input-bubble-wrapper">
-            <input
-              type="text"
-              enterKeyHint="send"
-              className="chat-input"
-              placeholder="Nhắn tin cho người thương..."
-              value={input}
-              onChange={(e) => handleTyping(e.target.value)}
+            <div
+              ref={chatInputRef}
+              className="chat-input content-editable"
+              contentEditable={true}
+              suppressContentEditableWarning={true}
+              data-placeholder="Nhắn tin cho người thương..."
+              onInput={(e) => handleTyping(e.currentTarget.textContent)}
               onFocus={() => {
                 setIsInputFocused(true);
                 setShowStickers(false);
@@ -921,12 +925,12 @@ const ChatPage = () => {
                 }, 100);
               }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
+                if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
                   handleSend();
                 }
               }}
-            />
+            ></div>
           </div>
 
           {/* Poke / Send */}
