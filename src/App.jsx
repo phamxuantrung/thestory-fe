@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import Toast from './components/Toast';
@@ -9,6 +9,8 @@ import AddMemoryPage from './pages/AddMemoryPage';
 import ChatPage from './pages/ChatPage';
 import { subscribeToPushNotifications } from './services/pushService';
 import { useEffect } from 'react';
+import { useSocket } from './hooks/useSocket';
+import { showToast } from './components/Toast';
 
 // Protected route wrapper
 const ProtectedRoute = ({ children }) => {
@@ -70,12 +72,49 @@ const PublicRoute = ({ children }) => {
 
 const AppRoutes = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  const socket = useSocket();
 
   useEffect(() => {
     if (user) {
       subscribeToPushNotifications();
     }
   }, [user]);
+
+  // Global message listener for local notifications
+  useEffect(() => {
+    if (!socket || !user) return;
+
+    const onGlobalMessage = (msg) => {
+      if (msg.sender._id === user._id) return; // Do not notify for own messages
+
+      // Only notify if we are NOT actively viewing the chat page
+      if (location.pathname !== '/chat' || document.visibilityState !== 'visible') {
+        showToast(`Tin nhắn mới từ ${msg.sender.displayName || 'người ấy'}`);
+        
+        // Play sound
+        try {
+          const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+          audio.play().catch(() => {});
+        } catch (e) {}
+
+        // Show local browser notification
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification(msg.sender.displayName || 'Tin nhắn mới', {
+            body: msg.type === 'text' ? msg.content : (msg.type === 'sticker' ? 'Đã gửi một nhãn dán' : 'Đã gửi một hình ảnh'),
+            icon: '/icon-192x192.png',
+            badge: '/icon-192x192.png'
+          });
+        }
+      }
+    };
+
+    socket.on('chat:message', onGlobalMessage);
+
+    return () => {
+      socket.off('chat:message', onGlobalMessage);
+    };
+  }, [socket, user, location.pathname]);
 
   return (
     <div className="app-container">
