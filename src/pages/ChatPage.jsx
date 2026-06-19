@@ -800,7 +800,7 @@ const ChatPage = () => {
                       {isAiProcessing ? 'Đang tách nền AI...' : isUploadingSticker ? 'Đang tải lên...' : 'Thêm mới'}
                     </span>
                   </button>
-                  <input type="file" ref={stickerInputRef} accept="image/*" style={{ display: 'none' }} onChange={handleStickerFileChange} />
+                  <input type="file" ref={stickerInputRef} accept="image/*" style={{ display: 'none' }} onChange={handleStickerFileChange} tabIndex={-1} />
                   
                   {customStickers.map((s) => (
                     <div key={s._id} className="custom-sticker-wrapper">
@@ -880,6 +880,7 @@ const ChatPage = () => {
             accept="image/*,video/*"
             style={{ display: 'none' }}
             onChange={handleMediaSelect}
+            tabIndex={-1}
           />
 
           {/* Text input */}
