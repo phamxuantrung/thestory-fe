@@ -112,7 +112,7 @@ const AddMemoryPage = () => {
   };
 
   return (
-    <div className="page add-memory-page" style={{ paddingTop: '4.5rem' }}>
+    <div className="page add-memory-page" style={{ paddingTop: 'calc(4.5rem + env(safe-area-inset-top))' }}>
       {/* Header */}
       <Header title="Thêm Kỷ Niệm" showBack={true} />
 

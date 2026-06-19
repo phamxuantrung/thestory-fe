@@ -85,7 +85,7 @@ const MemoriesPage = () => {
   });
 
   return (
-    <div className="page memories-page" style={{ paddingTop: '5rem' }}>
+    <div className="page memories-page" style={{ paddingTop: 'calc(5rem + env(safe-area-inset-top))' }}>
       {/* Header */}
       <Header 
         title="Góc Kỷ Niệm" 
