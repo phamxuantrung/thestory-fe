@@ -98,12 +98,18 @@ const AppRoutes = () => {
           audio.play().catch(() => {});
         } catch (e) {}
 
-        // Show local browser notification
+        // Show local browser notification using Service Worker (required for mobile)
         if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification(msg.sender.displayName || 'Tin nhắn mới', {
-            body: msg.type === 'text' ? msg.content : (msg.type === 'sticker' ? 'Đã gửi một nhãn dán' : 'Đã gửi một hình ảnh'),
-            icon: '/icon-192x192.png',
-            badge: '/icon-192x192.png'
+          navigator.serviceWorker.ready.then(registration => {
+            registration.showNotification(msg.sender.displayName || 'Tin nhắn mới', {
+              body: msg.type === 'text' ? msg.content : (msg.type === 'sticker' ? 'Đã gửi một nhãn dán' : 'Đã gửi một hình ảnh'),
+              icon: '/pwa-192x192.png',
+              badge: '/pwa-192x192.png',
+              vibrate: [200, 100, 200],
+              data: {
+                url: '/chat'
+              }
+            });
           });
         }
       }
