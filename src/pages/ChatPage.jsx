@@ -899,6 +899,11 @@ const ChatPage = () => {
                 setIsInputFocused(false);
                 const socket = getSocket();
                 if (socket) socket.emit('chat:typing', { isTyping: false });
+                // Fix iOS Safari bug: reset viewport when keyboard dismisses
+                setTimeout(() => {
+                  window.scrollTo(0, 0);
+                  document.body.scrollTop = 0;
+                }, 100);
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
