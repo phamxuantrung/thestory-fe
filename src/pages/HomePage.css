@@ -659,6 +659,7 @@
 
 .date-input, .input {
   width: 100%;
+  max-width: 100%;
   padding: 16px 20px;
   border-radius: 16px;
   border: 1px solid rgba(242, 105, 137, 0.2);
@@ -670,6 +671,8 @@
   outline: none;
   box-sizing: border-box;
   box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .date-input:focus, .input:focus {

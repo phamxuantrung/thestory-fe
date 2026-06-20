@@ -151,7 +151,7 @@
 /* Map Overlay Instruction */
 .map-overlay {
   position: absolute;
-  top: 80px;
+  top: calc(5rem + env(safe-area-inset-top));
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
@@ -286,7 +286,8 @@
   padding: 32px 24px 40px 24px;
   box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.1);
   animation: slideUpModal 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-  max-height: 90vh;
+  max-height: calc(100vh - 6rem - env(safe-area-inset-top));
+  max-height: calc(100dvh - 6rem - env(safe-area-inset-top));
   overflow-y: auto;
 }
 
@@ -379,6 +380,7 @@
 .form-group textarea,
 .form-group select {
   width: 100%;
+  max-width: 100%;
   background: #f8f9fa;
   border: 2px solid transparent;
   border-radius: 16px;
@@ -387,6 +389,9 @@
   font-family: 'Inter', sans-serif;
   color: #333;
   transition: all 0.3s;
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .form-group select {

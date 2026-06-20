@@ -280,7 +280,7 @@
   z-index: 10;
   width: 100%;
   padding: 0 20px;
-  margin-top: 80px;
+  margin-top: calc(5rem + env(safe-area-inset-top));
 }
 
 .hud-card {
