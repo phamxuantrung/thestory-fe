@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import './Header.css';
 
-const Header = ({ title, showBack = true, onBack, rightContent }) => {
+const Header = ({ title, showBack = true, onBack, rightContent, leftContent, transparent = false }) => {
   const navigate = useNavigate();
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -20,15 +20,17 @@ const Header = ({ title, showBack = true, onBack, rightContent }) => {
   }, []);
 
   return (
-    <header className={`global-header ${isScrolled ? 'scrolled' : ''}`}>
+    <header className={`global-header ${isScrolled ? 'scrolled' : ''} ${transparent ? 'transparent' : ''}`}>
       <div className="header-left">
-        {showBack && (
-          <button 
-            className="back-btn" 
-            onClick={() => onBack ? onBack() : navigate(-1)}
-          >
-            <span className="material-symbols-outlined">chevron_left</span>
-          </button>
+        {leftContent ? leftContent : (
+          showBack && (
+            <button 
+              className="back-btn" 
+              onClick={() => onBack ? onBack() : navigate(-1)}
+            >
+              <span className="material-symbols-outlined">chevron_left</span>
+            </button>
+          )
         )}
       </div>
       <div className="header-center">

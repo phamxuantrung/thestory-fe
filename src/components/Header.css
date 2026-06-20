@@ -24,6 +24,10 @@
   box-shadow: 0 4px 24px rgba(217, 76, 115, 0.05);
 }
 
+.global-header.transparent {
+  background: transparent;
+}
+
 .header-left, .header-right {
   width: 3rem; /* Fixed width to balance center */
   display: flex;

@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { BookHeart, Plus, X, Calendar as CalendarIcon } from 'lucide-react';
+import { BookHeart, Plus, X, Calendar as CalendarIcon, Mail, BookOpen, MapPin, Trees } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useSocket } from '../hooks/useSocket';
 import { authService } from '../services/authService';
 import { showToast } from '../components/Toast';
 import BottomNav from '../components/BottomNav';
 import Header from '../components/Header';
+import Avatar from '../components/Avatar';
 import './HomePage.css';
 
 const LOVE_QUOTES = [
@@ -55,6 +56,18 @@ const HomePage = () => {
 
   // Blind bag state
   const [isQuoteRevealed, setIsQuoteRevealed] = useState(false);
+
+  useEffect(() => {
+    const todayStr = new Date().toDateString();
+    const currentKey = `${todayStr}_${partner?.dailyMessageDate || 'none'}`;
+    const savedKey = localStorage.getItem('blindBagOpenedKey');
+    
+    if (savedKey === currentKey) {
+      setIsQuoteRevealed(true);
+    } else {
+      setIsQuoteRevealed(false);
+    }
+  }, [partner?.dailyMessageDate]);
 
   // Modal thay đổi ngày kỷ niệm
   const [showDateModal, setShowDateModal] = useState(false);
@@ -234,10 +247,10 @@ const HomePage = () => {
         <motion.section variants={itemVariants} className="seamless-section couple-status-card">
           <div className="couple-avatars-overlap">
             <div className="overlap-avatar self-avatar z-10">
-              {user?.avatar ? <img className="avatar-img" src={user.avatar} alt="self" /> : <span className="avatar-text">{user?.gender === 'male' ? 'XT' : 'PD'}</span>}
+              <Avatar user={user} className="avatar-img" />
             </div>
             <div className="overlap-avatar partner-avatar z-0">
-              {partner?.avatar ? <img className="avatar-img" src={partner.avatar} alt="partner" /> : <span className="avatar-text">{partner?.gender === 'male' ? 'XT' : 'PD'}</span>}
+              <Avatar user={partner} className="avatar-img" />
             </div>
           </div>
           
@@ -280,7 +293,14 @@ const HomePage = () => {
           <motion.section 
             variants={itemVariants} 
             className="seamless-section quote-card-v2"
-            onClick={() => !isQuoteRevealed && setIsQuoteRevealed(true)}
+            onClick={() => {
+              if (!isQuoteRevealed) {
+                setIsQuoteRevealed(true);
+                const todayStr = new Date().toDateString();
+                const currentKey = `${todayStr}_${partner?.dailyMessageDate || 'none'}`;
+                localStorage.setItem('blindBagOpenedKey', currentKey);
+              }
+            }}
             style={{ cursor: isQuoteRevealed ? 'default' : 'pointer' }}
           >
             <AnimatePresence mode="wait">
@@ -323,6 +343,57 @@ const HomePage = () => {
             </AnimatePresence>
           </motion.section>
         )}
+
+        {/* Tiện ích tình yêu */}
+        <motion.section variants={itemVariants} className="seamless-section features-card" style={{ marginTop: '20px' }}>
+          <div className="quote-header-v2">
+            <span className="material-symbols-outlined">apps</span>
+            <span className="quote-title-v2">Tiện ích tình yêu</span>
+          </div>
+          <div className="features-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '16px' }}>
+            
+            {/* Hộp thư tương lai */}
+            <Link to="/future-letters" style={{ textDecoration: 'none' }}>
+              <motion.div className="utility-card" whileTap={{ scale: 0.95 }}>
+                <div className="utility-icon-wrapper" style={{ background: 'linear-gradient(135deg, #ffe4ef, #fce7f3)' }}>
+                  <Mail color="#f26989" size={28} strokeWidth={2.5} />
+                </div>
+                <span className="utility-title">Hộp thư</span>
+              </motion.div>
+            </Link>
+
+            {/* Nhật ký chung */}
+            <Link to="/shared-diary" style={{ textDecoration: 'none' }}>
+              <motion.div className="utility-card" whileTap={{ scale: 0.95 }}>
+                <div className="utility-icon-wrapper" style={{ background: 'linear-gradient(135deg, #e8f5e9, #c8e6c9)' }}>
+                  <BookOpen color="#4caf50" size={28} strokeWidth={2.5} />
+                </div>
+                <span className="utility-title">Nhật ký chung</span>
+              </motion.div>
+            </Link>
+
+            {/* Bản đồ tình yêu */}
+            <Link to="/map" style={{ textDecoration: 'none' }}>
+              <motion.div className="utility-card" whileTap={{ scale: 0.95 }}>
+                <div className="utility-icon-wrapper" style={{ background: 'linear-gradient(135deg, #fff3e0, #ffe0b2)' }}>
+                  <MapPin color="#ff9800" size={28} strokeWidth={2.5} />
+                </div>
+                <span className="utility-title">Bản đồ</span>
+              </motion.div>
+            </Link>
+
+            {/* Chăm cây tình yêu */}
+            <Link to="/tree" style={{ textDecoration: 'none' }}>
+              <motion.div className="utility-card" whileTap={{ scale: 0.95 }}>
+                <div className="utility-icon-wrapper" style={{ background: 'linear-gradient(135deg, #e1f5fe, #b3e5fc)' }}>
+                  <Trees color="#03a9f4" size={28} strokeWidth={2.5} />
+                </div>
+                <span className="utility-title">Chăm cây</span>
+              </motion.div>
+            </Link>
+
+          </div>
+        </motion.section>
 
         {/* Partner Hobbies Card */}
         {partner && (
@@ -417,7 +488,7 @@ const HomePage = () => {
                 <X size={20} />
               </button>
               
-              <div className="modal-header">
+              <div className="date-modal-header">
                 <div className="modal-icon-wrapper">
                   <CalendarIcon size={24} className="modal-icon" />
                 </div>
@@ -474,7 +545,7 @@ const HomePage = () => {
                 <X size={20} />
               </button>
               
-              <div className="modal-header">
+              <div className="date-modal-header">
                 <div className="modal-icon-wrapper">
                   <span className="material-symbols-outlined" style={{ fontSize: '28px', color: '#f26989' }}>loyalty</span>
                 </div>
@@ -544,7 +615,7 @@ const HomePage = () => {
                 <X size={20} />
               </button>
               
-              <div className="modal-header">
+              <div className="date-modal-header">
                 <div className="modal-icon-wrapper">
                   <span className="material-symbols-outlined" style={{ fontSize: '28px', color: '#f26989' }}>edit_note</span>
                 </div>

@@ -25,4 +25,16 @@ export const authService = {
     const res = await api.put('/auth/me/partner-hobbies', { hobbies });
     return res.data;
   },
+
+  changePassword: async (oldPassword, newPassword) => {
+    const res = await api.put('/auth/me/password', { oldPassword, newPassword });
+    return res.data;
+  },
+
+  uploadAvatar: async (formData) => {
+    const res = await api.post('/auth/me/avatar', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data;
+  },
 };

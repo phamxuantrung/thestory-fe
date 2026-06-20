@@ -10,7 +10,7 @@ const navItems = [
   { path: '/memories', label: 'Kỷ niệm', iconName: 'favorite' },
   { path: '/memories/add', label: 'Thêm', iconName: 'add', isSpecial: true },
   { path: '/chat', label: 'Trò chuyện', iconName: 'chat_bubble' },
-  { path: '#account', label: 'Cá nhân', iconName: 'person' },
+  { path: '/profile', label: 'Cá nhân', iconName: 'person' },
 ];
 
 const BottomNav = () => {

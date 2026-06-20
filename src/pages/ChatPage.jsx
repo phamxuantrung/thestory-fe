@@ -6,6 +6,7 @@ import { useSocket, getSocket } from '../hooks/useSocket';
 import { chatService } from '../services/chatService';
 import { showToast } from '../components/Toast';
 import Header from '../components/Header';
+import Avatar from '../components/Avatar';
 import { removeBackground } from '@imgly/background-removal';
 import './ChatPage.css';
 
@@ -620,11 +621,7 @@ const ChatPage = () => {
                     {/* Avatar — chỉ hiện nếu là người kia và cuối nhóm */}
                     {!mine && isLastInGroup && (
                       <div className={`msg-avatar ${msg.sender?.gender}`}>
-                        {msg.sender?.avatar ? (
-                          <img src={msg.sender.avatar} alt="avatar" />
-                        ) : (
-                          <span>{msg.sender?.gender === 'male' ? 'XT' : 'PD'}</span>
-                        )}
+                        <Avatar user={msg.sender} />
                       </div>
                     )}
                     {!mine && !isLastInGroup && <div className="msg-avatar-spacer" />}
@@ -782,11 +779,7 @@ const ChatPage = () => {
             >
               <div className="msg-avatar-container">
                 <div className={`msg-avatar ${partner?.gender === 'male' ? 'male' : 'female'}`}>
-                  {partner?.avatar ? (
-                    <img src={partner.avatar} alt="avatar" />
-                  ) : (
-                    partner?.displayName?.substring(0, 2).toUpperCase() || '👤'
-                  )}
+                  <Avatar user={partner} />
                 </div>
               </div>
               <div className="typing-bubble">

@@ -4,6 +4,7 @@ import { memoryService } from '../services/memoryService';
 import { useAuth } from '../hooks/useAuth';
 import { showToast } from './Toast';
 import { useState } from 'react';
+import Avatar from './Avatar';
 import './MemoryCard.css';
 
 const CATEGORY_LABELS = {
@@ -91,7 +92,7 @@ const MemoryCard = ({ memory, onDelete, onLike, onClick }) => {
 
   return (
     <motion.div
-      className="memory-card card"
+      className="memory-card"
       onClick={() => onClick && onClick(memory)}
       whileTap={{ scale: 0.98 }}
       initial={{ opacity: 0, y: 20 }}
@@ -195,19 +196,7 @@ const MemoryCard = ({ memory, onDelete, onLike, onClick }) => {
         <div className="memory-card-footer">
           <div className="memory-author">
             <div className={`author-avatar-wrapper ${memory.createdBy?.gender}`}>
-              {memory.createdBy?.avatar ? (
-                <img 
-                  src={memory.createdBy.avatar.startsWith('http') ? memory.createdBy.avatar : `http://localhost:5000${memory.createdBy.avatar}`} 
-                  alt="avatar" 
-                  className="author-avatar-img" 
-                />
-              ) : (
-                <div className="author-avatar-placeholder">
-                  <span className="avatar-text-v2" style={{ fontWeight: '700', fontSize: '13px', color: memory.createdBy?.gender === 'male' ? '#4a90e2' : '#f26989' }}>
-                    {memory.createdBy?.gender === 'male' ? 'XT' : 'PD'}
-                  </span>
-                </div>
-              )}
+              <Avatar user={memory.createdBy} className="author-avatar-img" />
             </div>
             <span className="author-name">{memory.createdBy?.displayName}</span>
           </div>

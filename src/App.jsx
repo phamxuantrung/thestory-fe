@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import Toast from './components/Toast';
@@ -7,6 +8,12 @@ import HomePage from './pages/HomePage';
 import MemoriesPage from './pages/MemoriesPage';
 import AddMemoryPage from './pages/AddMemoryPage';
 import ChatPage from './pages/ChatPage';
+import FutureLetterPage from './pages/FutureLetterPage';
+import SharedDiaryPage from './pages/SharedDiaryPage';
+import LoveMapPage from './pages/LoveMapPage';
+import LoveTreePage from './pages/LoveTreePage';
+import LoveTreeGame from './pages/LoveTreeGame';
+import ProfilePage from './pages/ProfilePage';
 
 // Protected route wrapper
 const ProtectedRoute = ({ children }) => {
@@ -66,9 +73,20 @@ const PublicRoute = ({ children }) => {
   return children;
 };
 
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+};
+
 const AppRoutes = () => {
   return (
     <div className="app-container">
+      <ScrollToTop />
       <Toast />
       <Routes>
         <Route path="/" element={<Navigate to="/home" replace />} />
@@ -109,6 +127,54 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <ChatPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/future-letters"
+          element={
+            <ProtectedRoute>
+              <FutureLetterPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/shared-diary"
+          element={
+            <ProtectedRoute>
+              <SharedDiaryPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/map"
+          element={
+            <ProtectedRoute>
+              <LoveMapPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tree"
+          element={
+            <ProtectedRoute>
+              <LoveTreePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tree-game"
+          element={
+            <ProtectedRoute>
+              <LoveTreeGame />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
             </ProtectedRoute>
           }
         />
