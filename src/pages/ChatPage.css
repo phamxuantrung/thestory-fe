@@ -574,10 +574,8 @@
 /* =================== STICKER PANEL =================== */
 .sticker-panel {
   position: fixed;
-  width: 100%;
-  max-width: var(--mobile-max);
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
   bottom: 64px;
   display: flex;
   flex-direction: column;
@@ -673,13 +671,12 @@
 
 .sticker-label { font-size: 0.7rem; color: #795465; font-weight: 600; }
 
+/* =================== INPUT AREA =================== */
 .chat-input-area {
   position: fixed;
   bottom: 0;
-  width: 100%;
-  max-width: var(--mobile-max);
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
   background: rgba(255, 252, 253, 0.9); /* Matches #fffcfd with slight transparency */
   backdrop-filter: blur(12px);
   border-top: 1px solid rgba(242, 105, 137, 0.1);
