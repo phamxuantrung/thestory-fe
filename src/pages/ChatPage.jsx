@@ -47,7 +47,7 @@ const ChatPage = () => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(!cachedData.messages);
   const [isTyping, setIsTyping] = useState(false);
-  const [pinnedMessage, setPinnedMessage] = useState(() => (cachedData.pinned && cachedData.pinned.length > 0) ? cachedData.pinned[0] : null);
+  const [pinnedMessage, setPinnedMessage] = useState(() => (cachedData.pinned && cachedData.pinned.data && cachedData.pinned.data.length > 0) ? cachedData.pinned.data[0] : null);
   const [replyTo, setReplyTo] = useState(null);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [reactingTo, setReactingTo] = useState(null);
@@ -58,7 +58,7 @@ const ChatPage = () => {
   const [mediaPreview, setMediaPreview] = useState(null);
   const [mediaFile, setMediaFile] = useState(null);
   const [isSending, setIsSending] = useState(false);
-  const [customStickers, setCustomStickers] = useState(() => cachedData.stickers || []);
+  const [customStickers, setCustomStickers] = useState(() => (cachedData.stickers && cachedData.stickers.data) ? cachedData.stickers.data : []);
   const [activeStickerTab, setActiveStickerTab] = useState(() => {
     try {
       const saved = localStorage.getItem('thestory_recent_stickers');

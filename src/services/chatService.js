@@ -25,8 +25,10 @@ export const chatService = {
   getMessages: (page = 1) =>
     api.get(`/chat?page=${page}&limit=50&t=${Date.now()}`).then((r) => {
       if (page === 1) {
-        cachedMessages = r.data.messages;
-        try { localStorage.setItem('chat_cache_messages', JSON.stringify(cachedMessages)); } catch(e) {}
+        if (r.data && r.data.data && r.data.data.messages) {
+          cachedMessages = r.data.data.messages;
+          try { localStorage.setItem('chat_cache_messages', JSON.stringify(cachedMessages)); } catch(e) {}
+        }
       }
       return r.data;
     }),
