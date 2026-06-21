@@ -272,8 +272,10 @@ p { line-height: 1.6; color: var(--text-secondary); }
 .bottom-nav-v2 {
   position: fixed;
   bottom: 0;
-  left: 0;
   width: 100%;
+  max-width: var(--mobile-max);
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 50;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.8) 100%);
   backdrop-filter: blur(30px);

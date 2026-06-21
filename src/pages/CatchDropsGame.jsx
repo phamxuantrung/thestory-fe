@@ -184,7 +184,7 @@ const CatchDropsGame = () => {
               <p><Timer color="#64748b" /> Thời gian: <strong>{GAME_DURATION} giây</strong></p>
             </div>
             <p style={{ marginBottom: 20 }}>Di chuyển chuột hoặc vuốt ngón tay để hứng.</p>
-            <button className="btn-primary" style={{ width: '100%' }} onClick={startGame}>BẮT ĐẦU CHƠI</button>
+            <button className="catch-btn-primary" style={{ width: '100%' }} onClick={startGame}>BẮT ĐẦU CHƠI</button>
           </div>
         </div>
       )}
@@ -204,7 +204,7 @@ const CatchDropsGame = () => {
               Thưởng: <Coins size={20} /> {Math.min(score, MAX_COINS)} Xu
             </div>
             <div className="action-buttons">
-              <button className="btn-primary" onClick={claimReward} disabled={claimed}>
+              <button className="catch-btn-primary" onClick={claimReward} disabled={claimed}>
                 {claimed ? 'ĐÃ NHẬN' : 'NHẬN THƯỞNG & THOÁT'}
               </button>
               <button className="btn-secondary" onClick={startGame}>Chơi lại</button>
