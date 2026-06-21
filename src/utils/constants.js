@@ -28,3 +28,10 @@ export const STICKERS = [
   { id: 'sleep', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f634/512.gif', label: 'Ngủ ngon' },
   { id: 'melting', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1fae0/512.gif', label: 'Tan chảy' },
 ];
+
+export const MOODS = [
+  { id: 'very_happy', emojiUrl: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Smilies/Smiling%20Face%20with%20Hearts.png', label: 'Rất hạnh phúc' },
+  { id: 'happy', emojiUrl: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Smilies/Smiling%20Face%20with%20Smiling%20Eyes.png', label: 'Vui vẻ' },
+  { id: 'sad', emojiUrl: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Smilies/Pensive%20Face.png', label: 'Buồn bã' },
+  { id: 'angry', emojiUrl: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Smilies/Face%20with%20Steam%20From%20Nose.png', label: 'Bực bội' },
+];

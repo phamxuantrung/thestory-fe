@@ -7,12 +7,7 @@ import { showToast } from '../components/Toast';
 import Header from '../components/Header';
 import './SharedDiaryPage.css';
 
-const MOODS = [
-  { id: 'very_happy', emojiUrl: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Smilies/Smiling%20Face%20with%20Hearts.png', label: 'Rất hạnh phúc' },
-  { id: 'happy', emojiUrl: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Smilies/Smiling%20Face%20with%20Smiling%20Eyes.png', label: 'Vui vẻ' },
-  { id: 'sad', emojiUrl: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Smilies/Pensive%20Face.png', label: 'Buồn bã' },
-  { id: 'angry', emojiUrl: 'https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Smilies/Face%20with%20Steam%20From%20Nose.png', label: 'Bực bội' },
-];
+import { MOODS } from '../utils/constants';
 
 const SharedDiaryPage = () => {
   const { user, partner } = useAuth();

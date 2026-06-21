@@ -251,7 +251,7 @@ const AppRoutes = () => {
   );
 };
 
-import { EMOJI_REACTIONS, ANIMATED_REACTIONS, STICKERS } from './utils/constants';
+import { EMOJI_REACTIONS, ANIMATED_REACTIONS, STICKERS, MOODS } from './utils/constants';
 
 const Preloader = ({ children }) => {
   const [loaded, setLoaded] = useState(false);
@@ -260,7 +260,8 @@ const Preloader = ({ children }) => {
   useEffect(() => {
     const urlsToPreload = [
       ...Object.values(ANIMATED_REACTIONS),
-      ...STICKERS.map(s => s.url)
+      ...STICKERS.map(s => s.url),
+      ...MOODS.map(m => m.emojiUrl)
     ];
 
     if (urlsToPreload.length === 0) {

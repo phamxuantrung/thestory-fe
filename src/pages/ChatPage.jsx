@@ -220,6 +220,12 @@ const ChatPage = () => {
     s.on('chat:poke', onPoke);
     s.on('chat:seen', onSeen);
 
+    const onAppResume = () => {
+      console.log('App resumed, reloading messages...');
+      loadMessages();
+    };
+    window.addEventListener('app:resume', onAppResume);
+
     return () => {
       s.off('connect', onReconnect);
       s.off('chat:message', onMessage);
@@ -227,10 +233,10 @@ const ChatPage = () => {
       s.off('chat:reacted', onReacted);
       s.off('chat:pinned', onPinned);
       s.off('chat:unpinned', onUnpinned);
-      s.off('chat:pinned', onPinned);
       s.off('chat:deleted', onDeleted);
       s.off('chat:poke', onPoke);
       s.off('chat:seen', onSeen);
+      window.removeEventListener('app:resume', onAppResume);
     };
   }, [socket, user, loadMessages]); // re-run when socket instance changes
 
