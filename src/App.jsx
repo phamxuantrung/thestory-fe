@@ -13,6 +13,14 @@ import SharedDiaryPage from './pages/SharedDiaryPage';
 import LoveMapPage from './pages/LoveMapPage';
 import LoveTreePage from './pages/LoveTreePage';
 import LoveTreeGame from './pages/LoveTreeGame';
+import GamesHubPage from './pages/GamesHubPage';
+import CatchDropsGame from './pages/CatchDropsGame';
+import WhackABugGame from './pages/WhackABugGame';
+import CaroGame from './pages/CaroGame';
+import FlappyCupidGame from './pages/FlappyCupidGame';
+import SimonSaysGame from './pages/SimonSaysGame';
+import SnakeGame from './pages/SnakeGame';
+import LoveSurvivorGame from './pages/LoveSurvivorGame';
 import ProfilePage from './pages/ProfilePage';
 
 // Protected route wrapper
@@ -163,10 +171,74 @@ const AppRoutes = () => {
           }
         />
         <Route
-          path="/tree-game"
+          path="/games"
+          element={
+            <ProtectedRoute>
+              <GamesHubPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/game/memory"
           element={
             <ProtectedRoute>
               <LoveTreeGame />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/game/catch-drops"
+          element={
+            <ProtectedRoute>
+              <CatchDropsGame />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/game/whack-a-bug"
+          element={
+            <ProtectedRoute>
+              <WhackABugGame />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/game/caro"
+          element={
+            <ProtectedRoute>
+              <CaroGame />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/game/flappy"
+          element={
+            <ProtectedRoute>
+              <FlappyCupidGame />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/game/simon"
+          element={
+            <ProtectedRoute>
+              <SimonSaysGame />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/game/snake"
+          element={
+            <ProtectedRoute>
+              <SnakeGame />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/game/survivor"
+          element={
+            <ProtectedRoute>
+              <LoveSurvivorGame />
             </ProtectedRoute>
           }
         />

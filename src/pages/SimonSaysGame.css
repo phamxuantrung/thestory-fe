@@ -1,0 +1,121 @@
+.simon-game-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: 'Inter', sans-serif;
+  color: #fff;
+}
+
+.simon-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 500px;
+  padding: 20px;
+  margin-top: 60px;
+}
+
+.simon-status {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 40px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  text-align: center;
+  height: 40px;
+}
+
+.simon-board-wrapper {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 20px;
+  border-radius: 50%;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+  backdrop-filter: blur(10px);
+}
+
+.simon-board {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #1e293b;
+  padding: 10px;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+}
+
+.simon-btn {
+  width: 100%;
+  height: 100%;
+  border: none;
+  cursor: pointer;
+  transition: all 0.1s;
+  opacity: 0.6;
+}
+
+/* Shapes for a circle divided in 4 */
+.simon-btn.green { background: #22c55e; border-top-left-radius: 100%; }
+.simon-btn.red { background: #ef4444; border-top-right-radius: 100%; }
+.simon-btn.yellow { background: #eab308; border-bottom-left-radius: 100%; }
+.simon-btn.blue { background: #3b82f6; border-bottom-right-radius: 100%; }
+
+.simon-btn:active:not(.disabled) {
+  opacity: 0.8;
+}
+
+.simon-btn.active {
+  opacity: 1;
+  transform: scale(1.05);
+  z-index: 10;
+  box-shadow: 0 0 30px currentColor;
+}
+
+.simon-btn.disabled {
+  cursor: not-allowed;
+}
+
+.simon-controls {
+  margin-top: 50px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  align-items: center;
+}
+
+.btn-simon-play {
+  background: white;
+  color: #0ea5e9;
+  border: none;
+  padding: 15px 40px;
+  border-radius: 30px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+  transition: transform 0.2s;
+}
+
+.btn-simon-play:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 15px 25px rgba(0,0,0,0.15);
+}
+
+.btn-simon-exit {
+  background: transparent;
+  color: white;
+  border: 1px solid white;
+  padding: 10px 30px;
+  border-radius: 30px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-simon-exit:hover {
+  background: rgba(255, 255, 255, 0.2);
+}

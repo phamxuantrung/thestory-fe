@@ -96,9 +96,9 @@ const LoveTreeGame = () => {
 
     if (won) {
       try {
-        const res = await treeService.addFertilizer();
+        const res = await treeService.addReward(20);
         if (res.success) {
-          showToast('Chúc mừng! Bạn nhận được 1 Phân bón 👝', 'success');
+          showToast(res.message, 'success');
         }
       } catch (e) {
         showToast('Lỗi nhận thưởng', 'error');
@@ -108,7 +108,7 @@ const LoveTreeGame = () => {
 
   return (
     <div className="game-page">
-      <Header title="Lật Thẻ Tìm Phân Bón" showBack={true} />
+      <Header title="Lật Thẻ Tìm Xu" showBack={true} onBack={() => navigate('/games')} />
 
       <div className="game-container">
         <div className="game-header">
@@ -153,9 +153,9 @@ const LoveTreeGame = () => {
               {isWon ? (
                 <>
                   <h2>Tuyệt vời! 🎉</h2>
-                  <p>Trí nhớ của bạn quá đỉnh! Bạn đã thu thập được 1 Phân bón để cứu cây.</p>
-                  <button className="game-btn primary" onClick={() => navigate('/tree')}>
-                    Quay lại chăm cây
+                  <p>Trí nhớ của bạn quá đỉnh! Bạn đã thu thập được rất nhiều Xu.</p>
+                  <button className="game-btn primary" onClick={() => navigate('/games')}>
+                    Về Trung tâm Trò chơi
                   </button>
                 </>
               ) : (
@@ -165,7 +165,7 @@ const LoveTreeGame = () => {
                   <button className="game-btn primary" onClick={initGame}>
                     Chơi Lại
                   </button>
-                  <button className="game-btn secondary" onClick={() => navigate('/tree')}>
+                  <button className="game-btn secondary" onClick={() => navigate('/games')}>
                     Thoát
                   </button>
                 </>

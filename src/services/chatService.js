@@ -10,6 +10,9 @@ export const chatService = {
   getUnreadCount: () =>
     api.get('/chat/unread').then((r) => r.data),
 
+  sendMessage: (content) =>
+    api.post('/chat', { content, type: 'text' }).then((r) => r.data),
+
   sendMediaMessage: (formData) =>
     api.post('/chat', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },

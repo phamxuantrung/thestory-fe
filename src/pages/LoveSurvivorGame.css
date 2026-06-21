@@ -1,0 +1,169 @@
+.survivor-game-page {
+  min-height: 100vh;
+  background: radial-gradient(circle at center, #1e1b4b 0%, #000000 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: 'Inter', sans-serif;
+  color: #fff;
+  overflow: hidden;
+  position: relative;
+  touch-action: none; /* Prevent browser scrolling/gestures */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.survivor-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  pointer-events: auto; /* Let header buttons work */
+}
+
+.survivor-header .header-title {
+  color: #fff;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.survivor-game-area {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  cursor: crosshair;
+}
+
+.survivor-hud {
+  position: absolute;
+  top: 80px; /* Below header */
+  left: 20px;
+  right: 20px;
+  display: flex;
+  justify-content: space-between;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.survivor-time {
+  font-size: 2rem;
+  font-weight: 900;
+  color: #ffb199;
+  text-shadow: 0 0 10px rgba(255, 8, 68, 0.8);
+  font-family: 'Courier New', Courier, monospace;
+}
+
+.survivor-danger {
+  font-size: 1.2rem;
+  color: #ef4444;
+  font-weight: bold;
+  animation: pulse-danger 1s infinite alternate;
+}
+
+@keyframes pulse-danger {
+  0% { opacity: 0.5; text-shadow: 0 0 5px red; }
+  100% { opacity: 1; text-shadow: 0 0 20px red; }
+}
+
+.survivor-player {
+  position: absolute;
+  font-size: 2.5rem;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transform: translate(-50%, -50%); /* Center the hitbox on coordinates */
+  filter: drop-shadow(0 0 10px rgba(255, 0, 100, 0.8));
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* Pulsing heart effect */
+.survivor-player::after {
+  content: '❤️';
+  animation: heartbeat 0.8s infinite alternate;
+}
+
+@keyframes heartbeat {
+  0% { transform: scale(0.9); }
+  100% { transform: scale(1.1); }
+}
+
+.survivor-projectile {
+  position: absolute;
+  font-size: 2rem;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  pointer-events: none;
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5));
+}
+
+.survivor-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(5px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+  text-align: center;
+  padding: 20px;
+}
+
+.survivor-overlay h2 {
+  font-size: 2.5rem;
+  color: #ff0844;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-shadow: 0 0 15px rgba(255, 8, 68, 0.8);
+}
+
+.survivor-overlay p {
+  font-size: 1.1rem;
+  color: #cbd5e1;
+  margin-bottom: 30px;
+  max-width: 400px;
+  line-height: 1.5;
+}
+
+.btn-survivor {
+  background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%);
+  color: white;
+  border: none;
+  padding: 15px 40px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  border-radius: 30px;
+  cursor: pointer;
+  box-shadow: 0 5px 20px rgba(255, 8, 68, 0.5);
+  transition: transform 0.2s, box-shadow 0.2s;
+  margin-bottom: 15px;
+}
+
+.btn-survivor:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 25px rgba(255, 8, 68, 0.7);
+}
+
+.btn-survivor.secondary {
+  background: transparent;
+  border: 2px solid #64748b;
+  box-shadow: none;
+  color: #cbd5e1;
+}
+
+.btn-survivor.secondary:hover {
+  background: rgba(100, 116, 139, 0.2);
+}

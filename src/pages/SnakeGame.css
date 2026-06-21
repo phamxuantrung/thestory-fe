@@ -1,0 +1,137 @@
+.snake-game-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: 'Inter', sans-serif;
+  color: #fff;
+  touch-action: none; /* Prevent scrolling while swiping */
+}
+
+.snake-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 500px;
+  padding: 15px;
+  margin-top: 60px;
+}
+
+.snake-header {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 15px 25px;
+  border-radius: 20px;
+  margin-bottom: 20px;
+  backdrop-filter: blur(5px);
+}
+
+.snake-stat {
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.snake-board-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  background: #1e293b;
+  border-radius: 10px;
+  box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+  overflow: hidden;
+}
+
+.snake-board {
+  display: grid;
+  width: 100%;
+  height: 100%;
+}
+
+.snake-cell {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.02);
+}
+
+.snake-cell.snake-body {
+  background: #4ade80;
+  border-radius: 4px;
+}
+
+.snake-cell.snake-head {
+  background: #22c55e;
+  border-radius: 6px;
+  z-index: 2;
+}
+
+.snake-cell.food {
+  background: transparent;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 1.2rem;
+}
+
+.snake-cell.food::after {
+  content: '❤️';
+  animation: pulse-food 1s infinite alternate;
+}
+
+@keyframes pulse-food {
+  0% { transform: scale(0.8); }
+  100% { transform: scale(1.1); }
+}
+
+.snake-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(15, 23, 42, 0.8);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+}
+
+.snake-overlay h2 {
+  font-size: 2rem;
+  margin-bottom: 10px;
+  color: #4ade80;
+}
+
+.snake-overlay p {
+  color: #cbd5e1;
+  text-align: center;
+  margin-bottom: 25px;
+  padding: 0 20px;
+}
+
+.btn-snake {
+  background: #22c55e;
+  color: white;
+  border: none;
+  padding: 12px 30px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  border-radius: 30px;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
+  transition: transform 0.2s;
+  margin-bottom: 10px;
+  width: 200px;
+}
+
+.btn-snake:active {
+  transform: scale(0.95);
+}
+
+.btn-snake.secondary {
+  background: transparent;
+  border: 2px solid #64748b;
+  box-shadow: none;
+  color: #cbd5e1;
+}

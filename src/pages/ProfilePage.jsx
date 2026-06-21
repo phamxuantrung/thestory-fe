@@ -28,6 +28,9 @@ const ProfilePage = () => {
   // Name Edit
   const [editName, setEditName] = useState(user?.displayName || '');
   
+  // Birthday Edit
+  const [editBirthday, setEditBirthday] = useState(user?.birthday ? user.birthday.split('T')[0] : '');
+  
   // Password Edit
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -46,6 +49,25 @@ const ProfilePage = () => {
         showToast('Cập nhật tên thành công', 'success');
         setActiveModal(null);
         setTimeout(() => window.location.reload(), 1000); // Tạm thời reload để update context
+      } else {
+        showToast(res.message, 'error');
+      }
+    } catch (e) {
+      showToast(e.response?.data?.message || 'Có lỗi xảy ra', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateBirthday = async () => {
+    if (!editBirthday) return showToast('Vui lòng chọn ngày sinh', 'error');
+    setLoading(true);
+    try {
+      const res = await authService.updateMe({ birthday: editBirthday });
+      if (res.success) {
+        showToast('Cập nhật sinh nhật thành công', 'success');
+        setActiveModal(null);
+        setTimeout(() => window.location.reload(), 1000);
       } else {
         showToast(res.message, 'error');
       }
@@ -162,6 +184,25 @@ const ProfilePage = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
+            onClick={() => {
+              setEditBirthday(user?.birthday ? user.birthday.split('T')[0] : '');
+              setActiveModal('birthday');
+            }}
+          >
+            <div className="action-icon" style={{background: 'linear-gradient(135deg, #a78bfa, #8b5cf6)', boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)', color: 'white'}}>
+              <span className="material-symbols-outlined">cake</span>
+            </div>
+            <div className="action-info">
+              <h3>Sinh nhật</h3>
+              <p>{user?.birthday ? new Date(user.birthday).toLocaleDateString('vi-VN') : 'Thêm ngày sinh của bạn'}</p>
+            </div>
+          </motion.div>
+
+          <motion.div 
+            className="action-card"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
             onClick={() => setActiveModal('password')}
           >
             <div className="action-icon password-icon">
@@ -213,6 +254,31 @@ const ProfilePage = () => {
                 placeholder="Nhập tên mới..."
               />
               <button className="profile-btn primary" onClick={handleUpdateName} disabled={loading}>
+                {loading ? 'Đang lưu...' : 'Lưu thay đổi'}
+              </button>
+            </motion.div>
+          </div>
+        )}
+
+        {activeModal === 'birthday' && (
+          <div className="profile-modal-overlay">
+            <motion.div 
+              className="profile-modal"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+            >
+              <button className="modal-close" onClick={() => setActiveModal(null)}><X size={20} /></button>
+              <h3>Ngày Sinh Nhật</h3>
+              <input 
+                type="date" 
+                className="profile-input" 
+                value={editBirthday} 
+                onChange={(e) => setEditBirthday(e.target.value)}
+                max={new Date().toISOString().split('T')[0]}
+                style={{ WebkitAppearance: 'none', appearance: 'none', maxWidth: '100%' }}
+              />
+              <button className="profile-btn primary" onClick={handleUpdateBirthday} disabled={loading}>
                 {loading ? 'Đang lưu...' : 'Lưu thay đổi'}
               </button>
             </motion.div>

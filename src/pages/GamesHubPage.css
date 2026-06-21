@@ -1,0 +1,170 @@
+.games-hub-page {
+  height: 100vh;
+  /* Light pastel gradient matching Love Tree theme */
+  background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80px 0 0; /* No side padding to allow edge-to-edge swiping */
+  font-family: 'Inter', sans-serif;
+  color: #333;
+  position: relative;
+  overflow: hidden; /* Prevent vertical scrolling */
+}
+
+/* Add a very subtle animated gradient overlay */
+.games-hub-page::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(45deg, rgba(255,182,193,0.1) 0%, rgba(135,206,235,0.1) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Background animated blobs for dynamic depth - Light Theme */
+.hub-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  z-index: 0;
+  opacity: 0.5;
+  animation: float-blob 15s infinite alternate ease-in-out;
+}
+
+.blob-1 {
+  width: 300px;
+  height: 300px;
+  background: #ffb6c1; /* Light pink */
+  top: -50px;
+  left: -50px;
+}
+
+.blob-2 {
+  width: 400px;
+  height: 400px;
+  background: #e0c3fc; /* Soft purple */
+  bottom: -150px;
+  right: -100px;
+  animation-delay: -5s;
+}
+
+.blob-3 {
+  width: 250px;
+  height: 250px;
+  background: #a1c4fd; /* Soft blue */
+  top: 40%;
+  left: 20%;
+  animation-delay: -10s;
+}
+
+@keyframes float-blob {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(30px, 50px) scale(1.1); }
+  100% { transform: translate(-30px, -20px) scale(0.9); }
+}
+
+.swipe-container {
+  display: flex;
+  width: 100vw;
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: none; /* Firefox */
+}
+
+.swipe-container::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge */
+}
+
+.games-page-screen {
+  flex: 0 0 100vw;
+  scroll-snap-align: center;
+  padding: 0 20px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: min-content;
+  gap: 24px 16px;
+  width: 100%;
+  max-width: 500px;
+  z-index: 10;
+  margin-top: 20px;
+}
+
+@media (max-width: 400px) {
+  .games-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.app-icon-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.app-icon-container:hover {
+  transform: scale(0.95);
+  opacity: 0.8;
+}
+
+.app-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 18px; /* iOS style */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  margin-bottom: 8px;
+  cursor: pointer;
+  background: white; /* fallback */
+  transition: transform 0.2s, filter 0.2s;
+  overflow: hidden; /* Ensure square generated images are cropped to rounded rect */
+}
+
+.app-icon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 18px;
+}
+
+.app-title {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #1e293b;
+  text-shadow: 0 1px 2px rgba(255,255,255,0.6);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+@media (max-width: 600px) {
+  .game-card {
+    flex-direction: column;
+    text-align: center;
+    padding: 30px 20px;
+  }
+  
+  .game-tags {
+    justify-content: center;
+  }
+  
+  .games-hub-header h1 {
+    font-size: 2.2rem;
+  }
+}

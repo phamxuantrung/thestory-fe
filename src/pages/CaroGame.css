@@ -1,0 +1,125 @@
+.caro-game-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #fccb90 0%, #d57eeb 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: 'Inter', sans-serif;
+  color: #333;
+}
+
+.caro-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  width: 100%;
+  max-width: 500px;
+  margin-top: 60px; /* Space for header */
+}
+
+.caro-status {
+  background: rgba(255, 255, 255, 0.9);
+  padding: 15px 30px;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  margin-bottom: 40px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #1e293b;
+  text-align: center;
+}
+
+.caro-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.4);
+  padding: 15px;
+  border-radius: 24px;
+  box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+  backdrop-filter: blur(10px);
+}
+
+.caro-cell {
+  width: 90px;
+  height: 90px;
+  background: white;
+  border-radius: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 3rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+@media (max-width: 400px) {
+  .caro-cell {
+    width: 80px;
+    height: 80px;
+    font-size: 2.5rem;
+  }
+}
+
+.caro-cell:hover:not(.disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+  background: #fdf2f8;
+}
+
+.caro-cell.disabled {
+  cursor: not-allowed;
+}
+
+.caro-cell.x {
+  color: #ec4899; /* Pink */
+}
+
+.caro-cell.o {
+  color: #3b82f6; /* Blue */
+}
+
+.caro-cell.winning-cell {
+  background: #fef08a; /* Yellow highlight */
+  animation: pulse-win 1s infinite alternate;
+}
+
+@keyframes pulse-win {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.05); box-shadow: 0 0 20px rgba(250, 204, 21, 0.5); }
+}
+
+.caro-controls {
+  margin-top: 40px;
+  display: flex;
+  gap: 15px;
+}
+
+.btn-caro {
+  background: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 30px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #d57eeb;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  transition: all 0.2s;
+}
+
+.btn-caro:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+}
+
+.btn-caro.primary {
+  background: linear-gradient(135deg, #d57eeb 0%, #fccb90 100%);
+  color: white;
+}

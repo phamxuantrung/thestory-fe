@@ -9,6 +9,8 @@ import { showToast } from '../components/Toast';
 import BottomNav from '../components/BottomNav';
 import Header from '../components/Header';
 import Avatar from '../components/Avatar';
+import { getUpcomingEvents } from '../utils/dateHelpers';
+import { treeService } from '../services/treeService';
 import './HomePage.css';
 
 const LOVE_QUOTES = [
@@ -53,6 +55,10 @@ const HomePage = () => {
   const socket = useSocket();
   const [days, setDays] = useState(0);
   const [currentTime, setCurrentTime] = useState(new Date());
+  
+  // Tree state
+  const [treeData, setTreeData] = useState(null);
+  const [expRequired, setExpRequired] = useState(100);
 
   // Blind bag state
   const [isQuoteRevealed, setIsQuoteRevealed] = useState(false);
@@ -93,9 +99,26 @@ const HomePage = () => {
   }, [user]);
 
   useEffect(() => {
+    const fetchTreeData = async () => {
+      try {
+        const res = await treeService.getTree();
+        if (res.success) {
+          setTreeData(res.data);
+          setExpRequired(res.expRequired);
+        }
+      } catch (error) {
+        console.error('Failed to fetch tree data', error);
+      }
+    };
+    fetchTreeData();
+  }, []);
+
+  useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const upcomingEvents = getUpcomingEvents(user, partner);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -242,6 +265,113 @@ const HomePage = () => {
           </p>
         </motion.section>
 
+        {/* Tiện ích tình yêu */}
+        <motion.section variants={itemVariants} className="seamless-section features-card" style={{ marginTop: '0', paddingTop: '1rem' }}>
+          <div className="quote-header-v2">
+            <span className="material-symbols-outlined">apps</span>
+            <span className="quote-title-v2">Tiện ích tình yêu</span>
+          </div>
+          <div className="features-grid-v2">
+            
+            {/* Hộp thư tương lai */}
+            <Link to="/future-letters" style={{ textDecoration: 'none' }}>
+              <motion.div className="utility-card" whileTap={{ scale: 0.95 }}>
+                <div className="utility-icon-wrapper" style={{ background: 'linear-gradient(135deg, #ffe4ef, #fce7f3)' }}>
+                  <Mail color="#f26989" size={28} strokeWidth={2.5} className="anim-mail" />
+                </div>
+                <span className="utility-title">Hộp thư</span>
+              </motion.div>
+            </Link>
+
+            {/* Nhật ký chung */}
+            <Link to="/shared-diary" style={{ textDecoration: 'none' }}>
+              <motion.div className="utility-card" whileTap={{ scale: 0.95 }}>
+                <div className="utility-icon-wrapper" style={{ background: 'linear-gradient(135deg, #e8f5e9, #c8e6c9)' }}>
+                  <BookOpen color="#4caf50" size={28} strokeWidth={2.5} className="anim-book" />
+                </div>
+                <span className="utility-title">Nhật ký chung</span>
+              </motion.div>
+            </Link>
+
+            {/* Bản đồ tình yêu */}
+            <Link to="/map" style={{ textDecoration: 'none' }}>
+              <motion.div className="utility-card" whileTap={{ scale: 0.95 }}>
+                <div className="utility-icon-wrapper" style={{ background: 'linear-gradient(135deg, #fff3e0, #ffe0b2)' }}>
+                  <MapPin color="#ff9800" size={28} strokeWidth={2.5} className="anim-pin" />
+                </div>
+                <span className="utility-title">Bản đồ</span>
+              </motion.div>
+            </Link>
+
+            {/* Chăm cây tình yêu */}
+            <Link to="/tree" style={{ textDecoration: 'none' }}>
+              <motion.div className="utility-card" whileTap={{ scale: 0.95 }}>
+                <div className="utility-icon-wrapper" style={{ background: 'linear-gradient(135deg, #e1f5fe, #b3e5fc)' }}>
+                  <Trees color="#03a9f4" size={28} strokeWidth={2.5} className="anim-tree" />
+                </div>
+                <span className="utility-title">Chăm cây</span>
+              </motion.div>
+            </Link>
+
+          </div>
+        </motion.section>
+
+        {/* Dashboard Widgets */}
+        <div className="dashboard-widgets">
+          {/* Upcoming Events Widget */}
+          <motion.section variants={itemVariants} className="seamless-section widget-card events-widget">
+            <div className="quote-header-v2" style={{ marginBottom: '12px' }}>
+              <span className="material-symbols-outlined">event_upcoming</span>
+              <span className="quote-title-v2">Sự kiện sắp tới</span>
+            </div>
+            <div className="events-list">
+              {upcomingEvents.map((ev, index) => (
+                <div key={index} className="event-item">
+                  <div className="event-icon"><span className="material-symbols-outlined">{ev.icon}</span></div>
+                  <div className="event-info">
+                    <span className="event-name">{ev.name}</span>
+                    <span className="event-date">{ev.date.toLocaleDateString('vi-VN')}</span>
+                  </div>
+                  <div className="event-days-left">
+                    {ev.daysLeft === 0 ? <span className="today-badge">Hôm nay!</span> : <span>Còn <strong>{ev.daysLeft}</strong> ngày</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.section>
+
+          {/* Love Tree Status Widget */}
+          <Link to="/tree" style={{ textDecoration: 'none' }}>
+            <motion.section variants={itemVariants} className={`seamless-section widget-card tree-widget ${treeData?.activeWeather === 'storm' ? 'weather-storm' : treeData?.activeWeather === 'drought' ? 'weather-drought' : ''}`} whileTap={{ scale: 0.98 }}>
+              <div className="tree-widget-fill" style={{ width: `${Math.min(100, ((treeData?.exp || 0) / expRequired) * 100)}%` }}></div>
+              <div className="tree-widget-left">
+                <div className="tree-widget-icon">
+                  <span className="material-symbols-outlined">
+                    {treeData?.activeWeather === 'storm' ? 'storm' : treeData?.activeWeather === 'drought' ? 'local_fire_department' : 'psychiatry'}
+                  </span>
+                </div>
+                <div className="tree-widget-info">
+                  <span className="tree-widget-title">Cây Tình Yêu (Cấp {treeData?.level || 1})</span>
+                  <span className="tree-widget-desc" style={{ 
+                    color: (treeData?.isWithered || treeData?.hasPest || treeData?.isStreakBroken || treeData?.activeWeather === 'drought' || (treeData?.activeWeather === 'storm' && !treeData?.hasTreeProp)) ? '#ef4444' : undefined,
+                    fontWeight: (treeData?.isWithered || treeData?.hasPest || treeData?.isStreakBroken || treeData?.activeWeather !== 'none') ? '600' : 'normal' 
+                  }}>
+                    {treeData?.isWithered ? 'Cây đang héo! Cần hồi sinh' : 
+                     treeData?.hasPest ? 'Cây đang bị sâu tấn công!' :
+                     treeData?.isStreakBroken ? 'Chuỗi chăm sóc đã gãy!' : 
+                     (treeData?.activeWeather === 'storm' && !treeData?.hasTreeProp) ? 'Bão lớn! Cây sắp gãy đổ!' :
+                     treeData?.activeWeather === 'drought' ? 'Hạn hán! Tưới nước ngay kẻo cháy!' :
+                     'Chạm để tưới nước & chăm sóc'}
+                  </span>
+                </div>
+              </div>
+              <div className="tree-widget-right">
+                <span className="material-symbols-outlined arrow-icon">chevron_right</span>
+              </div>
+            </motion.section>
+          </Link>
+        </div>
+
         {/* Couple Status Card */}
         {partner && (
         <motion.section variants={itemVariants} className="seamless-section couple-status-card">
@@ -343,57 +473,6 @@ const HomePage = () => {
             </AnimatePresence>
           </motion.section>
         )}
-
-        {/* Tiện ích tình yêu */}
-        <motion.section variants={itemVariants} className="seamless-section features-card" style={{ marginTop: '20px' }}>
-          <div className="quote-header-v2">
-            <span className="material-symbols-outlined">apps</span>
-            <span className="quote-title-v2">Tiện ích tình yêu</span>
-          </div>
-          <div className="features-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '16px' }}>
-            
-            {/* Hộp thư tương lai */}
-            <Link to="/future-letters" style={{ textDecoration: 'none' }}>
-              <motion.div className="utility-card" whileTap={{ scale: 0.95 }}>
-                <div className="utility-icon-wrapper" style={{ background: 'linear-gradient(135deg, #ffe4ef, #fce7f3)' }}>
-                  <Mail color="#f26989" size={28} strokeWidth={2.5} />
-                </div>
-                <span className="utility-title">Hộp thư</span>
-              </motion.div>
-            </Link>
-
-            {/* Nhật ký chung */}
-            <Link to="/shared-diary" style={{ textDecoration: 'none' }}>
-              <motion.div className="utility-card" whileTap={{ scale: 0.95 }}>
-                <div className="utility-icon-wrapper" style={{ background: 'linear-gradient(135deg, #e8f5e9, #c8e6c9)' }}>
-                  <BookOpen color="#4caf50" size={28} strokeWidth={2.5} />
-                </div>
-                <span className="utility-title">Nhật ký chung</span>
-              </motion.div>
-            </Link>
-
-            {/* Bản đồ tình yêu */}
-            <Link to="/map" style={{ textDecoration: 'none' }}>
-              <motion.div className="utility-card" whileTap={{ scale: 0.95 }}>
-                <div className="utility-icon-wrapper" style={{ background: 'linear-gradient(135deg, #fff3e0, #ffe0b2)' }}>
-                  <MapPin color="#ff9800" size={28} strokeWidth={2.5} />
-                </div>
-                <span className="utility-title">Bản đồ</span>
-              </motion.div>
-            </Link>
-
-            {/* Chăm cây tình yêu */}
-            <Link to="/tree" style={{ textDecoration: 'none' }}>
-              <motion.div className="utility-card" whileTap={{ scale: 0.95 }}>
-                <div className="utility-icon-wrapper" style={{ background: 'linear-gradient(135deg, #e1f5fe, #b3e5fc)' }}>
-                  <Trees color="#03a9f4" size={28} strokeWidth={2.5} />
-                </div>
-                <span className="utility-title">Chăm cây</span>
-              </motion.div>
-            </Link>
-
-          </div>
-        </motion.section>
 
         {/* Partner Hobbies Card */}
         {partner && (
