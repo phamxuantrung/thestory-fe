@@ -27,6 +27,55 @@
   pointer-events: none;
 }
 
+/* =================== CHAT HEADER MENU =================== */
+.chat-header-menu {
+  position: relative;
+}
+
+.chat-header-menu .icon-btn {
+  background: none;
+  border: none;
+  color: #f26989;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+}
+
+.chat-header-menu .dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  padding: 8px 0;
+  min-width: 180px;
+  z-index: 100;
+  margin-top: 8px;
+}
+
+.chat-header-menu .dropdown-menu button {
+  width: 100%;
+  text-align: left;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: #e74c3c;
+  cursor: pointer;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  transition: background 0.2s;
+}
+
+.chat-header-menu .dropdown-menu button:hover {
+  background: rgba(231, 76, 60, 0.08);
+}
+
 /* =================== PINNED BANNER =================== */
 .pinned-banner {
   display: flex;
@@ -793,4 +842,67 @@
   justify-content: center;
   flex-shrink: 0;
   box-shadow: 0 4px 12px rgba(242, 105, 137, 0.15);
+}
+
+/* =================== CLEAR CHAT MODAL =================== */
+.clear-chat-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  padding: 20px;
+}
+
+.clear-chat-modal {
+  background: white;
+  border-radius: 20px;
+  padding: 24px;
+  width: 100%;
+  max-width: 320px;
+  text-align: center;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.clear-chat-modal h3 {
+  font-size: 1.2rem;
+  color: #f26989;
+  margin-bottom: 12px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.clear-chat-modal p {
+  font-size: 0.9rem;
+  color: #795465;
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+
+.clear-chat-modal .modal-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.clear-chat-modal .modal-actions button {
+  flex: 1;
+  padding: 12px;
+  border-radius: 12px;
+  border: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.clear-chat-modal .btn-cancel {
+  background: #fdf5f7;
+  color: #795465;
+}
+
+.clear-chat-modal .btn-confirm {
+  background: #f26989;
+  color: white;
 }

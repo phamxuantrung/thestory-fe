@@ -10,36 +10,7 @@ import Avatar from '../components/Avatar';
 import { removeBackground } from '@imgly/background-removal';
 import './ChatPage.css';
 
-const EMOJI_REACTIONS = ['❤️', '😘', '😍', '🥺', '😂', '👏', '😡'];
-
-const ANIMATED_REACTIONS = {
-  '❤️': 'https://fonts.gstatic.com/s/e/notoemoji/latest/2764_fe0f/512.gif',
-  '😘': 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f618/512.gif',
-  '😍': 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f60d/512.gif',
-  '🥺': 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f97a/512.gif',
-  '😂': 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f602/512.gif',
-  '👏': 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f44f/512.gif',
-  '😡': 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f621/512.gif',
-};
-
-const STICKERS = [
-  { id: 'love', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f970/512.gif', label: 'Yêu' },
-  { id: 'hearteyes', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f60d/512.gif', label: 'Mê mẩn' },
-  { id: 'kiss', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f618/512.gif', label: 'Hôn' },
-  { id: 'hug', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f917/512.gif', label: 'Ôm' },
-  { id: 'hearthands', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1faf6/512.gif', label: 'Bắn tim' },
-  { id: 'sparkleheart', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f496/512.gif', label: 'Lấp lánh' },
-  { id: 'twohearts', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f495/512.gif', label: 'Nhịp đập' },
-  { id: 'loveletter', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f48c/512.gif', label: 'Thư tình' },
-  { id: 'rose', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f339/512.gif', label: 'Hoa hồng' },
-  { id: 'pleading', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f97a/512.gif', label: 'Năn nỉ' },
-  { id: 'drool', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f924/512.gif', label: 'Thèm' },
-  { id: 'hot', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f975/512.gif', label: 'Nóng bỏng' },
-  { id: 'angry', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f621/512.gif', label: 'Giận dỗi' },
-  { id: 'cry', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f62d/512.gif', label: 'Khóc nhè' },
-  { id: 'sleep', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1f634/512.gif', label: 'Ngủ ngon' },
-  { id: 'melting', url: 'https://fonts.gstatic.com/s/e/notoemoji/latest/1fae0/512.gif', label: 'Tan chảy' },
-];
+import { EMOJI_REACTIONS, ANIMATED_REACTIONS, STICKERS } from '../utils/constants';
 
 const formatTime = (d) => {
   const date = new Date(d);
@@ -71,20 +42,23 @@ const ChatPage = () => {
   const navigate = useNavigate();
   const { user, partner } = useAuth();
   const socket = useSocket(); // ensure socket is initialized
-  const [messages, setMessages] = useState([]);
+  const cachedData = chatService.getCachedData();
+  const [messages, setMessages] = useState(() => cachedData.messages || []);
   const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!cachedData.messages);
   const [isTyping, setIsTyping] = useState(false);
-  const [pinnedMessage, setPinnedMessage] = useState(null);
+  const [pinnedMessage, setPinnedMessage] = useState(() => (cachedData.pinned && cachedData.pinned.length > 0) ? cachedData.pinned[0] : null);
   const [replyTo, setReplyTo] = useState(null);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [reactingTo, setReactingTo] = useState(null);
   const [showStickers, setShowStickers] = useState(false);
+  const [showChatMenu, setShowChatMenu] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showPokeAnim, setShowPokeAnim] = useState(null);
   const [mediaPreview, setMediaPreview] = useState(null);
   const [mediaFile, setMediaFile] = useState(null);
   const [isSending, setIsSending] = useState(false);
-  const [customStickers, setCustomStickers] = useState([]);
+  const [customStickers, setCustomStickers] = useState(() => cachedData.stickers || []);
   const [activeStickerTab, setActiveStickerTab] = useState(() => {
     try {
       const saved = localStorage.getItem('thestory_recent_stickers');
@@ -129,34 +103,42 @@ const ChatPage = () => {
   }, []);
 
   // Load messages
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await chatService.getMessages();
-        if (res.success) setMessages(res.data.messages);
-        
-        // Mark as read immediately on load
-        chatService.markSeen().catch(console.error);
-        const s = getSocket();
-        if (s) s.emit('chat:seen');
+  const loadMessages = useCallback(async () => {
+    try {
+      // Mark as read immediately on load
+      chatService.markSeen().catch(console.error);
+      const s = getSocket();
+      if (s) s.emit('chat:seen');
 
-        const pinned = await chatService.getPinned();
-        if (pinned.success && pinned.data.length > 0) setPinnedMessage(pinned.data[0]);
-        
-        try {
-          const customSticks = await chatService.getCustomStickers();
-          if (customSticks.success) setCustomStickers(customSticks.data);
-        } catch (e) {
-          console.error('Lỗi tải sticker tự tạo:', e);
-        }
-      } catch {
-        showToast('Không thể tải tin nhắn', 'error');
-      } finally {
-        setLoading(false);
+      // Fetch messages first to quickly update UI if it was cached
+      const res = await chatService.getMessages();
+      if (res.success) {
+        setMessages(res.data.messages);
+        setLoading(false); // Unblock UI immediately after primary data
       }
-    };
-    load();
+
+      // Fetch secondary data in parallel
+      Promise.all([
+        chatService.getPinned(),
+        chatService.getCustomStickers()
+      ]).then(([pinnedRes, stickersRes]) => {
+        if (pinnedRes.success && pinnedRes.data.length > 0) {
+          setPinnedMessage(pinnedRes.data[0]);
+        }
+        if (stickersRes.success) {
+          setCustomStickers(stickersRes.data);
+        }
+      }).catch(console.error);
+
+    } catch {
+      showToast('Không thể tải tin nhắn', 'error');
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadMessages();
+  }, [loadMessages]);
 
   useEffect(() => {
     if (!loading) scrollToBottom(false, true);
@@ -182,9 +164,17 @@ const ChatPage = () => {
   // Socket listeners — re-register whenever socket becomes available
   useEffect(() => {
     const s = getSocket();
+    console.log('ChatPage socket effect running. socket from getSocket:', !!s);
     if (!s) return;
 
+    const onReconnect = () => {
+      console.log('Socket reconnected, fetching latest messages...');
+      setIsTyping(false);
+      loadMessages();
+    };
+
     const onMessage = (msg) => {
+      console.log('ChatPage received chat:message', msg);
       setMessages((prev) => {
         if (msg.sender._id === user?._id) {
           const fakeIdx = prev.findIndex(m => m.isSending && m.type === msg.type && m.content === msg.content);
@@ -220,6 +210,7 @@ const ChatPage = () => {
       setPinnedMessage(null);
     };
 
+    s.on('connect', onReconnect);
     s.on('chat:message', onMessage);
     s.on('chat:typing', onTyping);
     s.on('chat:reacted', onReacted);
@@ -230,6 +221,7 @@ const ChatPage = () => {
     s.on('chat:seen', onSeen);
 
     return () => {
+      s.off('connect', onReconnect);
       s.off('chat:message', onMessage);
       s.off('chat:typing', onTyping);
       s.off('chat:reacted', onReacted);
@@ -240,7 +232,7 @@ const ChatPage = () => {
       s.off('chat:poke', onPoke);
       s.off('chat:seen', onSeen);
     };
-  }, [socket, user]); // re-run when socket instance changes
+  }, [socket, user, loadMessages]); // re-run when socket instance changes
 
   const handleTyping = (val) => {
     setInput(val);
@@ -263,11 +255,13 @@ const ChatPage = () => {
 
     try {
       const tempId = `temp-${Date.now()}`;
+      const msgType = mediaFile ? (mediaFile.type.startsWith('video/') ? 'video' : 'image') : 'text';
+      
       const fakeMsg = {
         _id: tempId,
         sender: user,
         content: text,
-        type: mediaFile ? (mediaFile.type.startsWith('video') ? 'video' : 'image') : 'text',
+        type: msgType,
         mediaUrl: mediaFile ? URL.createObjectURL(mediaFile) : null,
         replyTo: replyTo,
         createdAt: new Date().toISOString(),
@@ -277,19 +271,21 @@ const ChatPage = () => {
       setMessages(prev => [...prev, fakeMsg]);
 
       if (mediaFile) {
-        // Upload media via REST
+        // Gửi media qua REST API
         const formData = new FormData();
         formData.append('media', mediaFile);
-        if (text) formData.append('content', text);
+        formData.append('type', msgType);
         if (replyTo) formData.append('replyTo', replyTo._id);
+
         const res = await chatService.sendMediaMessage(formData);
         if (res.success) {
           // Thay thế tin nhắn ảo bằng thật
           setMessages((prev) => prev.map(m => m._id === tempId ? res.data : m));
-          // Broadcast cho partner qua socket (server dùng _preloaded, không lưu DB lại)
-          s.emit('chat:send', {
-            content: text || '',
-            type: res.data.type,
+
+          // Thông báo cho partner qua socket
+          s?.emit('chat:send', {
+            content: '',
+            type: msgType,
             mediaUrl: res.data.mediaUrl,
             mediaPublicId: res.data.mediaPublicId,
             replyTo: replyTo?._id || null,
@@ -300,11 +296,16 @@ const ChatPage = () => {
         setMediaFile(null);
         setMediaPreview(null);
       } else {
-        s.emit('chat:send', {
-          content: text,
-          type: 'text',
-          replyTo: replyTo?._id || null,
-        });
+        const res = await chatService.sendMessage(text, replyTo?._id);
+        if (res.success) {
+          setMessages((prev) => prev.map(m => m._id === tempId ? res.data : m));
+          s?.emit('chat:send', {
+            content: text,
+            type: 'text',
+            replyTo: replyTo?._id || null,
+            _preloaded: res.data
+          });
+        }
       }
       setInput('');
       setReplyTo(null);
@@ -318,11 +319,12 @@ const ChatPage = () => {
     }
   };
 
-  const handleSendSticker = (sticker) => {
+  const handleSendSticker = async (sticker) => {
     const s = getSocket();
     
+    const tempId = `temp-${Date.now()}`;
     const fakeMsg = {
-      _id: `temp-${Date.now()}`,
+      _id: tempId,
       sender: user,
       content: sticker.url,
       type: 'sticker',
@@ -332,12 +334,23 @@ const ChatPage = () => {
     };
     forceScrollRef.current = true;
     setMessages(prev => [...prev, fakeMsg]);
-
-    s?.emit('chat:send', {
-      content: sticker.url,
-      type: 'sticker',
-    });
     setShowStickers(false);
+
+    try {
+      const res = await chatService.sendMessage(sticker.url);
+      if (res.success) {
+        setMessages((prev) => prev.map(m => m._id === tempId ? res.data : m));
+        s?.emit('chat:send', {
+          content: sticker.url,
+          type: 'sticker',
+          _preloaded: res.data
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      setMessages(prev => prev.filter(m => m._id !== tempId));
+      showToast('Không thể gửi nhãn dán', 'error');
+    }
 
     // Save to recents
     const newRecents = [sticker, ...recentStickers.filter(sItem => sItem.url !== sticker.url)].slice(0, 16);
@@ -522,11 +535,51 @@ const ChatPage = () => {
     reader.readAsDataURL(file);
   };
 
+  const handleClearChat = async () => {
+    try {
+      const res = await chatService.clearChat();
+      if (res.success) {
+        setMessages([]);
+        setPinnedMessage(null);
+        setShowClearConfirm(false);
+        showToast(res.message);
+      }
+    } catch {
+      showToast('Không thể xoá lịch sử', 'error');
+    }
+  };
+
   const isMine = (msg) => msg.sender?._id === user?._id;
 
   return (
     <div className="chat-page">
-      <Header title="Trò Chuyện" showBack={true} onBack={() => navigate('/')} />
+      <Header 
+        title="Trò Chuyện" 
+        showBack={true} 
+        onBack={() => navigate('/')} 
+        rightContent={
+          <div className="chat-header-menu">
+            <button className="icon-btn" onClick={() => setShowChatMenu(!showChatMenu)}>
+              <span className="material-symbols-outlined">more_vert</span>
+            </button>
+            <AnimatePresence>
+              {showChatMenu && (
+                <motion.div 
+                  className="dropdown-menu"
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                >
+                  <button onClick={() => { setShowChatMenu(false); setShowClearConfirm(true); }}>
+                    <span className="material-symbols-outlined">delete_sweep</span>
+                    Xoá đoạn chat
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        }
+      />
 
       {/* Pinned message banner */}
       <AnimatePresence>
@@ -987,6 +1040,32 @@ const ChatPage = () => {
           )}
         </div>
       </div>
+
+      {/* Clear Chat Confirm Modal */}
+      <AnimatePresence>
+        {showClearConfirm && (
+          <motion.div 
+            className="clear-chat-modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div 
+              className="clear-chat-modal"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+            >
+              <h3>Xoá đoạn chat?</h3>
+              <p>Toàn bộ tin nhắn sẽ bị ẩn khỏi màn hình của bạn. Người kia vẫn sẽ nhìn thấy lịch sử trò chuyện bình thường.</p>
+              <div className="modal-actions">
+                <button className="btn-cancel" onClick={() => setShowClearConfirm(false)}>Huỷ</button>
+                <button className="btn-confirm" onClick={handleClearChat}>Xoá</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

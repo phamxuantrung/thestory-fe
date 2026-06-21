@@ -30,6 +30,9 @@ const ProfilePage = () => {
   
   // Birthday Edit
   const [editBirthday, setEditBirthday] = useState(user?.birthday ? user.birthday.split('T')[0] : '');
+
+  // Bio Edit
+  const [editBio, setEditBio] = useState(user?.bio || '');
   
   // Password Edit
   const [oldPassword, setOldPassword] = useState('');
@@ -66,6 +69,24 @@ const ProfilePage = () => {
       const res = await authService.updateMe({ birthday: editBirthday });
       if (res.success) {
         showToast('Cập nhật sinh nhật thành công', 'success');
+        setActiveModal(null);
+        setTimeout(() => window.location.reload(), 1000);
+      } else {
+        showToast(res.message, 'error');
+      }
+    } catch (e) {
+      showToast(e.response?.data?.message || 'Có lỗi xảy ra', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateBio = async () => {
+    setLoading(true);
+    try {
+      const res = await authService.updateMe({ bio: editBio });
+      if (res.success) {
+        showToast('Cập nhật mô tả thành công', 'success');
         setActiveModal(null);
         setTimeout(() => window.location.reload(), 1000);
       } else {
@@ -202,6 +223,25 @@ const ProfilePage = () => {
             className="action-card"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12 }}
+            onClick={() => {
+              setEditBio(user?.bio || '');
+              setActiveModal('bio');
+            }}
+          >
+            <div className="action-icon" style={{background: 'linear-gradient(135deg, #10b981, #059669)', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)', color: 'white'}}>
+              <span className="material-symbols-outlined">description</span>
+            </div>
+            <div className="action-info">
+              <h3>Mô tả bản thân</h3>
+              <p>{user?.bio ? (user.bio.length > 30 ? user.bio.substring(0, 30) + '...' : user.bio) : 'Giới thiệu bản thân để AI hiểu bạn hơn'}</p>
+            </div>
+          </motion.div>
+
+          <motion.div 
+            className="action-card"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
             onClick={() => setActiveModal('password')}
           >
@@ -279,6 +319,38 @@ const ProfilePage = () => {
                 style={{ WebkitAppearance: 'none', appearance: 'none', maxWidth: '100%' }}
               />
               <button className="profile-btn primary" onClick={handleUpdateBirthday} disabled={loading}>
+                {loading ? 'Đang lưu...' : 'Lưu thay đổi'}
+              </button>
+            </motion.div>
+          </div>
+        )}
+
+        {activeModal === 'bio' && (
+          <div className="profile-modal-overlay">
+            <motion.div 
+              className="profile-modal"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+            >
+              <button className="modal-close" onClick={() => setActiveModal(null)}><X size={20} /></button>
+              <h3>Mô tả bản thân</h3>
+              <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '12px', textAlign: 'center' }}>
+                Giới thiệu tính cách, sở thích để AI tạo thử thách thú vị hơn.
+              </p>
+              <textarea 
+                className="profile-input" 
+                value={editBio} 
+                onChange={(e) => setEditBio(e.target.value)}
+                placeholder="Ví dụ: Tôi là người hướng nội, thích đọc sách và uống cà phê..."
+                rows={4}
+                maxLength={300}
+                style={{ resize: 'vertical', minHeight: '100px' }}
+              />
+              <div style={{ textAlign: 'right', fontSize: '0.8rem', color: '#999', marginTop: '-12px', marginBottom: '16px' }}>
+                {editBio.length}/300
+              </div>
+              <button className="profile-btn primary" onClick={handleUpdateBio} disabled={loading}>
                 {loading ? 'Đang lưu...' : 'Lưu thay đổi'}
               </button>
             </motion.div>

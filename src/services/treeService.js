@@ -6,6 +6,11 @@ export const treeService = {
     return res.data;
   },
 
+  plantTree: async () => {
+    const res = await api.post('/tree/plant');
+    return res.data;
+  },
+
   interact: async (action, weather) => {
     const res = await api.post('/tree/interact', { action, weather });
     return res.data;
@@ -58,6 +63,16 @@ export const treeService = {
 
   devCheat: async (action) => {
     const res = await api.post('/tree/dev-cheat', { action });
+    return res.data;
+  },
+
+  harvestStone: async () => {
+    const res = await api.post('/tree/harvest-stone');
+    return res.data;
+  },
+
+  useStone: async () => {
+    const res = await api.post('/tree/use-stone');
     return res.data;
   }
 };

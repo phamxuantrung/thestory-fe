@@ -1296,3 +1296,146 @@
 .tree-widget.tree-danger .tree-widget-desc::before {
   background-color: #ef4444;
 }
+
+/* Quest Widget V2 (Matches Tree Widget style) */
+.quest-widget-card {
+  background: #fff8e1;
+  border-color: rgba(255, 152, 0, 0.3);
+  position: relative;
+  overflow: hidden;
+  padding: 24px;
+}
+
+.quest-widget-card::before {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  background: url('data:image/svg+xml;utf8,<svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><circle cx="2" cy="2" r="1" fill="rgba(255,152,0,0.1)"/></svg>');
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.quest-widget-fill {
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  background: linear-gradient(90deg, #fff8e1, #ffe0b2);
+  z-index: 0;
+  transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.quest-widget-fill::before {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  right: -15px; 
+  width: 15px;
+  background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 10 100" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none"><path d="M5,0 C10,15 10,35 5,50 C0,65 0,85 5,100 L0,100 L0,0 Z" fill="%23ffb74d"/></svg>');
+  background-size: 100% 70px;
+  background-repeat: repeat-y;
+  opacity: 0.5;
+  animation: wave-bg-fast 2s linear infinite;
+  z-index: 0;
+}
+
+.quest-widget-fill::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  right: -11px;
+  width: 12px;
+  background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 10 100" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none"><path d="M5,0 C10,15 10,35 5,50 C0,65 0,85 5,100 L0,100 L0,0 Z" fill="%23ffe0b2"/></svg>');
+  background-size: 100% 100px;
+  background-repeat: repeat-y;
+  animation: wave-bg-slow 3s linear infinite;
+  z-index: 1;
+}
+
+.quest-widget-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  z-index: 3;
+}
+
+.quest-widget-left {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.quest-widget-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #ffffff, #fff8e1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 16px rgba(255, 152, 0, 0.15), inset 0 2px 4px rgba(255, 255, 255, 1);
+  animation: gentle-bounce 3s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.quest-widget-icon .material-symbols-outlined {
+  color: #ff9800;
+  font-size: 32px;
+  font-variation-settings: 'FILL' 1;
+  filter: drop-shadow(0 2px 4px rgba(255, 152, 0, 0.3));
+}
+
+.quest-widget-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.quest-widget-title {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #e65100;
+  margin: 0 0 6px 0;
+}
+
+.quest-widget-desc {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #ef6c00;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.quest-widget-desc::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #ff9800;
+  animation: pulse-dot 2s infinite;
+}
+
+.quest-widget-right {
+  z-index: 3;
+  background: rgba(255,255,255,0.5);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.quest-widget-card:hover .quest-widget-right {
+  background: rgba(255,255,255,0.8);
+  transform: translateX(4px);
+}
+
+.quest-widget-right .arrow-icon {
+  color: #e65100;
+  font-size: 24px;
+}

@@ -21,7 +21,10 @@ export const useSocket = () => {
     }
 
     if (!globalSocket) {
-      globalSocket = io(import.meta.env.VITE_SOCKET_URL || 'https://thestory-be.onrender.com', {
+      const socketUrl = import.meta.env.VITE_SOCKET_URL || 
+                        (import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'https://thestory-be.onrender.com');
+      
+      globalSocket = io(socketUrl, {
         transports: ['websocket'],
       });
 
@@ -32,6 +35,36 @@ export const useSocket = () => {
 
       globalSocket.on('disconnect', () => {
         console.log('🔌 Socket disconnected');
+      });
+
+      // Global notification for messages
+      globalSocket.on('chat:message', (msg) => {
+        const senderId = msg.sender?._id || msg.sender;
+        if (window.location.pathname !== '/chat' && senderId !== user._id) {
+          try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) return;
+            const ctx = new AudioContext();
+            const osc = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+            
+            osc.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(600, ctx.currentTime); 
+            osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1); 
+            
+            gainNode.gain.setValueAtTime(0, ctx.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.05);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+            
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.5);
+          } catch(e) {
+            console.error('Audio failed:', e);
+          }
+        }
       });
     }
 
@@ -47,15 +80,6 @@ export const useSocket = () => {
       activeCount--;
       if (globalSocket) {
         globalSocket.off('partner:online', onPartnerOnline);
-        
-        if (activeCount === 0) {
-          disconnectTimer = setTimeout(() => {
-            if (activeCount === 0 && globalSocket) {
-              globalSocket.disconnect();
-              globalSocket = null;
-            }
-          }, 2000); // Delay disconnect for page transitions
-        }
       }
     };
   }, [user]);

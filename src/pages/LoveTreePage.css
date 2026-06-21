@@ -223,6 +223,16 @@
   transition: filter 2s ease-in-out;
 }
 
+.tree-img.harvestable {
+  animation: harvestPulse 2s infinite alternate;
+  filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.8)) drop-shadow(0 0 40px rgba(255, 182, 193, 0.6));
+}
+
+@keyframes harvestPulse {
+  0% { filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.6)) brightness(1); }
+  100% { filter: drop-shadow(0 0 35px rgba(255, 215, 0, 1)) brightness(1.2); }
+}
+
 .wither-reason-box {
   background: linear-gradient(135deg, rgba(255, 235, 238, 0.95), rgba(255, 205, 210, 0.95));
   backdrop-filter: blur(10px);

@@ -7,7 +7,7 @@ import { chatService } from '../services/chatService';
 import { showToast } from '../components/Toast';
 import Header from '../components/Header';
 import LevelUpEffect from '../components/LevelUpEffect';
-import { Droplets, Sun, Sparkles, Info, X, Trees, Gamepad2, HeartCrack, CloudRain, Cloud, Flame, Coins, Shield, ShoppingCart, FlaskConical, Backpack, Bug, BellRing, MessageCircleHeart, Send } from 'lucide-react';
+import { Droplets, Sun, Sparkles, Info, X, Trees, Gamepad2, HeartCrack, CloudRain, Cloud, Flame, Coins, Shield, ShoppingCart, FlaskConical, Backpack, Bug, BellRing, MessageCircleHeart, Send, Gem } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './LoveTreePage.css';
@@ -43,6 +43,10 @@ const LoveTreePage = () => {
   const [showItemMenu, setShowItemMenu] = useState(false);
   const [showDevMenu, setShowDevMenu] = useState(false);
   const [showRemindModal, setShowRemindModal] = useState(false);
+  const [isRemindingInApp, setIsRemindingInApp] = useState(false);
+  const [showGuideModal, setShowGuideModal] = useState(false);
+  const [showSeedModal, setShowSeedModal] = useState(false);
+  const [showHarvestModal, setShowHarvestModal] = useState(false);
   const [weather, setWeather] = useState(null);
 
   // Pest Minigame State
@@ -177,7 +181,24 @@ const LoveTreePage = () => {
     }
   };
 
+  const handlePlantTree = async () => {
+    try {
+      setShowSeedModal(false);
+      const res = await treeService.plantTree();
+      if (res.success) {
+        setTree(res.data);
+        setExpRequired(res.expRequired);
+        showToast('Đã gieo mầm Cây Tình Yêu thành công!', 'success');
+        setLevelUpAnimation(true);
+        setTimeout(() => setLevelUpAnimation(false), 3000);
+      }
+    } catch (e) {
+      showToast(e.response?.data?.message || 'Không thể trồng cây', 'error');
+    }
+  };
+
   const handleRemindInApp = async () => {
+    setIsRemindingInApp(true);
     const isMale = user?.gender === 'male';
     const me = isMale ? 'anh' : 'em';
     const you = isMale ? 'em' : 'anh';
@@ -192,20 +213,39 @@ const LoveTreePage = () => {
     const msgText = msgTexts[Math.floor(Math.random() * msgTexts.length)];
     
     try {
-      const socket = getSocket();
-      if (socket) {
-        socket.emit('chat:send', { content: msgText, type: 'text', replyTo: null });
-      } else {
-        await chatService.sendMessage(msgText);
+      // Gọi REST API để đảm bảo tin nhắn được lưu vào Database
+      const res = await chatService.sendMessage(msgText);
+      
+      if (res.success) {
+        const socket = getSocket();
+        if (socket) {
+          // Bắn socket với _preloaded để server chỉ broadcast cho partner mà không lưu trùng
+          socket.emit('chat:send', { 
+            content: msgText, 
+            type: 'text', 
+            replyTo: null,
+            _preloaded: res.data,
+            _senderId: user?._id
+          });
+        }
       }
+      
+      await new Promise(resolve => setTimeout(resolve, 800)); // Hiệu ứng chờ
       showToast('Đã gửi lời nhắc qua Chat trong app!', 'success');
       setShowRemindModal(false);
     } catch (e) {
       showToast('Có lỗi xảy ra khi gửi tin nhắn', 'error');
+    } finally {
+      setIsRemindingInApp(false);
     }
   };
 
   const handleRemindFacebook = async () => {
+    const isMale = user?.gender === 'male';
+    const me = isMale ? 'anh' : 'em';
+    const you = isMale ? 'em' : 'anh';
+    const You = isMale ? 'Em' : 'Anh';
+
     const link = window.location.origin + '/tree';
     const msgTexts = [
       `${You} ơi, bé cây tình yêu của tụi mình đang đợi kìa! Vào vườn vun đắp cho bé nó cùng ${me} nha 🥰🌱`,
@@ -263,6 +303,12 @@ const LoveTreePage = () => {
   };
 
   const handleInteract = async (action) => {
+    const maxLvl = tree?.level >= 5 && tree?.exp >= expRequired;
+    if (maxLvl) {
+      showToast('Cây đã đạt cấp tối đa! Hãy thu hoạch Love Stone nhé.', 'error');
+      return;
+    }
+
     if (action === 'water') setIsWatering(true);
     if (action === 'sunlight') setIsSunning(true);
 
@@ -446,6 +492,7 @@ const LoveTreePage = () => {
       const res = await treeService.devCheat(action);
       if (res.success) {
         setTree(res.data);
+        if (res.expRequired) setExpRequired(res.expRequired);
         showToast(res.message, 'success');
       }
     } catch (e) {
@@ -462,7 +509,21 @@ const LoveTreePage = () => {
   }
 
   const stage = TREE_STAGES[Math.min(tree?.level || 1, 5)];
+  const isMaxLevelAndExp = tree?.level >= 5 && tree?.exp >= expRequired;
   const expPercent = Math.min(100, ((tree?.exp || 0) / expRequired) * 100);
+
+  const handleHarvestStone = async () => {
+    try {
+      const res = await treeService.harvestStone();
+      if (res.success) {
+        setTree(res.data);
+        setExpRequired(100); // Level 1 exp
+        setShowHarvestModal(true);
+      }
+    } catch (e) {
+      showToast(e.response?.data?.message || 'Lỗi thu hoạch', 'error');
+    }
+  };
 
   // Dynamic Streak UI logic
   const currentStreak = tree?.streak || 0;
@@ -559,22 +620,25 @@ const LoveTreePage = () => {
         {/* Thanh trạng thái */}
         <div className="tree-hud">
           <div className="hud-card">
-            <h2 className="tree-name">{stage.name} (Cấp {tree?.level})</h2>
-
-            <div className="exp-bar-container">
-              <div className="exp-labels">
-                <span>EXP</span>
-                <span>{Math.floor(tree?.exp)} / {expRequired}</span>
-              </div>
-              <div className="progress-bg">
-                <motion.div
-                  className="progress-fill exp-fill"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${expPercent}%` }}
-                  transition={{ duration: 0.5 }}
-                />
-              </div>
-            </div>
+            {tree?.isPlanted !== false && stage && (
+              <>
+                <h2 className="tree-name">{stage.name} (Cấp {tree?.level})</h2>
+                <div className="exp-bar-container">
+                  <div className="exp-labels">
+                    <span>EXP</span>
+                    <span>{Math.floor(tree?.exp)} / {expRequired}</span>
+                  </div>
+                  <div className="progress-bg">
+                    <motion.div
+                      className="progress-fill exp-fill"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${expPercent}%` }}
+                      transition={{ duration: 0.5 }}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
 
             <div className={`streak-bar-container tier-${streakTier} ${tree?.isStreakBroken ? 'broken' : ''}`}>
               <div className="streak-icon-wrapper">
@@ -596,14 +660,14 @@ const LoveTreePage = () => {
               </div>
             </div>
 
-            {tree?.activeWeather === 'drought' && (
+            {tree?.isPlanted !== false && tree?.activeWeather === 'drought' && (
               <div className="weather-hud" style={{ background: '#fff3e0', border: '1px solid #ffb74d', color: '#e65100', display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', borderRadius: '12px', marginTop: '10px', fontSize: '0.85rem', fontWeight: 'bold' }}>
                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>local_fire_department</span>
                 <span>Tưới hạn hán: {tree?.droughtWaterings || 0}/3 lần</span>
               </div>
             )}
             
-            {tree?.activeWeather === 'storm' && (
+            {tree?.isPlanted !== false && tree?.activeWeather === 'storm' && (
               <div className="weather-hud" style={{ background: '#e1f5fe', border: '1px solid #81d4fa', color: '#0277bd', display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', borderRadius: '12px', marginTop: '10px', fontSize: '0.85rem', fontWeight: 'bold' }}>
                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>storm</span>
                 <span>{tree?.hasTreeProp ? 'Cây đã được chống cọc an toàn' : 'Bão lớn! Mất 10 EXP/Giờ'}</span>
@@ -611,6 +675,27 @@ const LoveTreePage = () => {
             )}
           </div>
         </div>
+
+        {/* Main Content Area */}
+        {tree?.isPlanted === false ? (
+          <div className="seed-bag-container" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <motion.div 
+              className="seed-bag"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowSeedModal(true)}
+              animate={{ y: [0, -10, 0] }}
+              transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
+              style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+            >
+              <img src="/tree/seed-bag.png" alt="Túi hạt giống" style={{ width: '150px', height: '150px', objectFit: 'contain', filter: 'drop-shadow(0 10px 15px rgba(0,0,0,0.2))' }} />
+              <div style={{ marginTop: '16px', background: 'rgba(255,255,255,0.8)', padding: '8px 16px', borderRadius: '20px', fontWeight: 'bold', color: '#795465', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+                Chạm để gieo hạt
+              </div>
+            </motion.div>
+          </div>
+        ) : (
+          <>
 
         <AnimatePresence>
           {tree?.isWithered && tree?.witherReason && (
@@ -637,9 +722,13 @@ const LoveTreePage = () => {
           <button className="side-action-btn remind-action" onClick={() => setShowRemindModal(true)} title="Nhắc chăm cây">
             <BellRing size={24} color="#fff" />
           </button>
-          {/* <button className="side-action-btn dev-action" style={{ background: '#333' }} onClick={() => setShowDevMenu(true)} title="Dev Tools">
-            <Bug size={24} color="#fff" />
-          </button> */}
+          {/* Nút DevTools đã bị ẩn theo yêu cầu
+          {user?.code === 'ADMIN' && (
+            <button className="side-action-btn dev-action" style={{ background: '#333' }} onClick={() => setShowDevMenu(true)} title="Dev Tools">
+              <Bug size={24} color="#fff" />
+            </button>
+          )}
+          */}
           <button className="side-action-btn item-use-action" onClick={() => setShowItemMenu(true)} title="Dùng vật phẩm">
             <Backpack size={24} color="#fff" />
           </button>
@@ -699,8 +788,9 @@ const LoveTreePage = () => {
               src={stage.img}
               alt={stage.name}
               draggable="false"
-              className={`tree-img level-${tree?.level} ${tree?.isWithered ? 'withered' : ''} ${(tree?.activeWeather === 'storm' && !tree?.hasTreeProp) ? 'leaning' : ''}`}
-              style={{ width: stage.size, height: stage.size }}
+              className={`tree-img level-${tree?.level} ${tree?.isWithered ? 'withered' : ''} ${(tree?.activeWeather === 'storm' && !tree?.hasTreeProp) ? 'leaning' : ''} ${isMaxLevelAndExp ? 'harvestable' : ''}`}
+              style={{ width: stage.size, height: stage.size, cursor: isMaxLevelAndExp ? 'pointer' : 'default' }}
+              onClick={isMaxLevelAndExp ? handleHarvestStone : undefined}
             />
 
             {/* Cọc chống cây visual */}
@@ -787,6 +877,7 @@ const LoveTreePage = () => {
               ))}
             </AnimatePresence>
           </motion.div>
+
         </div>
 
         <div className="tree-actions-wrapper" style={{ position: 'relative', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -829,7 +920,59 @@ const LoveTreePage = () => {
             </motion.button>
           </div>
         </div>
+        </>
+        )}
       </main>
+
+      {/* Modal Chọn Hạt Giống */}
+      <AnimatePresence>
+        {showSeedModal && (
+          <motion.div
+            className="guide-modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowSeedModal(false)}
+          >
+            <motion.div
+              className="guide-modal-content"
+              style={{ textAlign: 'center' }}
+              initial={{ y: 50, opacity: 0, scale: 0.9 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 50, opacity: 0, scale: 0.9 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button 
+                className="guide-close-btn"
+                onClick={() => setShowSeedModal(false)}
+              >
+                <X size={20} />
+              </button>
+              <h2 style={{ color: '#d94c73', marginBottom: '16px', marginTop: '12px', fontSize: '1.5rem', fontWeight: 'bold' }}>Chọn Hạt Giống</h2>
+              
+              <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', margin: '24px 0' }}>
+                <div style={{ border: '2px solid #4caf50', borderRadius: '16px', padding: '16px', background: '#f1f8e9', cursor: 'pointer', width: '140px', position: 'relative', overflow: 'hidden' }}>
+                  <div style={{ position: 'absolute', top: 0, right: 0, background: '#4caf50', color: 'white', fontSize: '0.7rem', padding: '2px 6px', borderBottomLeftRadius: '8px', fontWeight: 'bold' }}>Đã chọn</div>
+                  <img src="/tree/level-1.svg" alt="Cây Tình Yêu" style={{ width: '60px', height: '60px', marginBottom: '8px' }} />
+                  <h4 style={{ color: '#2e7d32', margin: '0 0 4px 0' }}>Cây Tình Yêu</h4>
+                  <p style={{ fontSize: '0.75rem', color: '#4caf50', margin: 0 }}>Cơ bản</p>
+                </div>
+              </div>
+
+              <p style={{ color: '#795465', fontSize: '0.9rem', marginBottom: '24px', lineHeight: 1.5 }}>
+                Khi gieo hạt, hành trình chăm sóc cây sẽ chính thức bắt đầu. Hãy nhớ tưới nước và phơi nắng mỗi ngày nhé!
+              </p>
+
+              <button 
+                onClick={handlePlantTree}
+                style={{ width: '100%', background: 'linear-gradient(135deg, #4caf50, #2e7d32)', color: 'white', border: 'none', padding: '14px', borderRadius: '16px', fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 12px rgba(76, 175, 80, 0.4)' }}
+              >
+                Gieo Mầm Ngay
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Modal Hướng Dẫn */}
       <AnimatePresence>
@@ -1264,18 +1407,141 @@ const LoveTreePage = () => {
                 <button 
                   className="remind-btn btn-app" 
                   onClick={handleRemindInApp}
+                  disabled={isRemindingInApp}
+                  style={{ opacity: isRemindingInApp ? 0.7 : 1, cursor: isRemindingInApp ? 'not-allowed' : 'pointer' }}
                 >
-                  <MessageCircleHeart size={24} />
-                  Gửi qua Chat trong App
+                  {isRemindingInApp ? (
+                    <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: '24px' }}>sync</span>
+                    </motion.div>
+                  ) : (
+                    <MessageCircleHeart size={24} />
+                  )}
+                  {isRemindingInApp ? 'Đang gửi...' : 'Gửi qua Chat trong App'}
                 </button>
                 <button 
                   className="remind-btn btn-fb" 
                   onClick={handleRemindFacebook}
+                  disabled={isRemindingInApp}
                 >
                   <Send size={24} />
                   Gửi qua Messenger
                 </button>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Harvest Modal */}
+      <AnimatePresence>
+        {showHarvestModal && (
+          <motion.div
+            className="guide-modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{ zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(5px)' }}
+          >
+            {/* Sparkles outside */}
+            {Array.from({ length: 15 }).map((_, i) => (
+              <motion.div
+                key={`sparkle-${i}`}
+                style={{
+                  position: 'absolute',
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  background: '#fbbf24',
+                  top: '50%',
+                  left: '50%',
+                  boxShadow: '0 0 10px #fbbf24, 0 0 20px #fbbf24'
+                }}
+                initial={{ x: 0, y: 0, scale: 0, opacity: 1 }}
+                animate={{
+                  x: (Math.random() - 0.5) * window.innerWidth * 0.8,
+                  y: (Math.random() - 0.5) * window.innerHeight * 0.8,
+                  scale: [0, 1.5, 0],
+                  opacity: [1, 1, 0]
+                }}
+                transition={{ duration: 1.5 + Math.random(), repeat: Infinity, repeatDelay: Math.random() }}
+              />
+            ))}
+
+            <motion.div
+              className="guide-modal-content"
+              initial={{ scale: 0.5, y: 100, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ type: 'spring', bounce: 0.5, duration: 0.8 }}
+              style={{ 
+                textAlign: 'center', 
+                background: 'rgba(255, 255, 255, 0.95)', 
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255, 255, 255, 0.5)', 
+                maxWidth: '380px',
+                borderRadius: '32px',
+                padding: '40px 30px',
+                boxShadow: '0 24px 48px rgba(219, 39, 119, 0.25), inset 0 2px 4px rgba(255,255,255,0.8)'
+              }}
+            >
+              <div style={{ position: 'relative', width: '120px', height: '120px', margin: '0 auto 24px' }}>
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.8, 0.5] }}
+                  transition={{ repeat: Infinity, duration: 2 }}
+                  style={{ position: 'absolute', inset: '-20px', background: 'radial-gradient(circle, rgba(244,114,182,0.6) 0%, rgba(244,114,182,0) 70%)', borderRadius: '50%', zIndex: 0 }}
+                />
+                <motion.div 
+                  animate={{ y: [0, -15, 0], rotate: [0, 5, -5, 0] }}
+                  transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
+                  style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}
+                >
+                  <img src="/tree/love-stone.png" alt="Love Stone" style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 12px 24px rgba(219, 39, 119, 0.5))' }} />
+                </motion.div>
+              </div>
+              
+              <h2 style={{ 
+                background: 'linear-gradient(135deg, #e11d48, #db2777, #9d174d)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                fontSize: '2.2rem', 
+                marginBottom: '12px', 
+                fontWeight: '900',
+                letterSpacing: '-0.5px'
+              }}>
+                Tuyệt Vời!
+              </h2>
+              <p style={{ color: '#6b7280', fontSize: '1.1rem', marginBottom: '12px', fontWeight: '500' }}>
+                Bạn vừa thu hoạch được
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '32px' }}>
+                <span style={{ color: '#db2777', fontSize: '2.5rem', fontWeight: '900' }}>+1</span>
+                <span style={{ display: 'inline-block', background: '#fce7f3', color: '#db2777', padding: '6px 16px', borderRadius: '20px', fontWeight: 'bold', border: '1px solid #fbcfe8', fontSize: '1.2rem', boxShadow: '0 4px 6px rgba(252, 231, 243, 0.5)' }}>
+                  Love Stone
+                </span>
+              </div>
+
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowHarvestModal(false)}
+                style={{
+                  background: 'linear-gradient(135deg, #f43f5e, #db2777)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '16px 32px',
+                  borderRadius: '30px',
+                  fontSize: '1.2rem',
+                  fontWeight: 'bold',
+                  boxShadow: '0 8px 24px rgba(219, 39, 119, 0.4), inset 0 2px 4px rgba(255,255,255,0.3)',
+                  cursor: 'pointer',
+                  width: '100%',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px'
+                }}
+              >
+                Nhận Ngay!
+              </motion.button>
             </motion.div>
           </motion.div>
         )}

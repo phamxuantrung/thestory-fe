@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { BookHeart, Plus, X, Calendar as CalendarIcon, Mail, BookOpen, MapPin, Trees } from 'lucide-react';
+import { BookHeart, Plus, X, Calendar as CalendarIcon, Mail, BookOpen, MapPin, Trees, Gem } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useSocket } from '../hooks/useSocket';
 import { authService } from '../services/authService';
@@ -11,6 +11,8 @@ import Header from '../components/Header';
 import Avatar from '../components/Avatar';
 import { getUpcomingEvents } from '../utils/dateHelpers';
 import { treeService } from '../services/treeService';
+import { questService } from '../services/questService';
+import { chatService } from '../services/chatService';
 import './HomePage.css';
 
 const LOVE_QUOTES = [
@@ -60,6 +62,9 @@ const HomePage = () => {
   const [treeData, setTreeData] = useState(null);
   const [expRequired, setExpRequired] = useState(100);
 
+  // Quests state
+  const [activeQuests, setActiveQuests] = useState([]);
+
   // Blind bag state
   const [isQuoteRevealed, setIsQuoteRevealed] = useState(false);
 
@@ -92,6 +97,30 @@ const HomePage = () => {
   const [dailyMessageInput, setDailyMessageInput] = useState('');
   const [isUpdatingDailyMessage, setIsUpdatingDailyMessage] = useState(false);
 
+  // Love Stone Popup
+  const [showLoveStonePopup, setShowLoveStonePopup] = useState(false);
+
+  const handleUseStone = async () => {
+    try {
+      const res = await treeService.useStone();
+      if (res.success) {
+        setTreeData(res.data);
+        setShowLoveStonePopup(true);
+        setTimeout(() => setShowLoveStonePopup(false), 5000);
+
+        // Gửi tin nhắn chat
+        const msgText = "🎉 Chúc mừng! Hai bạn đã đổi 1 Love Stone để lấy một buổi hẹn hò lãng mạn cuối tuần này! Hãy lên lịch ngay thôi! 🍷🥩";
+        if (socket) {
+          socket.emit('chat:send', { content: msgText, type: 'text', replyTo: null });
+        } else {
+          await chatService.sendMessage(msgText);
+        }
+      }
+    } catch (e) {
+      showToast(e.response?.data?.message || 'Có lỗi xảy ra', 'error');
+    }
+  };
+
   useEffect(() => {
     if (user?.anniversaryDate) {
       setDays(getDaysSince(user.anniversaryDate));
@@ -99,19 +128,28 @@ const HomePage = () => {
   }, [user]);
 
   useEffect(() => {
-    const fetchTreeData = async () => {
-      try {
-        const res = await treeService.getTree();
-        if (res.success) {
+    if (user && partner) {
+      treeService.getTree().then(res => {
+        if (res.success && res.data) {
           setTreeData(res.data);
-          setExpRequired(res.expRequired);
+          const currentLevel = res.data.level;
+          let required = 100;
+          if (currentLevel === 1) required = 300;
+          else if (currentLevel === 2) required = 1000;
+          else if (currentLevel === 3) required = 3000;
+          else if (currentLevel === 4) required = 8000;
+          else required = 15000;
+          setExpRequired(required);
         }
-      } catch (error) {
-        console.error('Failed to fetch tree data', error);
-      }
-    };
-    fetchTreeData();
-  }, []);
+      }).catch(err => console.log('Không tải được cây:', err));
+
+      questService.getActiveQuests().then(res => {
+        if (res.success) {
+          setActiveQuests(res.data || []);
+        }
+      }).catch(err => console.log('Không tải được nhiệm vụ:', err));
+    }
+  }, [user, partner]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -229,6 +267,28 @@ const HomePage = () => {
   const partnerMessageValid = isMessageValidToday(partner?.dailyMessageDate);
   const myMessageValid = isMessageValidToday(user?.dailyMessageDate);
 
+  const getTreeStageName = (level) => {
+    const names = {
+      1: 'Hạt giống',
+      2: 'Mầm non',
+      3: 'Cây nhỏ',
+      4: 'Cây trưởng thành',
+      5: 'Cây đơm hoa'
+    };
+    return names[Math.min(level || 1, 5)];
+  };
+
+  const getExpRequired = (level) => {
+    const requirements = {
+      1: 300,
+      2: 700,
+      3: 1200,
+      4: 2500,
+      5: 5000
+    };
+    return requirements[level] || 5000;
+  };
+
   return (
     <div className="home-page-v2">
       <Header title="Trang chủ" showBack={true} />
@@ -271,7 +331,7 @@ const HomePage = () => {
           {/* Love Tree Status Widget */}
           <Link to="/tree" style={{ textDecoration: 'none' }}>
             <motion.section variants={itemVariants} className={`seamless-section widget-card tree-widget ${treeData?.activeWeather === 'storm' ? 'weather-storm' : treeData?.activeWeather === 'drought' ? 'weather-drought' : ''} ${(treeData?.isWithered || treeData?.hasPest || treeData?.isStreakBroken || treeData?.activeWeather === 'drought' || (treeData?.activeWeather === 'storm' && !treeData?.hasTreeProp)) ? 'tree-danger' : ''}`} whileTap={{ scale: 0.98 }}>
-              <div className="tree-widget-fill" style={{ width: `${Math.min(100, ((treeData?.exp || 0) / expRequired) * 100)}%` }}></div>
+              <div className="tree-widget-fill" style={{ width: `${Math.min(100, ((treeData?.exp || 0) / getExpRequired(treeData?.level || 1)) * 100)}%` }}></div>
               <div className="tree-widget-left">
                 <div className="tree-widget-icon">
                   <span className="material-symbols-outlined">
@@ -279,7 +339,7 @@ const HomePage = () => {
                   </span>
                 </div>
                 <div className="tree-widget-info">
-                  <span className="tree-widget-title">Cây Tình Yêu (Cấp {treeData?.level || 1})</span>
+                  <span className="tree-widget-title">{getTreeStageName(treeData?.level || 1)} (Cấp {treeData?.level || 1})</span>
                   <span className="tree-widget-desc" style={{
                     color: (treeData?.isWithered || treeData?.hasPest || treeData?.isStreakBroken || treeData?.activeWeather === 'drought' || (treeData?.activeWeather === 'storm' && !treeData?.hasTreeProp)) ? '#ef4444' : undefined,
                     fontWeight: (treeData?.isWithered || treeData?.hasPest || treeData?.isStreakBroken || treeData?.activeWeather !== 'none') ? '600' : 'normal'
@@ -298,6 +358,32 @@ const HomePage = () => {
               </div>
             </motion.section>
           </Link>
+
+          {/* Quests Widget */}
+          <Link to="/quests" style={{ textDecoration: 'none' }}>
+            <motion.section variants={itemVariants} className="seamless-section widget-card quest-widget-card" whileTap={{ scale: 0.98 }}>
+              <div className="quest-widget-fill" style={{ width: `${Math.min(100, (activeQuests.length > 0 ? (activeQuests.filter(q => q.status === 'completed').length / activeQuests.length) * 100 : 0))}%` }}></div>
+              <div className="quest-widget-content">
+                <div className="quest-widget-left">
+                  <div className="quest-widget-icon">
+                    <span className="material-symbols-outlined">task_alt</span>
+                  </div>
+                  <div className="quest-widget-info">
+                    <h3 className="quest-widget-title">Thử Thách Tuần</h3>
+                    <p className="quest-widget-desc">
+                      {activeQuests.length > 0
+                        ? `${activeQuests.filter(q => q.status === 'completed').length}/${activeQuests.length} hoàn thành`
+                        : 'Chạm để tạo nhiệm vụ mới'}
+                    </p>
+                  </div>
+                </div>
+                <div className="quest-widget-right">
+                  <span className="material-symbols-outlined arrow-icon">chevron_right</span>
+                </div>
+              </div>
+            </motion.section>
+          </Link>
+
           {/* Upcoming Events Widget */}
           <motion.section variants={itemVariants} className="seamless-section widget-card events-widget">
             <div className="quote-header-v2" style={{ marginBottom: '12px' }}>
@@ -371,6 +457,126 @@ const HomePage = () => {
 
           </div>
         </motion.section>
+
+        {/* Love Stones Widget */}
+        {treeData?.loveStones > 0 && (
+          <motion.section
+            variants={itemVariants}
+            className="seamless-section love-stone-card"
+            whileHover={{ scale: 1.02 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 10 }}
+          >
+            <div
+              className="love-stone-content"
+              style={{
+                position: 'relative',
+                overflow: 'hidden',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '16px 20px',
+                background: 'linear-gradient(135deg, #fdf2f8, #fbcfe8)',
+                borderRadius: '24px',
+                border: '2px solid #f9a8d4',
+                boxShadow: '0 8px 24px rgba(236, 72, 153, 0.25)'
+              }}
+            >
+              {/* Dynamic shining background */}
+              <motion.div
+                style={{
+                  position: 'absolute',
+                  top: 0, left: 0, right: 0, bottom: 0,
+                  background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.7), transparent)',
+                  zIndex: 0
+                }}
+                animate={{ x: ['-200%', '200%'] }}
+                transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
+              />
+
+              {/* Fire Background Effect */}
+              {Array.from({ length: 20 }).map((_, i) => (
+                <motion.div
+                  key={`fire-${i}`}
+                  style={{
+                    position: 'absolute',
+                    bottom: '-20px',
+                    left: `${Math.random() * 100}%`,
+                    width: `${15 + Math.random() * 25}px`,
+                    height: `${20 + Math.random() * 40}px`,
+                    background: `radial-gradient(ellipse, ${['#f43f5e', '#fbbf24', '#f9a8d4', '#ec4899'][Math.floor(Math.random() * 4)]} 0%, transparent 70%)`,
+                    borderRadius: '50%',
+                    filter: 'blur(4px)',
+                    zIndex: 0,
+                    mixBlendMode: 'overlay'
+                  }}
+                  animate={{
+                    y: [0, -60 - Math.random() * 50],
+                    x: [0, (Math.random() - 0.5) * 40],
+                    scale: [1, 0.8, 0],
+                    opacity: [0, 0.8, 0]
+                  }}
+                  transition={{
+                    duration: 1.5 + Math.random() * 2,
+                    repeat: Infinity,
+                    ease: 'easeIn',
+                    delay: Math.random() * 2
+                  }}
+                />
+              ))}
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', zIndex: 1, position: 'relative' }}>
+                <div style={{ position: 'relative', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {/* Pulsing Aura */}
+                  <motion.div
+                    animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.7, 0.3] }}
+                    transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                    style={{ position: 'absolute', inset: '-10px', background: 'radial-gradient(circle, rgba(236, 72, 153, 0.5) 0%, transparent 70%)', borderRadius: '50%', zIndex: 0 }}
+                  />
+                  {/* Floating Stone */}
+                  <motion.img
+                    src="/tree/love-stone.png"
+                    alt="Love Stone"
+                    animate={{ y: [-4, 4, -4], rotate: [-3, 3, -3] }}
+                    transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+                    style={{ position: 'relative', width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 8px 12px rgba(219,39,119,0.5))', zIndex: 1 }}
+                  />
+                </div>
+                <div style={{ whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#db2777', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>Tủ Kính Tình Yêu</div>
+                  <div style={{ fontSize: '1.2rem', color: '#be185d', fontWeight: '900', textShadow: '0 2px 4px rgba(255,255,255,0.8)' }}>
+                    {treeData.loveStones} Love Stone
+                  </div>
+                </div>
+              </div>
+
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                animate={{ boxShadow: ['0 4px 12px rgba(236, 72, 153, 0.4)', '0 4px 24px rgba(236, 72, 153, 0.9)', '0 4px 12px rgba(236, 72, 153, 0.4)'] }}
+                transition={{ repeat: Infinity, duration: 2 }}
+                onClick={handleUseStone}
+                style={{
+                  position: 'relative',
+                  zIndex: 1,
+                  background: 'linear-gradient(135deg, #f43f5e, #db2777)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '10px 16px',
+                  borderRadius: '24px',
+                  fontWeight: '900',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                Dùng Ngay
+              </motion.button>
+            </div>
+          </motion.section>
+        )}
 
         {/* Couple Status Card */}
         {partner && (
@@ -722,6 +928,105 @@ const HomePage = () => {
                   {isUpdatingDailyMessage ? 'Đang gửi...' : 'Gửi Lời Nhắn'}
                 </button>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Love Stone Popup */}
+      <AnimatePresence>
+        {showLoveStonePopup && (
+          <motion.div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.8)',
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              overflow: 'hidden'
+            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            {/* Pháo hoa giả lập */}
+            {Array.from({ length: 30 }).map((_, i) => (
+              <motion.div
+                key={i}
+                style={{
+                  position: 'absolute',
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  background: ['#fbbf24', '#f43f5e', '#3b82f6', '#10b981', '#a855f7'][Math.floor(Math.random() * 5)],
+                  top: '50%',
+                  left: '50%'
+                }}
+                initial={{ x: 0, y: 0, scale: 0 }}
+                animate={{
+                  x: (Math.random() - 0.5) * window.innerWidth,
+                  y: (Math.random() - 0.5) * window.innerHeight,
+                  scale: [0, 1.5, 0],
+                  opacity: [1, 1, 0]
+                }}
+                transition={{ duration: 1.5 + Math.random(), ease: 'easeOut' }}
+              />
+            ))}
+
+            <motion.div
+              style={{
+                textAlign: 'center',
+                background: 'rgba(255, 255, 255, 0.95)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255, 255, 255, 0.5)',
+                maxWidth: '380px',
+                borderRadius: '32px',
+                padding: '40px 30px',
+                boxShadow: '0 24px 48px rgba(219, 39, 119, 0.25), inset 0 2px 4px rgba(255,255,255,0.8)'
+              }}
+              initial={{ scale: 0.5, y: 100, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ type: 'spring', bounce: 0.5, duration: 0.8 }}
+            >
+              <div style={{ position: 'relative', width: '120px', height: '120px', margin: '0 auto 24px' }}>
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.8, 0.5] }}
+                  transition={{ repeat: Infinity, duration: 2 }}
+                  style={{ position: 'absolute', inset: '-20px', background: 'radial-gradient(circle, rgba(244,114,182,0.6) 0%, rgba(244,114,182,0) 70%)', borderRadius: '50%', zIndex: 0 }}
+                />
+                <motion.div
+                  animate={{ y: [0, -15, 0], rotate: [0, 5, -5, 0] }}
+                  transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
+                  style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}
+                >
+                  <img src="/tree/love-stone.png" alt="Love Stone" style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 12px 24px rgba(219, 39, 119, 0.5))' }} />
+                </motion.div>
+              </div>
+
+              <h2 style={{
+                background: 'linear-gradient(135deg, #e11d48, #db2777, #9d174d)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                fontSize: '2rem',
+                marginBottom: '16px',
+                fontWeight: '900',
+                letterSpacing: '-0.5px'
+              }}>
+                Chúc Mừng!
+              </h2>
+              <p style={{ color: '#4c1d95', fontSize: '1.15rem', marginBottom: '16px', lineHeight: 1.6, fontWeight: '500' }}>
+                Hai bạn đã đổi <br />
+                <span style={{ display: 'inline-block', background: '#fce7f3', color: '#db2777', padding: '4px 12px', borderRadius: '20px', fontWeight: 'bold', margin: '8px 0', border: '1px solid #fbcfe8' }}>
+                  1 Love Stone
+                </span>
+                <br />
+                để thưởng cho mình một buổi hẹn hò thật lãng mạn!
+                <br /><br />
+                <span style={{ fontSize: '0.95rem', opacity: 0.8 }}>Đừng quên chụp lại những khoảnh khắc đẹp nhé! 🍷🥩</span>
+              </p>
             </motion.div>
           </motion.div>
         )}

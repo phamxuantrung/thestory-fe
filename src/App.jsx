@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import Toast from './components/Toast';
@@ -22,6 +22,7 @@ import SimonSaysGame from './pages/SimonSaysGame';
 import SnakeGame from './pages/SnakeGame';
 import LoveSurvivorGame from './pages/LoveSurvivorGame';
 import ProfilePage from './pages/ProfilePage';
+import QuestPage from './pages/QuestPage';
 
 // Protected route wrapper
 const ProtectedRoute = ({ children }) => {
@@ -146,14 +147,8 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/shared-diary"
-          element={
-            <ProtectedRoute>
-              <SharedDiaryPage />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/shared-diary" element={<ProtectedRoute><SharedDiaryPage /></ProtectedRoute>} />
+        <Route path="/quests" element={<ProtectedRoute><QuestPage /></ProtectedRoute>} />
         <Route
           path="/map"
           element={
@@ -256,11 +251,101 @@ const AppRoutes = () => {
   );
 };
 
+import { EMOJI_REACTIONS, ANIMATED_REACTIONS, STICKERS } from './utils/constants';
+
+const Preloader = ({ children }) => {
+  const [loaded, setLoaded] = useState(false);
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const urlsToPreload = [
+      ...Object.values(ANIMATED_REACTIONS),
+      ...STICKERS.map(s => s.url)
+    ];
+
+    if (urlsToPreload.length === 0) {
+      setLoaded(true);
+      return;
+    }
+
+    let loadedCount = 0;
+    const total = urlsToPreload.length;
+
+    urlsToPreload.forEach(url => {
+      const img = new Image();
+      img.src = url;
+      img.onload = () => {
+        loadedCount++;
+        setProgress(Math.round((loadedCount / total) * 100));
+        if (loadedCount === total) setLoaded(true);
+      };
+      img.onerror = () => {
+        loadedCount++;
+        setProgress(Math.round((loadedCount / total) * 100));
+        if (loadedCount === total) setLoaded(true);
+      };
+    });
+
+    // Fallback: don't block forever if something takes too long
+    const timeout = setTimeout(() => {
+      setLoaded(true);
+    }, 5000);
+
+    return () => clearTimeout(timeout);
+  }, []);
+
+  if (!loaded) {
+    return (
+      <div className="app-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'linear-gradient(to bottom right, #fdf2f8, #ffffff, #fce7f3)' }}>
+        <motion.div 
+          style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5 }}
+        >
+          <motion.div
+            animate={{ scale: [1, 1.2, 1] }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+            style={{ 
+              width: '80px', height: '80px', 
+              borderRadius: '50%', 
+              background: 'rgba(242, 105, 137, 0.1)', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 8px 32px rgba(242, 105, 137, 0.2)'
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '48px', color: '#f26989', fontVariationSettings: "'FILL' 1" }}>favorite</span>
+          </motion.div>
+          <motion.p
+            animate={{ opacity: [0.6, 1, 0.6] }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+            style={{ 
+              marginTop: '24px', 
+              color: '#d94c73', 
+              fontWeight: '600', 
+              fontFamily: "'Playfair Display', serif", 
+              fontSize: '1.25rem', 
+              fontStyle: 'italic',
+              letterSpacing: '0.05em'
+            }}
+          >
+            Đang tải dữ liệu... {progress}%
+          </motion.p>
+        </motion.div>
+      </div>
+    );
+  }
+
+  return children;
+};
+
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <Preloader>
+          <AppRoutes />
+        </Preloader>
       </AuthProvider>
     </BrowserRouter>
   );
