@@ -1,0 +1,314 @@
+.infinity-koi-wrapper {
+  --water-deep: #0a2426;
+  --water-mid: #123c3a;
+  --water-light: #1d4d4a;
+  --lotus: #f2a6c4;
+  --lotus-deep: #d9789f;
+  --koi-gold: #e8a73c;
+  --koi-red: #c8453d;
+  --leaf: #9fc9a0;
+  --foam: #eaf2ee;
+  --ink: #dff0ec;
+  --font-display: 'Nunito', 'Segoe UI', sans-serif;
+  --font-body: 'Nunito', 'Segoe UI', sans-serif;
+  --font-mono: 'SF Mono', 'Consolas', monospace;
+
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+  height: 100dvh;
+  background: var(--water-deep);
+  font-family: var(--font-body);
+  color: var(--ink);
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  position: relative;
+}
+
+.infinity-koi-wrapper * {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.infinity-koi-back-btn {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top));
+  left: 10px;
+  background: rgba(8, 28, 29, 0.5);
+  color: var(--foam);
+  border: 1px solid rgba(232, 167, 60, 0.3);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.infinity-koi-back-btn:hover {
+  background: rgba(8, 28, 29, 0.8);
+}
+
+#infinity-koi-wrap {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+#infinity-koi-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-width: 520px;
+  max-height: 920px;
+  background: radial-gradient(ellipse at 50% 30%, var(--water-light), var(--water-deep) 78%);
+  overflow: hidden;
+  box-shadow: 0 0 0 2px #000;
+}
+
+@media (min-width: 560px) and (min-height: 760px) {
+  #infinity-koi-stage {
+    width: min(96vw, 520px);
+    height: min(94vh, 920px);
+    border-radius: 18px;
+    box-shadow: 0 0 0 2px #000, 0 30px 80px rgba(0,0,0,0.6);
+  }
+}
+
+#infinity-koi-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+/* ---------- HUD ---------- */
+header.infinity-koi-hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 14px 16px;
+  padding-left: 60px; /* Space for back button */
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(8,28,29,0.55), rgba(8,28,29,0));
+}
+
+.infinity-koi-hud-stat {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--ink);
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+}
+
+.infinity-koi-hud-stat .num {
+  font-size: 22px;
+  color: var(--koi-gold);
+  display: block;
+  font-family: var(--font-display);
+  font-weight: bold;
+}
+
+.infinity-koi-hud-label {
+  opacity: 0.6;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-family: var(--font-body);
+}
+
+#infinity-koi-vitality-bar {
+  width: 120px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.12);
+  overflow: hidden;
+  margin-top: 5px;
+}
+
+#infinity-koi-vitality-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, var(--koi-red), var(--koi-gold));
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+/* ---------- Screens ---------- */
+#infinity-koi-title-screen, #infinity-koi-end-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 28px 22px;
+  background: radial-gradient(ellipse at 50% 40%, rgba(18,60,58,0.97), rgba(8,24,25,0.99));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.infinity-koi-emblem {
+  font-size: 54px;
+  margin-bottom: 6px;
+  filter: drop-shadow(0 0 18px rgba(232,167,60,0.45));
+  animation: float-emblem 3.6s ease-in-out infinite;
+}
+
+@keyframes float-emblem {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50% { transform: translateY(-8px) rotate(3deg); }
+}
+
+#infinity-koi-title-screen h1, #infinity-koi-end-screen h1 {
+  font-family: var(--font-display);
+  font-size: clamp(30px, 7vw, 44px);
+  color: var(--foam);
+  margin: 0 0 4px 0;
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 18px rgba(232,167,60,0.25);
+  font-weight: bold;
+}
+
+.infinity-koi-subtitle {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--koi-gold);
+  opacity: 0.85;
+  margin-bottom: 18px;
+}
+
+.infinity-koi-lede {
+  color: #bcd8d2;
+  font-size: 14.5px;
+  line-height: 1.7;
+  max-width: 340px;
+  margin: 0 0 28px 0;
+}
+
+button.infinity-koi-primary {
+  font-family: var(--font-display);
+  font-weight: bold;
+  background: linear-gradient(180deg, #f2c069, var(--koi-gold));
+  color: #2a1607;
+  border: none;
+  padding: 14px 38px;
+  font-size: 18px;
+  border-radius: 30px;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  box-shadow: 0 6px 0 #9c6f1f, 0 10px 24px rgba(0,0,0,0.45);
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+
+button.infinity-koi-primary:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 #9c6f1f;
+}
+
+.infinity-koi-hint-row {
+  margin-top: 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  align-items: center;
+}
+
+.infinity-koi-hint-pill {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(232,167,60,0.25);
+  border-radius: 20px;
+  padding: 7px 16px;
+  font-size: 12.5px;
+  color: #a9cbc4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#infinity-koi-end-stats {
+  display: flex;
+  gap: 28px;
+  margin-bottom: 28px;
+}
+
+.infinity-koi-end-stat {
+  text-align: center;
+}
+
+.infinity-koi-end-stat .num {
+  font-family: var(--font-display);
+  font-weight: bold;
+  color: var(--koi-gold);
+  font-size: 30px;
+  display: block;
+}
+
+.infinity-koi-end-stat .lbl {
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #8fb3ac;
+}
+
+.infinity-koi-hidden {
+  display: none !important;
+}
+
+#infinity-koi-toast {
+  position: absolute;
+  left: 50%;
+  top: 18%;
+  transform: translate(-50%, 0);
+  font-family: var(--font-display);
+  font-weight: bold;
+  font-size: 17px;
+  color: var(--foam);
+  background: rgba(10,36,38,0.55);
+  padding: 8px 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(232,167,60,0.3);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 8;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  white-space: nowrap;
+}
+
+#infinity-koi-toast.show {
+  opacity: 1;
+  transform: translate(-50%, 8px);
+}
+
+footer.infinity-koi-credit {
+  position: absolute;
+  bottom: 6px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 9.5px;
+  color: rgba(223,240,236,0.3);
+  z-index: 4;
+  pointer-events: none;
+  letter-spacing: 1px;
+}

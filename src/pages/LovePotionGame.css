@@ -1,0 +1,242 @@
+.love-potion-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #2e1065, #4c1d95, #8b5cf6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: calc(env(safe-area-inset-top) + 80px);
+  padding-bottom: 30px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Background Magic Blobs */
+.potion-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  z-index: 0;
+  opacity: 0.5;
+}
+.potion-blob.blob-1 {
+  width: 300px; height: 300px;
+  background: #f472b6;
+  top: -50px; left: -50px;
+  animation: floatPotion 10s ease-in-out infinite;
+}
+.potion-blob.blob-2 {
+  width: 250px; height: 250px;
+  background: #2dd4bf;
+  bottom: 10%; right: -50px;
+  animation: floatPotion 12s ease-in-out infinite reverse;
+}
+
+@keyframes floatPotion {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-40px) scale(1.1); }
+}
+
+.potion-container {
+  z-index: 1;
+  width: 100%;
+  max-width: 500px;
+  padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.potion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.potion-header h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px;
+  color: #fff;
+  margin: 0;
+  text-shadow: 0 2px 10px rgba(255,255,255,0.5);
+}
+
+.potion-btn {
+  background: rgba(255,255,255,0.2);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.4);
+  padding: 10px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.potion-btn:active {
+  transform: scale(0.9);
+}
+
+.potion-stats {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+.potion-stat-box {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  padding: 8px 20px;
+  text-align: center;
+  color: #fff;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+/* Game Board */
+.potion-board {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
+  margin-top: 20px;
+}
+
+.tube-wrapper {
+  position: relative;
+  width: 50px;
+  height: 200px;
+  cursor: pointer;
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.tube-wrapper.selected {
+  transform: translateY(-30px);
+}
+
+.tube-glass {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  border: 3px solid rgba(255,255,255,0.6);
+  border-top: none;
+  border-radius: 0 0 25px 25px;
+  background: rgba(255,255,255,0.05);
+  box-shadow: inset 0 0 20px rgba(255,255,255,0.1),
+              0 10px 20px rgba(0,0,0,0.3);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column-reverse; /* Stack from bottom */
+  z-index: 2;
+}
+
+/* Add a rim to the tube */
+.tube-wrapper::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -5px;
+  right: -5px;
+  height: 6px;
+  background: rgba(255,255,255,0.8);
+  border-radius: 10px;
+  z-index: 3;
+}
+
+.liquid-segment {
+  width: 100%;
+  height: 25%;
+  flex-shrink: 0;
+  transition: background-color 0.3s;
+}
+
+/* Liquid Colors */
+.color-0 { background: linear-gradient(180deg, #fca5a5, #ef4444); } /* Red */
+.color-1 { background: linear-gradient(180deg, #93c5fd, #3b82f6); } /* Blue */
+.color-2 { background: linear-gradient(180deg, #fcd34d, #f59e0b); } /* Yellow */
+.color-3 { background: linear-gradient(180deg, #86efac, #22c55e); } /* Green */
+.color-4 { background: linear-gradient(180deg, #d8b4fe, #a855f7); } /* Purple */
+.color-5 { background: linear-gradient(180deg, #f9a8d4, #ec4899); } /* Pink */
+.color-6 { background: linear-gradient(180deg, #fdba74, #f97316); } /* Orange */
+.color-7 { background: linear-gradient(180deg, #67e8f9, #06b6d4); } /* Cyan */
+
+/* Game Over / Win Overlay */
+.potion-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+  animation: fadeIn 0.5s ease-out;
+}
+
+.potion-overlay-box {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  padding: 30px;
+  border-radius: 20px;
+  text-align: center;
+  color: white;
+  max-width: 90%;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.potion-overlay-box h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 32px;
+  color: #fbcfe8;
+  margin-bottom: 15px;
+}
+
+.potion-overlay-box p {
+  font-size: 16px;
+  color: #e2e8f0;
+  margin-bottom: 25px;
+}
+
+.potion-btn-primary {
+  background: linear-gradient(135deg, #f43f5e, #e11d48);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 25px;
+  font-weight: bold;
+  font-size: 16px;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(225, 29, 72, 0.4);
+  width: 100%;
+  margin-bottom: 10px;
+  transition: transform 0.2s;
+}
+
+.potion-btn-primary:active {
+  transform: scale(0.95);
+}
+
+.potion-btn-outline {
+  background: transparent;
+  color: white;
+  border: 2px solid rgba(255,255,255,0.4);
+  padding: 12px 24px;
+  border-radius: 25px;
+  font-weight: bold;
+  font-size: 16px;
+  cursor: pointer;
+  width: 100%;
+  transition: background 0.2s;
+}
+
+.potion-btn-outline:active {
+  background: rgba(255,255,255,0.1);
+}

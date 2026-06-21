@@ -112,6 +112,8 @@
   gap: 8px;
   cursor: pointer;
   transition: transform 0.2s ease, opacity 0.2s ease;
+  width: 100%;
+  min-width: 0;
 }
 
 .app-icon-container:hover {
@@ -151,6 +153,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+  width: 100%;
+  padding: 0 4px;
 }
 
 @media (max-width: 600px) {

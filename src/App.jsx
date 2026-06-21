@@ -21,6 +21,11 @@ import FlappyCupidGame from './pages/FlappyCupidGame';
 import SimonSaysGame from './pages/SimonSaysGame';
 import SnakeGame from './pages/SnakeGame';
 import LoveSurvivorGame from './pages/LoveSurvivorGame';
+import Love2048Game from './pages/Love2048Game';
+import LovePotionGame from './pages/LovePotionGame';
+import OnetConnectGame from './pages/OnetConnectGame';
+import GoldenCaveGame from './pages/GoldenCaveGame';
+import InfinityKoiGame from './pages/InfinityKoiGame';
 import ProfilePage from './pages/ProfilePage';
 import QuestPage from './pages/QuestPage';
 
@@ -149,6 +154,7 @@ const AppRoutes = () => {
         />
         <Route path="/shared-diary" element={<ProtectedRoute><SharedDiaryPage /></ProtectedRoute>} />
         <Route path="/quests" element={<ProtectedRoute><QuestPage /></ProtectedRoute>} />
+
         <Route
           path="/map"
           element={
@@ -234,6 +240,46 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <LoveSurvivorGame />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/game/love-2048"
+          element={
+            <ProtectedRoute>
+              <Love2048Game />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/game/love-potion"
+          element={
+            <ProtectedRoute>
+              <LovePotionGame />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/game/onet-connect"
+          element={
+            <ProtectedRoute>
+              <OnetConnectGame />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/game/golden-cave"
+          element={
+            <ProtectedRoute>
+              <GoldenCaveGame />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/game/infinity-koi"
+          element={
+            <ProtectedRoute>
+              <InfinityKoiGame />
             </ProtectedRoute>
           }
         />
