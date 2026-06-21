@@ -406,9 +406,13 @@ const ProfilePage = () => {
               <button className="modal-close" onClick={() => setActiveModal(null)}><X size={20} /></button>
               <h3>Chọn Ảnh Đại Diện</h3>
               
-              <div className="avatar-upload-btn" onClick={() => fileInputRef.current?.click()}>
-                <ImageIcon size={24} />
-                <span>Tải ảnh từ thiết bị</span>
+              <div 
+                className="avatar-upload-btn" 
+                onClick={() => !loading && fileInputRef.current?.click()}
+                style={{ opacity: loading ? 0.7 : 1, pointerEvents: loading ? 'none' : 'auto' }}
+              >
+                {loading ? <div className="spinner" style={{width: 24, height: 24, borderWidth: 2}} /> : <ImageIcon size={24} />}
+                <span>{loading ? 'Đang xử lý...' : 'Tải ảnh từ thiết bị'}</span>
               </div>
               <input 
                 type="file" 
