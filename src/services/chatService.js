@@ -4,6 +4,17 @@ let cachedMessages = null;
 let cachedPinned = null;
 let cachedStickers = null;
 
+try {
+  const savedMsg = localStorage.getItem('chat_cache_messages');
+  if (savedMsg) cachedMessages = JSON.parse(savedMsg);
+  
+  const savedPinned = localStorage.getItem('chat_cache_pinned');
+  if (savedPinned) cachedPinned = JSON.parse(savedPinned);
+
+  const savedStickers = localStorage.getItem('chat_cache_stickers');
+  if (savedStickers) cachedStickers = JSON.parse(savedStickers);
+} catch (e) {}
+
 export const chatService = {
   getCachedData: () => ({
     messages: cachedMessages,
@@ -13,13 +24,17 @@ export const chatService = {
 
   getMessages: (page = 1) =>
     api.get(`/chat?page=${page}&limit=50&t=${Date.now()}`).then((r) => {
-      if (page === 1) cachedMessages = r.data.messages;
+      if (page === 1) {
+        cachedMessages = r.data.messages;
+        try { localStorage.setItem('chat_cache_messages', JSON.stringify(cachedMessages)); } catch(e) {}
+      }
       return r.data;
     }),
 
   getPinned: () =>
     api.get('/chat/pinned').then((r) => {
       cachedPinned = r.data;
+      try { localStorage.setItem('chat_cache_pinned', JSON.stringify(cachedPinned)); } catch(e) {}
       return r.data;
     }),
 
@@ -49,6 +64,7 @@ export const chatService = {
   getCustomStickers: () =>
     api.get('/stickers').then((r) => {
       cachedStickers = r.data;
+      try { localStorage.setItem('chat_cache_stickers', JSON.stringify(cachedStickers)); } catch(e) {}
       return r.data;
     }),
 
