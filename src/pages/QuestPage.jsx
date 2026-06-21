@@ -206,7 +206,7 @@ const QuestPage = () => {
             {error && <p className="error-text">{error}</p>}
             <button
               className={`generate-btn ${generating ? 'loading' : ''}`}
-              onClick={handleGenerateQuests}
+              onClick={() => handleGenerateQuests(false)}
               disabled={generating}
             >
               {generating ? (
