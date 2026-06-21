@@ -25,7 +25,7 @@ export const useSocket = () => {
                         (import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'https://thestory-be.onrender.com');
       
       globalSocket = io(socketUrl, {
-        transports: ['websocket'],
+        transports: ['websocket', 'polling'],
       });
 
       globalSocket.on('connect', () => {
@@ -35,6 +35,24 @@ export const useSocket = () => {
 
       globalSocket.on('disconnect', () => {
         console.log('🔌 Socket disconnected');
+      });
+
+      // Fix for iOS PWA backgrounding
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          console.log('📱 App became visible. Socket connected:', globalSocket?.connected);
+          if (globalSocket) {
+            if (!globalSocket.connected) {
+              globalSocket.connect();
+            }
+            // Always ensure we are in the correct room
+            if (user && user._id) {
+              globalSocket.emit('user:join', user._id);
+            }
+            // Emit a custom event so components can refresh data if needed
+            window.dispatchEvent(new Event('app:resume'));
+          }
+        }
       });
 
       // Global notification for messages
