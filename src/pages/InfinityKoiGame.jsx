@@ -70,8 +70,8 @@ const InfinityKoiGame = () => {
           x: W/2, y: H*0.6,
           angle: -Math.PI/2,
           targetAngle: -Math.PI/2,
-          speed: 180,
-          baseSpeed: 180,
+          speed: 110,
+          baseSpeed: 110,
           wiggle: 0,
           length: 16,
           glow: 0,
@@ -81,7 +81,7 @@ const InfinityKoiGame = () => {
         blossoms: [],
         ripples: [],   
         pulseTimer: 0,
-        pulseInterval: 1.1,
+        pulseInterval: 1.8,
         whirlpools: [], 
         particles: [],
         koiTrail: [],
@@ -108,12 +108,12 @@ const InfinityKoiGame = () => {
     }
 
     function emitPulse(){
-      state.ripples.push({ x:W/2, y:H*0.42, birth:state.time, speed: Math.min(W,H)*0.45 });
+      state.ripples.push({ x:W/2, y:H*0.42, birth:state.time, speed: Math.min(W,H)*0.34 });
       if(Math.random()<0.6){
         state.ripples.push({
           x: rand(W*0.2,W*0.8), y: rand(H*0.25,H*0.75),
           birth: state.time + rand(0,0.4),
-          speed: Math.min(W,H)*rand(0.35,0.5)
+          speed: Math.min(W,H)*rand(0.26,0.4)
         });
       }
     }
@@ -213,7 +213,7 @@ const InfinityKoiGame = () => {
       state.difficultyT += dt;
 
       state.pulseTimer += dt;
-      const interval = Math.max(0.7, state.pulseInterval - state.difficultyT*0.015);
+      const interval = Math.max(1.5, state.pulseInterval - state.difficultyT*0.01);
       if(state.pulseTimer >= interval){
         state.pulseTimer = 0;
         emitPulse();
@@ -254,7 +254,7 @@ const InfinityKoiGame = () => {
         const d = dist(f.x,f.y,w.x,w.y);
         const dangerR = 16 + w.strength*22;
         if(d < dangerR){
-          state.vitality -= dt * (50*w.strength);
+          state.vitality -= dt * (120*w.strength);
           f.hurtFlash = 0.25;
           state.shakeT = 0.25;
           const ang = Math.atan2(f.y-w.y, f.x-w.x);
@@ -273,8 +273,8 @@ const InfinityKoiGame = () => {
           state.score += b.hue==='gold' ? 5 : 1;
           
           if(b.hue === 'gold'){
-            state.xuEarned += 2;
-            showToast('+2 Xu thật! (Hoa sen vàng)');
+            state.xuEarned += 3;
+            showToast('+3 Xu thật! (Hoa sen vàng)');
           }
 
           f.glow = 0.4;
@@ -666,7 +666,7 @@ const InfinityKoiGame = () => {
             <div className="infinity-koi-hint-row">
               <div className="infinity-koi-hint-pill">👆 Vuốt bất kỳ đâu để đổi hướng bơi</div>
               <div className="infinity-koi-hint-pill" style={{borderColor: '#d9789f'}}>🌸 Ăn sen hồng để hồi sức (Không rớt Xu)</div>
-              <div className="infinity-koi-hint-pill" style={{borderColor: '#f2c069'}}>🌻 Ăn sen vàng rớt +2 Xu thật</div>
+              <div className="infinity-koi-hint-pill" style={{borderColor: '#f2c069'}}>🌻 Ăn sen vàng rớt +3 Xu thật</div>
               <div className="infinity-koi-hint-pill" style={{borderColor: '#1d4d4a'}}>🌀 Tránh vòng xoáy hút máu</div>
             </div>
           </div>
