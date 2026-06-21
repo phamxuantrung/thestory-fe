@@ -21,7 +21,7 @@ const PRESET_AVATARS = [
 ];
 
 const ProfilePage = () => {
-  const { user, logout, login } = useAuth(); // Need login to re-fetch/update user context? Wait, we can just update localStorage or refetch. useAuth usually has a refetch method or we can just reload the page.
+  const { user, logout, updateUser } = useAuth();
   const [activeModal, setActiveModal] = useState(null); // 'name', 'avatar', 'password', 'logout'
   const [loading, setLoading] = useState(false);
   
@@ -51,7 +51,7 @@ const ProfilePage = () => {
       if (res.success) {
         showToast('Cập nhật tên thành công', 'success');
         setActiveModal(null);
-        setTimeout(() => window.location.reload(), 1000); // Tạm thời reload để update context
+        updateUser({ displayName: editName });
       } else {
         showToast(res.message, 'error');
       }
@@ -70,7 +70,7 @@ const ProfilePage = () => {
       if (res.success) {
         showToast('Cập nhật sinh nhật thành công', 'success');
         setActiveModal(null);
-        setTimeout(() => window.location.reload(), 1000);
+        updateUser({ birthday: editBirthday });
       } else {
         showToast(res.message, 'error');
       }
@@ -88,7 +88,7 @@ const ProfilePage = () => {
       if (res.success) {
         showToast('Cập nhật mô tả thành công', 'success');
         setActiveModal(null);
-        setTimeout(() => window.location.reload(), 1000);
+        updateUser({ bio: editBio });
       } else {
         showToast(res.message, 'error');
       }
@@ -129,7 +129,7 @@ const ProfilePage = () => {
       if (res.success) {
         showToast('Cập nhật ảnh đại diện thành công', 'success');
         setActiveModal(null);
-        setTimeout(() => window.location.reload(), 1000);
+        updateUser({ avatar: url });
       }
     } catch (e) {
       showToast('Có lỗi xảy ra', 'error');
@@ -151,7 +151,7 @@ const ProfilePage = () => {
       if (res.success) {
         showToast('Tải ảnh lên thành công', 'success');
         setActiveModal(null);
-        setTimeout(() => window.location.reload(), 1000);
+        updateUser({ avatar: res.data.avatarUrl });
       }
     } catch (e) {
       showToast(e.response?.data?.message || 'Có lỗi khi tải ảnh', 'error');
