@@ -151,7 +151,7 @@ const ProfilePage = () => {
       if (res.success) {
         showToast('Tải ảnh lên thành công', 'success');
         setActiveModal(null);
-        updateUser({ avatar: res.data.avatarUrl });
+        updateUser({ avatar: res.data.avatar });
       }
     } catch (e) {
       showToast(e.response?.data?.message || 'Có lỗi khi tải ảnh', 'error');
