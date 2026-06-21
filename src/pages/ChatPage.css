@@ -681,12 +681,12 @@
   backdrop-filter: blur(12px);
   border-top: 1px solid rgba(242, 105, 137, 0.1);
   z-index: 50;
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   padding-top: 4px;
 }
 
 .chat-input-area.keyboard-open {
-  padding-bottom: 12px;
+  padding-bottom: 0px;
 }
 
 /* Reply banner */

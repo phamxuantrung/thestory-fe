@@ -1,5 +1,5 @@
 .profile-page {
-  padding-bottom: 80px;
+  padding-bottom: calc(120px + env(safe-area-inset-bottom));
   background: linear-gradient(135deg, #fdf2f8 0%, #ffffff 50%, #fce7f3 100%);
   min-height: 100vh;
   position: relative;

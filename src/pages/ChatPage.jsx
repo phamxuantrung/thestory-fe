@@ -141,12 +141,16 @@ const ChatPage = () => {
   }, [loadMessages]);
 
   useEffect(() => {
-    if (!loading) scrollToBottom(false, true);
+    if (!loading) {
+      setTimeout(() => scrollToBottom(false, true), 50);
+    }
   }, [loading, scrollToBottom]);
 
   useEffect(() => {
-    scrollToBottom(true, forceScrollRef.current);
-    forceScrollRef.current = false;
+    setTimeout(() => {
+      scrollToBottom(true, forceScrollRef.current);
+      forceScrollRef.current = false;
+    }, 50);
   }, [messages, isTyping, scrollToBottom]);
 
   // Measure input area height dynamically
