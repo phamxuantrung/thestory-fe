@@ -171,7 +171,7 @@ const GoldenCaveGame = () => {
         const y = randRange(1, ROWS-2);
         if(g[y][x]===TILE_FLOOR && dist(x,y,1,1)>1 && !(keyItem && keyItem.x===x && keyItem.y===y)){
           if(!gold.some(c=>c.x===x&&c.y===y)){
-            gold.push({x,y, value: Math.random()<0.15 ? 3 : 1, bob:Math.random()*Math.PI*2});
+            gold.push({x,y, value: Math.random()<0.15 ? 5 : 2, bob:Math.random()*Math.PI*2});
             goldPlaced++;
           }
         }
@@ -241,19 +241,21 @@ const GoldenCaveGame = () => {
 
     function resizeCanvas(){
       if (!stageEl || !canvas) return;
-      const rect = stageEl.getBoundingClientRect();
+      const w = stageEl.offsetWidth;
+      const h = stageEl.offsetHeight;
       const dpr = window.devicePixelRatio || 1;
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
       ctx.setTransform(dpr,0,0,dpr,0,0);
-      TILE = Math.min(rect.width/COLS, rect.height/ROWS);
+      TILE = Math.min(w/COLS, h/ROWS);
     }
 
     function gridOffset(){
       if (!stageEl) return { ox: 0, oy: 0 };
-      const rect = stageEl.getBoundingClientRect();
+      const w = stageEl.offsetWidth;
+      const h = stageEl.offsetHeight;
       const gw = TILE*COLS, gh = TILE*ROWS;
-      return { ox:(rect.width-gw)/2, oy:(rect.height-gh)/2 };
+      return { ox:(w-gw)/2, oy:(h-gh)/2 };
     }
 
     const handleKeydown = (e) => {
@@ -356,8 +358,8 @@ const GoldenCaveGame = () => {
       if(gi>=0){
         const g = state.gold[gi];
         state.score += g.value;
-        spawnParticles(p.x,p.y, g.value>1 ? '#fff1b0' : '#e8b94a');
-        log(g.value>1 ? `Một viên ngọc quý! +${g.value} Xu` : "Bạn nhặt vàng. +1 Xu");
+        spawnParticles(p.x,p.y, g.value>2 ? '#fff1b0' : '#e8b94a');
+        log(g.value>2 ? `Một viên ngọc quý! +${g.value} Xu` : `Bạn nhặt vàng. +${g.value} Xu`);
         state.gold.splice(gi,1);
         updateHud();
       }
@@ -394,8 +396,8 @@ const GoldenCaveGame = () => {
         spawnParticles(tx,ty,'#9fd1ff');
         if(enemy.hp<=0){
           enemy.alive=false;
-          state.score += 1;
-          log("Hạ gục quái vật! +1 Xu");
+          state.score += 2;
+          log("Hạ gục quái vật! +2 Xu");
           spawnParticles(tx,ty,'#ffffff');
           updateHud();
         } else {
@@ -422,7 +424,7 @@ const GoldenCaveGame = () => {
     function goNextFloor(){
       if(!state.running) return;
       state.deepestFloor = Math.max(state.deepestFloor, state.floor);
-      state.score += 2;
+      state.score += 5;
       state.floor++;
       if(state.hp < state.maxHp) state.hp = Math.min(state.maxHp, state.hp+1); 
       showBanner(`Xuống tầng ${state.floor}...`, 1100);
@@ -848,6 +850,7 @@ const GoldenCaveGame = () => {
       <div className="golden-cave-back-btn" onClick={() => navigate('/games')}>
         <ArrowLeft size={24} />
       </div>
+
       <div id="golden-cave-wrap">
         <div id="golden-cave-stage">
           <div id="golden-cave-torchlight"></div>

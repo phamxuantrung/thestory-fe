@@ -70,8 +70,8 @@ const InfinityKoiGame = () => {
           x: W/2, y: H*0.6,
           angle: -Math.PI/2,
           targetAngle: -Math.PI/2,
-          speed: 64,
-          baseSpeed: 64,
+          speed: 180,
+          baseSpeed: 180,
           wiggle: 0,
           length: 16,
           glow: 0,
@@ -81,7 +81,7 @@ const InfinityKoiGame = () => {
         blossoms: [],
         ripples: [],   
         pulseTimer: 0,
-        pulseInterval: 2.6,
+        pulseInterval: 1.1,
         whirlpools: [], 
         particles: [],
         koiTrail: [],
@@ -93,7 +93,7 @@ const InfinityKoiGame = () => {
     }
 
     function spawnInitialBlossoms(){
-      for(let i=0;i<5;i++) spawnBlossom();
+      for(let i=0;i<4;i++) spawnBlossom();
     }
 
     function spawnBlossom(){
@@ -103,17 +103,17 @@ const InfinityKoiGame = () => {
         y: rand(H*0.12, H*0.92),
         r: rand(9,13),
         bob: rand(0, Math.PI*2),
-        hue: Math.random()<0.18 ? 'gold' : 'pink'
+        hue: Math.random()<0.30 ? 'gold' : 'pink'
       });
     }
 
     function emitPulse(){
-      state.ripples.push({ x:W/2, y:H*0.42, birth:state.time, speed: Math.min(W,H)*0.34 });
+      state.ripples.push({ x:W/2, y:H*0.42, birth:state.time, speed: Math.min(W,H)*0.45 });
       if(Math.random()<0.6){
         state.ripples.push({
           x: rand(W*0.2,W*0.8), y: rand(H*0.25,H*0.75),
           birth: state.time + rand(0,0.4),
-          speed: Math.min(W,H)*rand(0.26,0.4)
+          speed: Math.min(W,H)*rand(0.35,0.5)
         });
       }
     }
@@ -213,7 +213,7 @@ const InfinityKoiGame = () => {
       state.difficultyT += dt;
 
       state.pulseTimer += dt;
-      const interval = Math.max(1.5, state.pulseInterval - state.difficultyT*0.01);
+      const interval = Math.max(0.7, state.pulseInterval - state.difficultyT*0.015);
       if(state.pulseTimer >= interval){
         state.pulseTimer = 0;
         emitPulse();
@@ -244,9 +244,9 @@ const InfinityKoiGame = () => {
       f.y = clamp(f.y, 56, H-6);
 
       state.koiTrail.push({x:f.x, y:f.y, t:state.time});
-      state.koiTrail = state.koiTrail.filter(p=>state.time-p.t < 0.6);
+      state.koiTrail = state.koiTrail.filter(p=>state.time-p.t < 0.5);
 
-      state.vitality -= dt * (1.1 + state.score*0.01);
+      state.vitality -= dt * (3.5 + state.score*0.035);
       if(f.hurtFlash>0) f.hurtFlash -= dt;
       if(state.shakeT>0) state.shakeT -= dt;
 
@@ -254,7 +254,7 @@ const InfinityKoiGame = () => {
         const d = dist(f.x,f.y,w.x,w.y);
         const dangerR = 16 + w.strength*22;
         if(d < dangerR){
-          state.vitality -= dt * (28*w.strength);
+          state.vitality -= dt * (50*w.strength);
           f.hurtFlash = 0.25;
           state.shakeT = 0.25;
           const ang = Math.atan2(f.y-w.y, f.x-w.x);
@@ -268,13 +268,13 @@ const InfinityKoiGame = () => {
         b.bob += dt*2;
         const d = dist(f.x,f.y,b.x,b.y);
         if(d < b.r + 14){
-          const gain = b.hue==='gold' ? 35 : 18;
+          const gain = b.hue==='gold' ? 20 : 12;
           state.vitality = clamp(state.vitality + gain, 0, state.maxVitality);
           state.score += b.hue==='gold' ? 5 : 1;
           
           if(b.hue === 'gold'){
-            state.xuEarned += 1;
-            showToast('+1 Xu thật! (Hoa sen vàng)');
+            state.xuEarned += 2;
+            showToast('+2 Xu thật! (Hoa sen vàng)');
           }
 
           f.glow = 0.4;
@@ -666,7 +666,7 @@ const InfinityKoiGame = () => {
             <div className="infinity-koi-hint-row">
               <div className="infinity-koi-hint-pill">👆 Vuốt bất kỳ đâu để đổi hướng bơi</div>
               <div className="infinity-koi-hint-pill" style={{borderColor: '#d9789f'}}>🌸 Ăn sen hồng để hồi sức (Không rớt Xu)</div>
-              <div className="infinity-koi-hint-pill" style={{borderColor: '#f2c069'}}>🌻 Ăn sen vàng rớt +1 Xu thật</div>
+              <div className="infinity-koi-hint-pill" style={{borderColor: '#f2c069'}}>🌻 Ăn sen vàng rớt +2 Xu thật</div>
               <div className="infinity-koi-hint-pill" style={{borderColor: '#1d4d4a'}}>🌀 Tránh vòng xoáy hút máu</div>
             </div>
           </div>
