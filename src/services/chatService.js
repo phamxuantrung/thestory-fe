@@ -43,8 +43,8 @@ export const chatService = {
   getUnreadCount: () =>
     api.get('/chat/unread').then((r) => r.data),
 
-  sendMessage: (content, replyTo = null) =>
-    api.post('/chat', { content, type: 'text', replyTo }).then((r) => r.data),
+  sendMessage: (content, replyTo = null, type = 'text') =>
+    api.post('/chat', { content, type, replyTo }).then((r) => r.data),
 
   sendMediaMessage: (formData) =>
     api.post('/chat', formData, {

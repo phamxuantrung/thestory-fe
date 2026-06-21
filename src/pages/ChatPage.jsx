@@ -347,7 +347,7 @@ const ChatPage = () => {
     setShowStickers(false);
 
     try {
-      const res = await chatService.sendMessage(sticker.url);
+      const res = await chatService.sendMessage(sticker.url, null, 'sticker');
       if (res.success) {
         setMessages((prev) => prev.map(m => m._id === tempId ? res.data : m));
         s?.emit('chat:send', {
