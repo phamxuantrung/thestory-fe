@@ -5,6 +5,22 @@ import { useAuth } from './useAuth';
 let globalSocket = null;
 let activeCount = 0;
 let disconnectTimer = null;
+let globalAudioCtx = null;
+
+const unlockAudio = () => {
+  if (!globalAudioCtx) {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (AudioContext) globalAudioCtx = new AudioContext();
+  }
+  if (globalAudioCtx && globalAudioCtx.state === 'suspended') {
+    globalAudioCtx.resume().catch(console.error);
+  }
+};
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('click', unlockAudio, { once: true });
+  document.addEventListener('touchstart', unlockAudio, { once: true });
+}
 
 export const useSocket = () => {
   const { user, updatePartnerStatus } = useAuth();
@@ -60,9 +76,9 @@ export const useSocket = () => {
         const senderId = msg.sender?._id || msg.sender;
         if (window.location.pathname !== '/chat' && senderId !== user._id) {
           try {
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            if (!AudioContext) return;
-            const ctx = new AudioContext();
+            if (!globalAudioCtx) return;
+            const ctx = globalAudioCtx;
+            if (ctx.state === 'suspended') return;
             const osc = ctx.createOscillator();
             const gainNode = ctx.createGain();
             

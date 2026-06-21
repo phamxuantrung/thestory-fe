@@ -31,9 +31,14 @@ const BottomNav = () => {
     // Fetch unread count on mount
     fetchUnread();
 
-    // Re-fetch on window focus to ensure it's always up to date
+    // Listen for focus and app:resume events (PWA wakeup)
     window.addEventListener('focus', fetchUnread);
-    return () => window.removeEventListener('focus', fetchUnread);
+    window.addEventListener('app:resume', fetchUnread);
+
+    return () => {
+      window.removeEventListener('focus', fetchUnread);
+      window.removeEventListener('app:resume', fetchUnread);
+    };
   }, []);
 
   useEffect(() => {
