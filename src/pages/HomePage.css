@@ -183,6 +183,7 @@
 .couple-avatars-overlap {
   display: flex;
   margin-left: 0.5rem;
+  flex-shrink: 0;
 }
 
 .overlap-avatar {
@@ -196,6 +197,7 @@
   background: #e9bacd;
   display: grid;
   place-content: center;
+  flex-shrink: 0;
 }
 
 .self-avatar {
