@@ -24,21 +24,21 @@ const ProfilePage = () => {
   const { user, logout, updateUser } = useAuth();
   const [activeModal, setActiveModal] = useState(null); // 'name', 'avatar', 'password', 'logout'
   const [loading, setLoading] = useState(false);
-  
+
   // Name Edit
   const [editName, setEditName] = useState(user?.displayName || '');
-  
+
   // Birthday Edit
   const [editBirthday, setEditBirthday] = useState(user?.birthday ? user.birthday.split('T')[0] : '');
 
   // Bio Edit
   const [editBio, setEditBio] = useState(user?.bio || '');
-  
+
   // Password Edit
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  
+
   // Avatar Edit
   const [selectedAvatarUrl, setSelectedAvatarUrl] = useState('');
   const fileInputRef = useRef(null);
@@ -102,7 +102,7 @@ const ProfilePage = () => {
   const handleChangePassword = async () => {
     if (!oldPassword || !newPassword) return showToast('Vui lòng nhập đủ thông tin', 'error');
     if (newPassword !== confirmPassword) return showToast('Mật khẩu xác nhận không khớp', 'error');
-    
+
     setLoading(true);
     try {
       const res = await authService.changePassword(oldPassword, newPassword);
@@ -141,10 +141,10 @@ const ProfilePage = () => {
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
+
     const formData = new FormData();
     formData.append('avatar', file);
-    
+
     setLoading(true);
     try {
       const res = await authService.uploadAvatar(formData);
@@ -173,9 +173,9 @@ const ProfilePage = () => {
   return (
     <div className="page profile-page">
       <Header title="Cá nhân" />
-      
+
       <main className="profile-content">
-        <motion.div 
+        <motion.div
           className="profile-header-card"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -186,7 +186,7 @@ const ProfilePage = () => {
               <Camera size={16} color="#fff" />
             </div>
           </div>
-          
+
           <h2 className="profile-name">
             {user?.displayName || user?.username}
             <button className="edit-name-btn" onClick={() => {
@@ -200,7 +200,7 @@ const ProfilePage = () => {
         </motion.div>
 
         <div className="profile-actions-list">
-          <motion.div 
+          <motion.div
             className="action-card"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -210,7 +210,7 @@ const ProfilePage = () => {
               setActiveModal('birthday');
             }}
           >
-            <div className="action-icon" style={{background: 'linear-gradient(135deg, #a78bfa, #8b5cf6)', boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)', color: 'white'}}>
+            <div className="action-icon" style={{ background: 'linear-gradient(135deg, #a78bfa, #8b5cf6)', boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)', color: 'white' }}>
               <span className="material-symbols-outlined">cake</span>
             </div>
             <div className="action-info">
@@ -219,7 +219,7 @@ const ProfilePage = () => {
             </div>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             className="action-card"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -229,7 +229,7 @@ const ProfilePage = () => {
               setActiveModal('bio');
             }}
           >
-            <div className="action-icon" style={{background: 'linear-gradient(135deg, #10b981, #059669)', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)', color: 'white'}}>
+            <div className="action-icon" style={{ background: 'linear-gradient(135deg, #10b981, #059669)', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)', color: 'white' }}>
               <span className="material-symbols-outlined">description</span>
             </div>
             <div className="action-info">
@@ -238,11 +238,36 @@ const ProfilePage = () => {
             </div>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             className="action-card"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
+            onClick={async () => {
+              const newAngryStatus = !user?.isAngry;
+              try {
+                const res = await authService.updateMe({ isAngry: newAngryStatus });
+                if (res.success) {
+                  updateUser({ isAngry: newAngryStatus });
+                  showToast(newAngryStatus ? 'Đã bật chế độ dỗi 😠' : 'Đã hết dỗi ☺️', 'success');
+                }
+              } catch (e) { }
+            }}
+          >
+            <div className="action-icon" style={{ background: user?.isAngry ? 'linear-gradient(135deg, #ef4444, #b91c1c)' : 'linear-gradient(135deg, #9ca3af, #6b7280)', boxShadow: user?.isAngry ? '0 4px 12px rgba(239, 68, 68, 0.3)' : 'none', color: 'white' }}>
+              <span className="material-symbols-outlined">{user?.isAngry ? 'mood_bad' : 'mood'}</span>
+            </div>
+            <div className="action-info">
+              <h3>{user?.isAngry ? 'Đang dỗi' : 'Bình thường'}</h3>
+              <p>Nhấn để bật/tắt trạng thái dỗi người ấy</p>
+            </div>
+          </motion.div>
+
+          <motion.div
+            className="action-card"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.18 }}
             onClick={() => setActiveModal('password')}
           >
             <div className="action-icon password-icon">
@@ -254,7 +279,7 @@ const ProfilePage = () => {
             </div>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             className="action-card logout-card"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -278,7 +303,7 @@ const ProfilePage = () => {
       <AnimatePresence>
         {activeModal === 'name' && (
           <div className="profile-modal-overlay">
-            <motion.div 
+            <motion.div
               className="profile-modal"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -286,10 +311,10 @@ const ProfilePage = () => {
             >
               <button className="modal-close" onClick={() => setActiveModal(null)}><X size={20} /></button>
               <h3>Đổi Tên Hiển Thị</h3>
-              <input 
-                type="text" 
-                className="profile-input" 
-                value={editName} 
+              <input
+                type="text"
+                className="profile-input"
+                value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 placeholder="Nhập tên mới..."
               />
@@ -302,7 +327,7 @@ const ProfilePage = () => {
 
         {activeModal === 'birthday' && (
           <div className="profile-modal-overlay">
-            <motion.div 
+            <motion.div
               className="profile-modal"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -310,10 +335,10 @@ const ProfilePage = () => {
             >
               <button className="modal-close" onClick={() => setActiveModal(null)}><X size={20} /></button>
               <h3>Ngày Sinh Nhật</h3>
-              <input 
-                type="date" 
-                className="profile-input" 
-                value={editBirthday} 
+              <input
+                type="date"
+                className="profile-input"
+                value={editBirthday}
                 onChange={(e) => setEditBirthday(e.target.value)}
                 max={new Date().toISOString().split('T')[0]}
                 style={{ WebkitAppearance: 'none', appearance: 'none', maxWidth: '100%' }}
@@ -327,7 +352,7 @@ const ProfilePage = () => {
 
         {activeModal === 'bio' && (
           <div className="profile-modal-overlay">
-            <motion.div 
+            <motion.div
               className="profile-modal"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -338,9 +363,9 @@ const ProfilePage = () => {
               <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '12px', textAlign: 'center' }}>
                 Giới thiệu tính cách, sở thích để AI tạo thử thách thú vị hơn.
               </p>
-              <textarea 
-                className="profile-input" 
-                value={editBio} 
+              <textarea
+                className="profile-input"
+                value={editBio}
                 onChange={(e) => setEditBio(e.target.value)}
                 placeholder="Ví dụ: Tôi là người hướng nội, thích đọc sách và uống cà phê..."
                 rows={4}
@@ -359,7 +384,7 @@ const ProfilePage = () => {
 
         {activeModal === 'password' && (
           <div className="profile-modal-overlay">
-            <motion.div 
+            <motion.div
               className="profile-modal"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -367,24 +392,24 @@ const ProfilePage = () => {
             >
               <button className="modal-close" onClick={() => setActiveModal(null)}><X size={20} /></button>
               <h3>Đổi Mật Khẩu</h3>
-              <input 
-                type="password" 
-                className="profile-input" 
-                value={oldPassword} 
+              <input
+                type="password"
+                className="profile-input"
+                value={oldPassword}
                 onChange={(e) => setOldPassword(e.target.value)}
                 placeholder="Mật khẩu cũ"
               />
-              <input 
-                type="password" 
-                className="profile-input" 
-                value={newPassword} 
+              <input
+                type="password"
+                className="profile-input"
+                value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Mật khẩu mới"
               />
-              <input 
-                type="password" 
-                className="profile-input" 
-                value={confirmPassword} 
+              <input
+                type="password"
+                className="profile-input"
+                value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Xác nhận mật khẩu mới"
               />
@@ -397,7 +422,7 @@ const ProfilePage = () => {
 
         {activeModal === 'avatar' && (
           <div className="profile-modal-overlay">
-            <motion.div 
+            <motion.div
               className="profile-modal avatar-modal"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -405,25 +430,25 @@ const ProfilePage = () => {
             >
               <button className="modal-close" onClick={() => setActiveModal(null)}><X size={20} /></button>
               <h3>Chọn Ảnh Đại Diện</h3>
-              
-              <div 
-                className="avatar-upload-btn" 
+
+              <div
+                className="avatar-upload-btn"
                 onClick={() => !loading && fileInputRef.current?.click()}
                 style={{ opacity: loading ? 0.7 : 1, pointerEvents: loading ? 'none' : 'auto' }}
               >
-                {loading ? <div className="spinner" style={{width: 24, height: 24, borderWidth: 2}} /> : <ImageIcon size={24} />}
+                {loading ? <div className="spinner" style={{ width: 24, height: 24, borderWidth: 2 }} /> : <ImageIcon size={24} />}
                 <span>{loading ? 'Đang xử lý...' : 'Tải ảnh từ thiết bị'}</span>
               </div>
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleFileUpload} 
-                accept="image/*" 
-                style={{ display: 'none' }} 
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                accept="image/*"
+                style={{ display: 'none' }}
               />
-              
+
               <div className="avatar-divider"><span>Hoặc chọn ảnh mẫu</span></div>
-              
+
               <div className="avatar-grid">
                 {PRESET_AVATARS.map((url, idx) => (
                   <div key={idx} className="avatar-preset-item" onClick={() => handleSelectPresetAvatar(url)}>
@@ -437,7 +462,7 @@ const ProfilePage = () => {
 
         {activeModal === 'logout' && (
           <div className="profile-modal-overlay">
-            <motion.div 
+            <motion.div
               className="profile-modal"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}

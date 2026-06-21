@@ -299,6 +299,47 @@ const HomePage = () => {
         initial="hidden"
         animate="visible"
       >
+        {/* Nhắc nhở bản thân đang dỗi */}
+        {user?.isAngry && (
+          <motion.div 
+            className="self-angry-reminder"
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+          >
+            <div className="reminder-icon">
+              <span className="material-symbols-outlined">mood_bad</span>
+            </div>
+            <div className="reminder-text">
+              <p>Bạn đang <strong>dỗi người ấy</strong>, hai bạn đã làm hoà rồi chứ?</p>
+            </div>
+            <Link to="/profile" className="reminder-btn">
+              Tắt dỗi
+            </Link>
+          </motion.div>
+        )}
+
+        {/* Báo động đỏ */}
+        {partner?.isAngry && (
+          <motion.div
+            className="angry-alert-banner"
+            initial={{ opacity: 0, y: -20, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: "spring", stiffness: 300, damping: 15 }}
+          >
+            <div className="angry-alert-icon">
+              <span className="material-symbols-outlined">warning</span>
+            </div>
+            <div className="angry-alert-text">
+              <h3>BÁO ĐỘNG ĐỎ!</h3>
+              <p>Người ấy đang dỗi bạn! Hãy nhắn tin làm hòa và dỗ dành ngay đi!</p>
+            </div>
+            <Link to="/chat" className="angry-alert-btn">
+              Đi dỗ ngay
+            </Link>
+          </motion.div>
+        )}
+
         {/* Hero Section: Counter */}
         <motion.section variants={itemVariants} className="seamless-section hero-counter" onClick={openDateModal} style={{ cursor: 'pointer' }}>
           <div className="hero-heart-bg opacity-30"></div>
@@ -595,8 +636,10 @@ const HomePage = () => {
                 <h2 className="partner-name-v2">{partner?.displayName}</h2>
               </div>
               <div className="partner-offline-row">
-                <div className="offline-dot-v2" style={{ backgroundColor: partner?.isOnline ? '#f26989' : 'rgba(79, 68, 72, 0.5)' }}></div>
-                <p className="offline-text">{partner?.isOnline ? 'Đang online' : `Hoạt động ${formatLastSeen(partner?.lastSeen)}`}</p>
+                <div className="offline-dot-v2" style={{ backgroundColor: partner?.isAngry ? '#ef4444' : (partner?.isOnline ? '#f26989' : 'rgba(79, 68, 72, 0.5)') }}></div>
+                <p className="offline-text" style={{ color: partner?.isAngry ? '#ef4444' : undefined, fontWeight: partner?.isAngry ? 'bold' : 'normal' }}>
+                  {partner?.isAngry ? 'Đang dỗi' : (partner?.isOnline ? 'Đang online' : `Hoạt động ${formatLastSeen(partner?.lastSeen)}`)}
+                </p>
               </div>
             </div>
 
