@@ -1012,7 +1012,12 @@
   font-weight: 700;
   color: #4f4448;
   font-size: 0.85rem;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
 }
 
 .event-date {
@@ -1030,6 +1035,7 @@
   border-radius: 12px;
   font-weight: 500;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .event-days-left strong {
