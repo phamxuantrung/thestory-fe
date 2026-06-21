@@ -19,8 +19,8 @@ const GamesHubPage = () => {
   // Configure available games
   const games = [
     { id: 'memory', title: 'Lật Thẻ', image: logoMemory, path: '/game/memory' },
-    { id: 'drops', title: 'Hứng Nước', image: logoDrops, path: '/game/drops' },
-    { id: 'whack', title: 'Đập Sâu', image: logoWhack, path: '/game/whack' },
+    { id: 'drops', title: 'Hứng Nước', image: logoDrops, path: '/game/catch-drops' },
+    { id: 'whack', title: 'Đập Sâu', image: logoWhack, path: '/game/whack-a-bug' },
     { id: 'caro', title: 'Cờ Caro', image: logoCaro, path: '/game/caro' },
     { id: 'flappy', title: 'Chim Bay', image: logoFlappy, path: '/game/flappy' },
     { id: 'simon', title: 'Nhịp Điệu', image: logoSimon, path: '/game/simon' },

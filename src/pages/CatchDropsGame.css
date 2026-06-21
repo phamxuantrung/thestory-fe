@@ -17,6 +17,7 @@
   left: 0;
   right: 0;
   padding: 20px;
+  padding-top: calc(20px + env(safe-area-inset-top));
   display: flex;
   justify-content: space-between;
   align-items: center;

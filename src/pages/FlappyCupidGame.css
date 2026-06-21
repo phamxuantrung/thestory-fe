@@ -17,7 +17,7 @@
   width: 100%;
   max-width: 500px;
   position: relative;
-  margin-top: 60px; /* Header space */
+  margin-top: calc(80px + env(safe-area-inset-top)); /* Header space */
   overflow: hidden;
 }
 

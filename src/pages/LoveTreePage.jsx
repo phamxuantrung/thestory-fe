@@ -205,17 +205,40 @@ const LoveTreePage = () => {
     }
   };
 
-  const handleRemindFacebook = () => {
+  const handleRemindFacebook = async () => {
     const link = window.location.origin + '/tree';
-    const fbUri = `fb-messenger://share/?link=${encodeURIComponent(link)}`;
-    
-    // Mở URL trên di động (sẽ nhảy sang app Messenger nếu có)
-    window.location.href = fbUri;
-    
-    // Fallback cho Web nếu fb-messenger không mở được
-    setTimeout(() => {
-      window.open(`https://www.messenger.com/`, '_blank');
-    }, 500);
+    const msgTexts = [
+      `${You} ơi, bé cây tình yêu của tụi mình đang đợi kìa! Vào vườn vun đắp cho bé nó cùng ${me} nha 🥰🌱`,
+      `Nhớ ${me} thì cũng đừng quên chăm cây tình yêu của hai đứa mình nha! Vào tưới nước đi nè ❤️`,
+      `Cây tình yêu đang réo tên ${You} kìa! Mau mau vào chăm cây để tình mình thêm xanh nha 🥰✨`,
+      `${You} ơi, ${me} vừa vào thăm cây tình yêu nè. ${You} cũng vào chăm cây cùng ${me} nha! 💖`
+    ];
+    const msgText = msgTexts[Math.floor(Math.random() * msgTexts.length)];
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Chăm cây tình yêu',
+          text: msgText,
+          url: link
+        });
+      } catch (error) {
+        console.error('Lỗi khi chia sẻ:', error);
+      }
+    } else {
+      // Fallback: Copy to clipboard and open messenger
+      try {
+        await navigator.clipboard.writeText(`${msgText}\n${link}`);
+        showToast('Đã copy lời nhắn, bạn dán (paste) vào Messenger nhé!', 'success');
+      } catch (e) {}
+      
+      const fbUri = `fb-messenger://share/?link=${encodeURIComponent(link)}`;
+      window.location.href = fbUri;
+      
+      setTimeout(() => {
+        window.open(`https://www.messenger.com/`, '_blank');
+      }, 500);
+    }
     
     setShowRemindModal(false);
   };
@@ -509,7 +532,7 @@ const LoveTreePage = () => {
 
           {tree?.activeWeather === 'storm' && <div className="rain-layer"></div>}
 
-          {weather && (
+          {/* weather && (
             <div className="weather-widget">
               {tree?.activeWeather === 'storm' ? <CloudRain size={20} color="#4fc3f7" /> :
                tree?.activeWeather === 'drought' ? <Sun size={20} color="#ff3d00" /> :
@@ -517,7 +540,7 @@ const LoveTreePage = () => {
                 (weather.temp >= 30 ? <Sun size={20} color="#ffb74d" /> : <Cloud size={20} color="#fff" />)}
               <span>{tree?.activeWeather === 'drought' ? '45°C' : tree?.activeWeather === 'storm' ? '18°C' : `${weather.temp}°C`}</span>
             </div>
-          )}
+          ) */}
         </div>
 
         <div className={`grass-ground-back ${tree?.activeWeather === 'drought' ? 'drought' : ''}`}></div>

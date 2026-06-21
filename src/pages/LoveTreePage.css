@@ -545,7 +545,7 @@
 
 .weather-widget {
   position: absolute;
-  top: 260px; /* Đặt dưới thanh HUD */
+  top: calc(310px + env(safe-area-inset-top)); /* Đặt dưới thanh HUD */
   right: 20px;
   background: rgba(255, 255, 255, 0.4);
   backdrop-filter: blur(8px);
@@ -811,7 +811,7 @@
 /* Side Action Buttons */
 .side-actions-right {
   position: absolute;
-  top: 50%;
+  top: calc(50% + 50px);
   right: 16px;
   transform: translateY(-50%);
   display: flex;

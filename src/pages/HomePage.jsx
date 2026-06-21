@@ -55,7 +55,7 @@ const HomePage = () => {
   const socket = useSocket();
   const [days, setDays] = useState(0);
   const [currentTime, setCurrentTime] = useState(new Date());
-  
+
   // Tree state
   const [treeData, setTreeData] = useState(null);
   const [expRequired, setExpRequired] = useState(100);
@@ -67,7 +67,7 @@ const HomePage = () => {
     const todayStr = new Date().toDateString();
     const currentKey = `${todayStr}_${partner?.dailyMessageDate || 'none'}`;
     const savedKey = localStorage.getItem('blindBagOpenedKey');
-    
+
     if (savedKey === currentKey) {
       setIsQuoteRevealed(true);
     } else {
@@ -162,13 +162,13 @@ const HomePage = () => {
     try {
       let newHobbies = [...(user?.partnerHobbies || [])];
       const hobbyObj = { category: hobbyCategory, text: hobbyInput.trim() };
-      
+
       if (editingHobbyIndex !== null) {
         newHobbies[editingHobbyIndex] = hobbyObj;
       } else {
         newHobbies.push(hobbyObj);
       }
-      
+
       const res = await authService.updatePartnerHobbies(newHobbies);
       if (res.success) {
         updateUser({ partnerHobbies: newHobbies });
@@ -233,7 +233,7 @@ const HomePage = () => {
     <div className="home-page-v2">
       <Header title="Trang chủ" showBack={true} />
 
-      <motion.main 
+      <motion.main
         className="home-main-content"
         variants={containerVariants}
         initial="hidden"
@@ -243,13 +243,13 @@ const HomePage = () => {
         <motion.section variants={itemVariants} className="seamless-section hero-counter" onClick={openDateModal} style={{ cursor: 'pointer' }}>
           <div className="hero-heart-bg opacity-30"></div>
           <span className="counter-subtitle">Chúng ta đã bên nhau</span>
-          
+
           <div className="counter-main">
             <div className="counter-bg-icon">
               <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>
             </div>
             <div className="counter-numbers">
-              <motion.span 
+              <motion.span
                 className="counter-days"
                 initial={{ scale: 0.5 }}
                 animate={{ scale: 1 }}
@@ -265,6 +265,62 @@ const HomePage = () => {
           </p>
         </motion.section>
 
+        {/* Dashboard Widgets */}
+        <div className="dashboard-widgets">
+
+          {/* Love Tree Status Widget */}
+          <Link to="/tree" style={{ textDecoration: 'none' }}>
+            <motion.section variants={itemVariants} className={`seamless-section widget-card tree-widget ${treeData?.activeWeather === 'storm' ? 'weather-storm' : treeData?.activeWeather === 'drought' ? 'weather-drought' : ''} ${(treeData?.isWithered || treeData?.hasPest || treeData?.isStreakBroken || treeData?.activeWeather === 'drought' || (treeData?.activeWeather === 'storm' && !treeData?.hasTreeProp)) ? 'tree-danger' : ''}`} whileTap={{ scale: 0.98 }}>
+              <div className="tree-widget-fill" style={{ width: `${Math.min(100, ((treeData?.exp || 0) / expRequired) * 100)}%` }}></div>
+              <div className="tree-widget-left">
+                <div className="tree-widget-icon">
+                  <span className="material-symbols-outlined">
+                    {treeData?.activeWeather === 'storm' ? 'storm' : treeData?.activeWeather === 'drought' ? 'local_fire_department' : 'psychiatry'}
+                  </span>
+                </div>
+                <div className="tree-widget-info">
+                  <span className="tree-widget-title">Cây Tình Yêu (Cấp {treeData?.level || 1})</span>
+                  <span className="tree-widget-desc" style={{
+                    color: (treeData?.isWithered || treeData?.hasPest || treeData?.isStreakBroken || treeData?.activeWeather === 'drought' || (treeData?.activeWeather === 'storm' && !treeData?.hasTreeProp)) ? '#ef4444' : undefined,
+                    fontWeight: (treeData?.isWithered || treeData?.hasPest || treeData?.isStreakBroken || treeData?.activeWeather !== 'none') ? '600' : 'normal'
+                  }}>
+                    {treeData?.isWithered ? 'Cây đang héo! Cần hồi sinh' :
+                      treeData?.hasPest ? 'Cây đang bị sâu tấn công!' :
+                        treeData?.isStreakBroken ? 'Chuỗi chăm sóc đã gãy!' :
+                          (treeData?.activeWeather === 'storm' && !treeData?.hasTreeProp) ? 'Bão lớn! Cây sắp gãy đổ!' :
+                            treeData?.activeWeather === 'drought' ? 'Hạn hán! Tưới nước ngay kẻo cháy!' :
+                              'Chạm để tưới nước & chăm sóc'}
+                  </span>
+                </div>
+              </div>
+              <div className="tree-widget-right">
+                <span className="material-symbols-outlined arrow-icon">chevron_right</span>
+              </div>
+            </motion.section>
+          </Link>
+          {/* Upcoming Events Widget */}
+          <motion.section variants={itemVariants} className="seamless-section widget-card events-widget">
+            <div className="quote-header-v2" style={{ marginBottom: '12px' }}>
+              <span className="material-symbols-outlined">event_upcoming</span>
+              <span className="quote-title-v2">Sự kiện sắp tới</span>
+            </div>
+            <div className="events-list">
+              {upcomingEvents.map((ev, index) => (
+                <div key={index} className="event-item">
+                  <div className="event-icon"><span className="material-symbols-outlined">{ev.icon}</span></div>
+                  <div className="event-info">
+                    <span className="event-name">{ev.name}</span>
+                    <span className="event-date">{ev.date.toLocaleDateString('vi-VN')}</span>
+                  </div>
+                  <div className="event-days-left">
+                    {ev.daysLeft === 0 ? <span className="today-badge">Hôm nay!</span> : <span>Còn <strong>{ev.daysLeft}</strong> ngày</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.section>
+        </div>
+
         {/* Tiện ích tình yêu */}
         <motion.section variants={itemVariants} className="seamless-section features-card" style={{ marginTop: '0', paddingTop: '1rem' }}>
           <div className="quote-header-v2">
@@ -272,7 +328,7 @@ const HomePage = () => {
             <span className="quote-title-v2">Tiện ích tình yêu</span>
           </div>
           <div className="features-grid-v2">
-            
+
             {/* Hộp thư tương lai */}
             <Link to="/future-letters" style={{ textDecoration: 'none' }}>
               <motion.div className="utility-card" whileTap={{ scale: 0.95 }}>
@@ -289,7 +345,7 @@ const HomePage = () => {
                 <div className="utility-icon-wrapper" style={{ background: 'linear-gradient(135deg, #e8f5e9, #c8e6c9)' }}>
                   <BookOpen color="#4caf50" size={28} strokeWidth={2.5} className="anim-book" />
                 </div>
-                <span className="utility-title">Nhật ký chung</span>
+                <span className="utility-title">Nhật ký</span>
               </motion.div>
             </Link>
 
@@ -316,94 +372,38 @@ const HomePage = () => {
           </div>
         </motion.section>
 
-        {/* Dashboard Widgets */}
-        <div className="dashboard-widgets">
-          {/* Upcoming Events Widget */}
-          <motion.section variants={itemVariants} className="seamless-section widget-card events-widget">
-            <div className="quote-header-v2" style={{ marginBottom: '12px' }}>
-              <span className="material-symbols-outlined">event_upcoming</span>
-              <span className="quote-title-v2">Sự kiện sắp tới</span>
-            </div>
-            <div className="events-list">
-              {upcomingEvents.map((ev, index) => (
-                <div key={index} className="event-item">
-                  <div className="event-icon"><span className="material-symbols-outlined">{ev.icon}</span></div>
-                  <div className="event-info">
-                    <span className="event-name">{ev.name}</span>
-                    <span className="event-date">{ev.date.toLocaleDateString('vi-VN')}</span>
-                  </div>
-                  <div className="event-days-left">
-                    {ev.daysLeft === 0 ? <span className="today-badge">Hôm nay!</span> : <span>Còn <strong>{ev.daysLeft}</strong> ngày</span>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.section>
-
-          {/* Love Tree Status Widget */}
-          <Link to="/tree" style={{ textDecoration: 'none' }}>
-            <motion.section variants={itemVariants} className={`seamless-section widget-card tree-widget ${treeData?.activeWeather === 'storm' ? 'weather-storm' : treeData?.activeWeather === 'drought' ? 'weather-drought' : ''}`} whileTap={{ scale: 0.98 }}>
-              <div className="tree-widget-fill" style={{ width: `${Math.min(100, ((treeData?.exp || 0) / expRequired) * 100)}%` }}></div>
-              <div className="tree-widget-left">
-                <div className="tree-widget-icon">
-                  <span className="material-symbols-outlined">
-                    {treeData?.activeWeather === 'storm' ? 'storm' : treeData?.activeWeather === 'drought' ? 'local_fire_department' : 'psychiatry'}
-                  </span>
-                </div>
-                <div className="tree-widget-info">
-                  <span className="tree-widget-title">Cây Tình Yêu (Cấp {treeData?.level || 1})</span>
-                  <span className="tree-widget-desc" style={{ 
-                    color: (treeData?.isWithered || treeData?.hasPest || treeData?.isStreakBroken || treeData?.activeWeather === 'drought' || (treeData?.activeWeather === 'storm' && !treeData?.hasTreeProp)) ? '#ef4444' : undefined,
-                    fontWeight: (treeData?.isWithered || treeData?.hasPest || treeData?.isStreakBroken || treeData?.activeWeather !== 'none') ? '600' : 'normal' 
-                  }}>
-                    {treeData?.isWithered ? 'Cây đang héo! Cần hồi sinh' : 
-                     treeData?.hasPest ? 'Cây đang bị sâu tấn công!' :
-                     treeData?.isStreakBroken ? 'Chuỗi chăm sóc đã gãy!' : 
-                     (treeData?.activeWeather === 'storm' && !treeData?.hasTreeProp) ? 'Bão lớn! Cây sắp gãy đổ!' :
-                     treeData?.activeWeather === 'drought' ? 'Hạn hán! Tưới nước ngay kẻo cháy!' :
-                     'Chạm để tưới nước & chăm sóc'}
-                  </span>
-                </div>
-              </div>
-              <div className="tree-widget-right">
-                <span className="material-symbols-outlined arrow-icon">chevron_right</span>
-              </div>
-            </motion.section>
-          </Link>
-        </div>
-
         {/* Couple Status Card */}
         {partner && (
-        <motion.section variants={itemVariants} className="seamless-section couple-status-card">
-          <div className="couple-avatars-overlap">
-            <div className="overlap-avatar self-avatar z-10">
-              <Avatar user={user} className="avatar-img" />
+          <motion.section variants={itemVariants} className="seamless-section couple-status-card">
+            <div className="couple-avatars-overlap">
+              <div className="overlap-avatar self-avatar z-10">
+                <Avatar user={user} className="avatar-img" />
+              </div>
+              <div className="overlap-avatar partner-avatar z-0">
+                <Avatar user={partner} className="avatar-img" />
+              </div>
             </div>
-            <div className="overlap-avatar partner-avatar z-0">
-              <Avatar user={partner} className="avatar-img" />
+
+            <div className="couple-status-info flex-grow">
+              <div className="partner-name-row">
+                <h2 className="partner-name-v2">{partner?.displayName}</h2>
+              </div>
+              <div className="partner-offline-row">
+                <div className="offline-dot-v2" style={{ backgroundColor: partner?.isOnline ? '#f26989' : 'rgba(79, 68, 72, 0.5)' }}></div>
+                <p className="offline-text">{partner?.isOnline ? 'Đang online' : `Hoạt động ${formatLastSeen(partner?.lastSeen)}`}</p>
+              </div>
             </div>
-          </div>
-          
-          <div className="couple-status-info flex-grow">
-            <div className="partner-name-row">
-              <h2 className="partner-name-v2">{partner?.displayName}</h2>
+
+            <div className="heart-beat-icon">
+              <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>
             </div>
-            <div className="partner-offline-row">
-              <div className="offline-dot-v2" style={{ backgroundColor: partner?.isOnline ? '#f26989' : 'rgba(79, 68, 72, 0.5)' }}></div>
-              <p className="offline-text">{partner?.isOnline ? 'Đang online' : `Hoạt động ${formatLastSeen(partner?.lastSeen)}`}</p>
-            </div>
-          </div>
-          
-          <div className="heart-beat-icon">
-            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>
-          </div>
-        </motion.section>
+          </motion.section>
         )}
 
         {/* Daily Message Card */}
         {user?.gender === 'male' ? (
-          <motion.section 
-            variants={itemVariants} 
+          <motion.section
+            variants={itemVariants}
             className="seamless-section quote-card-v2"
             onClick={() => {
               setDailyMessageInput(myMessageValid ? user?.dailyMessage : '');
@@ -420,8 +420,8 @@ const HomePage = () => {
             </div>
           </motion.section>
         ) : (
-          <motion.section 
-            variants={itemVariants} 
+          <motion.section
+            variants={itemVariants}
             className="seamless-section quote-card-v2"
             onClick={() => {
               if (!isQuoteRevealed) {
@@ -435,7 +435,7 @@ const HomePage = () => {
           >
             <AnimatePresence mode="wait">
               {!isQuoteRevealed ? (
-                <motion.div 
+                <motion.div
                   key="blind-bag-cover"
                   className="blind-bag-cover"
                   initial={{ opacity: 0 }}
@@ -451,7 +451,7 @@ const HomePage = () => {
                   <p className="blind-bag-subtitle">Chạm để xé túi mù xem lời nhắn hôm nay</p>
                 </motion.div>
               ) : (
-                <motion.div 
+                <motion.div
                   key="quote-content"
                   initial={{ opacity: 0, y: 20, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -482,8 +482,8 @@ const HomePage = () => {
                 <span className="material-symbols-outlined">loyalty</span>
                 <span className="quote-title-v2">Sở thích của {partner?.displayName}</span>
               </div>
-              <button 
-                className="add-hobby-btn" 
+              <button
+                className="add-hobby-btn"
                 onClick={() => {
                   setHobbyInput('');
                   setHobbyCategory('food');
@@ -494,7 +494,7 @@ const HomePage = () => {
                 <span className="material-symbols-outlined">add</span>
               </button>
             </div>
-            
+
             <div className="hobbies-container">
               {user?.partnerHobbies && user.partnerHobbies.length > 0 ? (
                 <div className="hobbies-list">
@@ -503,10 +503,10 @@ const HomePage = () => {
                     const catId = isString ? 'other' : (hobby.category || 'other');
                     const text = isString ? hobby : hobby.text;
                     const catObj = HOBBY_CATEGORIES.find(c => c.id === catId) || HOBBY_CATEGORIES[5];
-                    
+
                     return (
-                      <div 
-                        key={index} 
+                      <div
+                        key={index}
                         className="hobby-chip"
                         onClick={() => {
                           setHobbyInput(text);
@@ -545,14 +545,14 @@ const HomePage = () => {
       {/* Date Picker Modal */}
       <AnimatePresence>
         {showDateModal && (
-          <motion.div 
+          <motion.div
             className="date-modal-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setShowDateModal(false)}
           >
-            <motion.div 
+            <motion.div
               className="date-modal-content"
               initial={{ y: 50, opacity: 0, scale: 0.9 }}
               animate={{ y: 0, opacity: 1, scale: 1 }}
@@ -560,13 +560,13 @@ const HomePage = () => {
               transition={{ type: 'spring', bounce: 0.3 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <button 
+              <button
                 className="modal-close-btn"
                 onClick={() => setShowDateModal(false)}
               >
                 <X size={20} />
               </button>
-              
+
               <div className="date-modal-header">
                 <div className="modal-icon-wrapper">
                   <CalendarIcon size={24} className="modal-icon" />
@@ -576,8 +576,8 @@ const HomePage = () => {
               </div>
 
               <div className="modal-body">
-                <input 
-                  type="date" 
+                <input
+                  type="date"
                   className="date-input"
                   value={newDate}
                   onChange={(e) => setNewDate(e.target.value)}
@@ -586,7 +586,7 @@ const HomePage = () => {
               </div>
 
               <div className="modal-footer">
-                <button 
+                <button
                   className="btn btn-primary w-full"
                   onClick={handleUpdateAnniversary}
                   disabled={isUpdatingDate || !newDate}
@@ -602,14 +602,14 @@ const HomePage = () => {
       {/* Hobby Modal */}
       <AnimatePresence>
         {showHobbyModal && (
-          <motion.div 
+          <motion.div
             className="date-modal-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setShowHobbyModal(false)}
           >
-            <motion.div 
+            <motion.div
               className="date-modal-content"
               initial={{ y: 50, opacity: 0, scale: 0.9 }}
               animate={{ y: 0, opacity: 1, scale: 1 }}
@@ -617,13 +617,13 @@ const HomePage = () => {
               transition={{ type: 'spring', bounce: 0.3 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <button 
+              <button
                 className="modal-close-btn"
                 onClick={() => setShowHobbyModal(false)}
               >
                 <X size={20} />
               </button>
-              
+
               <div className="date-modal-header">
                 <div className="modal-icon-wrapper">
                   <span className="material-symbols-outlined" style={{ fontSize: '28px', color: '#f26989' }}>loyalty</span>
@@ -645,9 +645,9 @@ const HomePage = () => {
                     </button>
                   ))}
                 </div>
-                
-                <input 
-                  type="text" 
+
+                <input
+                  type="text"
                   className="input"
                   placeholder="Ví dụ: Trà sữa ít ngọt, Hoa hồng..."
                   value={hobbyInput}
@@ -656,7 +656,7 @@ const HomePage = () => {
               </div>
 
               <div className="modal-footer">
-                <button 
+                <button
                   className="btn btn-primary w-full"
                   onClick={handleSaveHobby}
                   disabled={isUpdatingHobby || !hobbyInput.trim()}
@@ -672,14 +672,14 @@ const HomePage = () => {
       {/* Daily Message Modal (Male Only) */}
       <AnimatePresence>
         {showDailyMessageModal && (
-          <motion.div 
+          <motion.div
             className="date-modal-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setShowDailyMessageModal(false)}
           >
-            <motion.div 
+            <motion.div
               className="date-modal-content"
               initial={{ y: 50, opacity: 0, scale: 0.9 }}
               animate={{ y: 0, opacity: 1, scale: 1 }}
@@ -687,13 +687,13 @@ const HomePage = () => {
               transition={{ type: 'spring', bounce: 0.3 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <button 
+              <button
                 className="modal-close-btn"
                 onClick={() => setShowDailyMessageModal(false)}
               >
                 <X size={20} />
               </button>
-              
+
               <div className="date-modal-header">
                 <div className="modal-icon-wrapper">
                   <span className="material-symbols-outlined" style={{ fontSize: '28px', color: '#f26989' }}>edit_note</span>
@@ -703,7 +703,7 @@ const HomePage = () => {
               </div>
 
               <div className="modal-body">
-                <textarea 
+                <textarea
                   className="input"
                   rows="4"
                   placeholder="Nhập lời nhắn của bạn..."
@@ -714,7 +714,7 @@ const HomePage = () => {
               </div>
 
               <div className="modal-footer">
-                <button 
+                <button
                   className="btn btn-primary w-full"
                   onClick={handleSaveDailyMessage}
                   disabled={isUpdatingDailyMessage || !dailyMessageInput.trim()}
