@@ -377,7 +377,9 @@ const ChatPage = () => {
     showToast('Đang khởi động AI tách nền (có thể mất vài giây lần đầu)...');
     
     try {
-      const imageBlob = await removeBackground(file);
+      const imageBlob = await removeBackground(file, {
+        output: { format: 'image/png' }
+      });
       finalFile = new File([imageBlob], "sticker.png", { type: "image/png" });
     } catch (aiError) {
       console.error('Lỗi tách nền:', aiError);
