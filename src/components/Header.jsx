@@ -26,7 +26,7 @@ const Header = ({ title, showBack = true, onBack, rightContent, leftContent, tra
         setIsScrolled(false);
       }
     };
-    
+
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -36,8 +36,8 @@ const Header = ({ title, showBack = true, onBack, rightContent, leftContent, tra
       <div className="header-left">
         {leftContent ? leftContent : (
           showBack && (
-            <button 
-              className="back-btn" 
+            <button
+              className="back-btn"
               onClick={() => onBack ? onBack() : navigate(-1)}
             >
               <span className="material-symbols-outlined">chevron_left</span>
@@ -50,13 +50,14 @@ const Header = ({ title, showBack = true, onBack, rightContent, leftContent, tra
       </div>
       <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         {/* Heart Balance & Store Link */}
-        <div 
-          className="store-btn-container" 
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            padding: '4px 8px', 
-            cursor: 'pointer', 
+        <div
+          className="store-btn-container"
+          style={{
+            // display: 'flex', 
+            display: 'none',
+            alignItems: 'center',
+            padding: '4px 8px',
+            cursor: 'pointer',
             transition: 'all 0.2s ease'
           }}
           onClick={() => navigate('/store')}
