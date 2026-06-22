@@ -29,6 +29,11 @@ import InfinityKoiGame from './pages/InfinityKoiGame';
 import ProfilePage from './pages/ProfilePage';
 import QuestPage from './pages/QuestPage';
 
+import StoreLayout from './pages/store/StoreLayout';
+import PartnerStorePage from './pages/store/PartnerStorePage';
+import MyStorePage from './pages/store/MyStorePage';
+import ManageOrdersPage from './pages/store/ManageOrdersPage';
+import MyOrdersPage from './pages/store/MyOrdersPage';
 // Protected route wrapper
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -154,6 +159,14 @@ const AppRoutes = () => {
         />
         <Route path="/shared-diary" element={<ProtectedRoute><SharedDiaryPage /></ProtectedRoute>} />
         <Route path="/quests" element={<ProtectedRoute><QuestPage /></ProtectedRoute>} />
+        
+        <Route path="/store" element={<ProtectedRoute><StoreLayout /></ProtectedRoute>}>
+          <Route index element={<Navigate to="partner" replace />} />
+          <Route path="partner" element={<PartnerStorePage />} />
+          <Route path="mine" element={<MyStorePage />} />
+          <Route path="orders" element={<ManageOrdersPage />} />
+          <Route path="cart" element={<MyOrdersPage />} />
+        </Route>
 
         <Route
           path="/map"
@@ -386,7 +399,33 @@ const Preloader = ({ children }) => {
   return children;
 };
 
+import PullToRefresh from 'pulltorefreshjs';
+
 function App() {
+  useEffect(() => {
+    // Chỉ kích hoạt trên các thiết bị cảm ứng / màn hình nhỏ để tránh ảnh hưởng desktop
+    if (window.innerWidth <= 768) {
+      PullToRefresh.init({
+        mainElement: 'body',
+        distThreshold: 90, // Yêu cầu kéo sâu hơn (mặc định 60)
+        distMax: 120,      // Kéo tối đa
+        distReload: 70,
+        iconArrow: '<span class="material-symbols-outlined" style="font-size: 28px; color: #f26989; transition: transform 0.3s;" id="ptr-arrow">arrow_downward</span>',
+        iconRefreshing: '<div class="ptr-spinner"></div>',
+        instructionsPullToRefresh: '',
+        instructionsReleaseToRefresh: '',
+        instructionsRefreshing: '',
+        onRefresh() {
+          window.location.reload();
+        }
+      });
+    }
+
+    return () => {
+      PullToRefresh.destroyAll();
+    };
+  }, []);
+
   return (
     <BrowserRouter>
       <AuthProvider>
