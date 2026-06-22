@@ -28,6 +28,7 @@ import GoldenCaveGame from './pages/GoldenCaveGame';
 import InfinityKoiGame from './pages/InfinityKoiGame';
 import ProfilePage from './pages/ProfilePage';
 import QuestPage from './pages/QuestPage';
+import PushNotificationSetup from './components/PushNotificationSetup';
 
 // Protected route wrapper
 const ProtectedRoute = ({ children }) => {
@@ -102,6 +103,7 @@ const AppRoutes = () => {
     <div className="app-container">
       <ScrollToTop />
       <Toast />
+      <PushNotificationSetup />
       <Routes>
         <Route path="/" element={<Navigate to="/home" replace />} />
         <Route
