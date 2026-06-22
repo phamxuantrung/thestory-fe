@@ -7,9 +7,6 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      strategies: 'injectManifest',
-      srcDir: 'src',
-      filename: 'sw.js',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
         name: 'TheStory',
@@ -32,13 +29,9 @@ export default defineConfig({
           }
         ]
       },
-      injectManifest: {
-        maximumFileSizeToCacheInBytes: 30 * 1024 * 1024,
-      },
-      devOptions: {
-        enabled: true,
-        type: 'module',
-      },
+      workbox: {
+        maximumFileSizeToCacheInBytes: 30 * 1024 * 1024
+      }
     })
   ],
   server: {
@@ -55,4 +48,3 @@ export default defineConfig({
     },
   },
 })
-
