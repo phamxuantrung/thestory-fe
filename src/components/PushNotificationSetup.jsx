@@ -14,8 +14,6 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
-const PUSH_SETUP_KEY = 'push-setup-done';
-
 const PushNotificationSetup = () => {
   const { user } = useAuth();
 
@@ -25,41 +23,44 @@ const PushNotificationSetup = () => {
     // Kiểm tra trình duyệt có hỗ trợ không
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
-    // Nếu đã setup rồi và quyền vẫn còn — bỏ qua
-    if (localStorage.getItem(PUSH_SETUP_KEY) === 'true' && Notification.permission === 'granted') return;
+    // Quyền đã bị từ chối — bỏ qua
+    if (Notification.permission === 'denied') return;
 
-    // Đợi một chút cho app load xong mới hỏi
     const timer = setTimeout(async () => {
       try {
-        // Xin quyền gửi thông báo
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') return;
+        // Đợi SW ready
+        const registration = await navigator.serviceWorker.ready;
 
         // Lấy VAPID public key từ server
         const { data } = await api.get('/push/vapid-public-key');
         const publicKey = data?.data?.publicKey;
         if (!publicKey) return;
 
-        // Đăng ký Service Worker và lấy Push Subscription
-        const registration = await navigator.serviceWorker.ready;
-        const subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(publicKey),
-        });
+        // Kiểm tra subscription hiện tại
+        let subscription = await registration.pushManager.getSubscription();
 
-        // Gửi subscription lên backend
+        if (!subscription) {
+          // Chưa có hoặc đã hết hạn — xin quyền và đăng ký mới
+          const permission = await Notification.requestPermission();
+          if (permission !== 'granted') return;
+
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(publicKey),
+          });
+        }
+
+        // Gửi subscription lên backend (backend tự dedup)
         await api.post('/push/subscribe', { subscription });
-        localStorage.setItem(PUSH_SETUP_KEY, 'true');
         console.log('✅ Push notification đã được đăng ký');
       } catch (err) {
         console.warn('Push setup error:', err);
       }
-    }, 3000); // Chờ 3 giây sau khi đăng nhập
+    }, 2000);
 
     return () => clearTimeout(timer);
   }, [user]);
 
-  // Không render gì cả — component chạy ngầm
   return null;
 };
 
