@@ -84,7 +84,7 @@
 
 /* === Buttons === */
 .store-page-container .buy-btn,
-.add-product-btn {
+.store-page-container .add-product-btn {
   background: var(--gradient-btn);
   color: white;
   border: none;
