@@ -69,7 +69,13 @@ const LoveTreePage = () => {
   const now = new Date(currentTime);
   const isSameDay = (dateStr) => {
     if (!dateStr) return false;
-    return new Date(dateStr).toDateString() === now.toDateString();
+    const localDate = new Date(dateStr);
+
+    return (
+      localDate.getDate() === now.getDate() &&
+      localDate.getMonth() === now.getMonth() &&
+      localDate.getFullYear() === now.getFullYear()
+    );
   };
 
   useEffect(() => {
@@ -86,10 +92,10 @@ const LoveTreePage = () => {
             const usedIndexes = added.map(w => w.posIndex);
             let freeIndex = [0, 1, 2].find(idx => !usedIndexes.includes(idx));
             if (freeIndex === undefined) freeIndex = added.length % 3;
-            added.push({ 
-              id: Date.now() + Math.random(), 
-              posIndex: freeIndex, 
-              imgIndex: Math.floor(Math.random() * 5) 
+            added.push({
+              id: Date.now() + Math.random(),
+              posIndex: freeIndex,
+              imgIndex: Math.floor(Math.random() * 5)
             });
           }
           return added;
@@ -140,7 +146,7 @@ const LoveTreePage = () => {
 
   const handleSprayMove = (e) => {
     if (!isSpraying) return;
-    
+
     let clientX, clientY;
     if (e.touches && e.touches.length > 0) {
       clientX = e.touches[0].clientX;
@@ -151,13 +157,13 @@ const LoveTreePage = () => {
     }
 
     const dist = Math.hypot(clientX - lastPosRef.current.x, clientY - lastPosRef.current.y);
-    
+
     if (dist > 20) {
       lastPosRef.current = { x: clientX, y: clientY };
-      
+
       const newParticle = { id: Date.now() + Math.random(), x: clientX - 30, y: clientY - 30 };
       setSprayParticles(prev => [...prev.slice(-15), newParticle]);
-      
+
       setSprayProgress(prev => {
         const next = prev + 2;
         if (next >= 100 && prev < 100) {
@@ -176,7 +182,7 @@ const LoveTreePage = () => {
         setTree(res.data);
         setExpRequired(res.expRequired);
         showToast(res.message, 'success');
-        
+
         const id = Date.now();
         setExpFloaters(prev => [...prev, { id, diff: 5 }]);
         setTimeout(() => {
@@ -218,25 +224,25 @@ const LoveTreePage = () => {
       `${You} ơi, ${me} vừa vào thăm cây tình yêu nè. ${You} cũng vào chăm cây cùng ${me} nha! 💖`
     ];
     const msgText = msgTexts[Math.floor(Math.random() * msgTexts.length)];
-    
+
     try {
       // Gọi REST API để đảm bảo tin nhắn được lưu vào Database
       const res = await chatService.sendMessage(msgText);
-      
+
       if (res.success) {
         const socket = getSocket();
         if (socket) {
           // Bắn socket với _preloaded để server chỉ broadcast cho partner mà không lưu trùng
-          socket.emit('chat:send', { 
-            content: msgText, 
-            type: 'text', 
+          socket.emit('chat:send', {
+            content: msgText,
+            type: 'text',
             replyTo: null,
             _preloaded: res.data,
             _senderId: user?._id
           });
         }
       }
-      
+
       await new Promise(resolve => setTimeout(resolve, 800)); // Hiệu ứng chờ
       showToast('Đã gửi lời nhắc qua Chat trong app!', 'success');
       setShowRemindModal(false);
@@ -277,16 +283,16 @@ const LoveTreePage = () => {
       try {
         await navigator.clipboard.writeText(`${msgText}\n${link}`);
         showToast('Đã copy lời nhắn, bạn dán (paste) vào Messenger nhé!', 'success');
-      } catch (e) {}
-      
+      } catch (e) { }
+
       const fbUri = `fb-messenger://share/?link=${encodeURIComponent(link)}`;
       window.location.href = fbUri;
-      
+
       setTimeout(() => {
         window.open(`https://www.messenger.com/`, '_blank');
       }, 500);
     }
-    
+
     setShowRemindModal(false);
   };
 
@@ -297,7 +303,7 @@ const LoveTreePage = () => {
         setTree(res.data);
         setExpRequired(res.expRequired);
         showToast(res.message, 'success');
-        
+
         const id = Date.now();
         setExpFloaters(prev => [...prev, { id, diff: 5 }]);
         setTimeout(() => {
@@ -458,7 +464,7 @@ const LoveTreePage = () => {
       if (res.success) {
         setTree(res.data);
         setExpRequired(res.expRequired);
-        
+
         // Show floaters for exp
         const newFloater = { id: Date.now(), text: '+50 EXP' };
         setExpFloaters(prev => [...prev, newFloater]);
@@ -540,15 +546,16 @@ const LoveTreePage = () => {
     ui.user === user?._id || ui.user?._id === user?._id
   );
   const isDrought = tree?.activeWeather === 'drought';
-  const hasWateredToday = !isDrought && userInteraction?.lastWateredAt && new Date(userInteraction.lastWateredAt).toDateString() === now.toDateString();
+  const hasWateredToday = !isDrought && isSameDay(userInteraction?.lastWateredAt);
+  const hasSunlightToday = isSameDay(userInteraction?.lastSunlightAt);
+
   const hasDroughtWateredEnough = isDrought && (userInteraction?.droughtWaterings || 0) >= 3;
-  
+
   const lastWateredMs = userInteraction?.lastWateredAt ? new Date(userInteraction.lastWateredAt).getTime() : 0;
   const cooldownMs = 4 * 60 * 60 * 1000;
   const isDroughtCooldown = isDrought && (currentTime - lastWateredMs < cooldownMs);
 
   const isWaterButtonDone = hasWateredToday || hasDroughtWateredEnough || isDroughtCooldown;
-  const hasSunlightToday = userInteraction?.lastSunlightAt && new Date(userInteraction.lastSunlightAt).toDateString() === now.toDateString();
 
   const getStreakTier = (streak) => {
     if (streak >= 100) return 'legendary';
@@ -681,7 +688,7 @@ const LoveTreePage = () => {
                 <span>Tưới hạn hán: {userInteraction?.droughtWaterings || 0}/3 lần</span>
               </div>
             )}
-            
+
             {tree?.isPlanted !== false && tree?.activeWeather === 'storm' && (
               <div className="weather-hud" style={{ background: '#e1f5fe', border: '1px solid #81d4fa', color: '#0277bd', display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', borderRadius: '12px', marginTop: '10px', fontSize: '0.85rem', fontWeight: 'bold' }}>
                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>storm</span>
@@ -694,7 +701,7 @@ const LoveTreePage = () => {
         {/* Main Content Area */}
         {tree?.isPlanted === false ? (
           <div className="seed-bag-container" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <motion.div 
+            <motion.div
               className="seed-bag"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -712,230 +719,230 @@ const LoveTreePage = () => {
         ) : (
           <>
 
-        <AnimatePresence>
-          {tree?.isWithered && tree?.witherReason && (
-            <motion.div
-              className="wither-reason-box"
-              style={{
-                position: 'relative',
-                margin: '16px auto 0 auto',
-                zIndex: 50,
-                width: 'fit-content'
-              }}
-              initial={{ opacity: 0, scale: 0.9, y: -20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: -20 }}
-            >
-              <HeartCrack size={18} style={{ flexShrink: 0 }} />
-              <span>{tree.witherReason}</span>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            <AnimatePresence>
+              {tree?.isWithered && tree?.witherReason && (
+                <motion.div
+                  className="wither-reason-box"
+                  style={{
+                    position: 'relative',
+                    margin: '16px auto 0 auto',
+                    zIndex: 50,
+                    width: 'fit-content'
+                  }}
+                  initial={{ opacity: 0, scale: 0.9, y: -20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, y: -20 }}
+                >
+                  <HeartCrack size={18} style={{ flexShrink: 0 }} />
+                  <span>{tree.witherReason}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-        {/* Nút tác vụ bên phải */}
-        <div className="side-actions-right">
-          <button className="side-action-btn remind-action" onClick={() => setShowRemindModal(true)} title="Nhắc chăm cây">
-            <BellRing size={24} color="#fff" />
-          </button>
-          {/* Nút DevTools đã bị ẩn theo yêu cầu
+            {/* Nút tác vụ bên phải */}
+            <div className="side-actions-right">
+              <button className="side-action-btn remind-action" onClick={() => setShowRemindModal(true)} title="Nhắc chăm cây">
+                <BellRing size={24} color="#fff" />
+              </button>
+              {/* Nút DevTools đã bị ẩn theo yêu cầu
           {user?.code === 'ADMIN' && (
             <button className="side-action-btn dev-action" style={{ background: '#333' }} onClick={() => setShowDevMenu(true)} title="Dev Tools">
               <Bug size={24} color="#fff" />
             </button>
           )}
           */}
-          <button className="side-action-btn item-use-action" onClick={() => setShowItemMenu(true)} title="Dùng vật phẩm">
-            <Backpack size={24} color="#fff" />
-          </button>
-          <button className="side-action-btn shop-action" onClick={() => setShowShop(true)} title="Cửa hàng">
-            <ShoppingCart size={24} color="#fff" />
-          </button>
-          <button className="side-action-btn game-action" onClick={() => navigate('/games')} title="Trung tâm Trò chơi">
-            <Gamepad2 size={24} color="#fff" />
-          </button>
-        </div>
+              <button className="side-action-btn item-use-action" onClick={() => setShowItemMenu(true)} title="Dùng vật phẩm">
+                <Backpack size={24} color="#fff" />
+              </button>
+              <button className="side-action-btn shop-action" onClick={() => setShowShop(true)} title="Cửa hàng">
+                <ShoppingCart size={24} color="#fff" />
+              </button>
+              <button className="side-action-btn game-action" onClick={() => navigate('/games')} title="Trung tâm Trò chơi">
+                <Gamepad2 size={24} color="#fff" />
+              </button>
+            </div>
 
 
-        {/* Cây ở trung tâm */}
-        <div className="tree-center-container">
-          <AnimatePresence>
-            {isWatering && (
+            {/* Cây ở trung tâm */}
+            <div className="tree-center-container">
+              <AnimatePresence>
+                {isWatering && (
+                  <motion.div
+                    className="water-drops-animation"
+                    initial={{ opacity: 0, y: -50 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                  >
+                    <Droplets size={48} color="#4fc3f7" strokeWidth={1.5} />
+                  </motion.div>
+                )}
+
+                {isSunning && (
+                  <motion.div
+                    className="sun-rays-animation"
+                    initial={{ opacity: 0, scale: 0.5, rotate: -45 }}
+                    animate={{ opacity: 1, scale: 1.5, rotate: 0 }}
+                    exit={{ opacity: 0, scale: 0.5 }}
+                  >
+                    <Sun size={64} color="#ffb74d" strokeWidth={1.5} fill="#ffe082" />
+                  </motion.div>
+                )}
+
+                {levelUpAnimation && <LevelUpEffect />}
+              </AnimatePresence>
+
+              {/* Bỏ pest-bugs-container ở ngoài, di chuyển vào trong tree-image-wrapper để sát hình cây */}
+
               <motion.div
-                className="water-drops-animation"
-                initial={{ opacity: 0, y: -50 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
+                key={`${tree?.level}-${tree?.isWithered}`}
+                className="tree-image-wrapper"
+                onMouseDown={startPress}
+                onMouseUp={cancelPress}
+                onMouseLeave={cancelPress}
+                onTouchStart={startPress}
+                onTouchEnd={cancelPress}
+                style={{ zIndex: isSpraying ? 1001 : 1 }}
+                initial={{ scale: 0.8, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                transition={{ type: 'spring', bounce: 0.5, duration: 1 }}
               >
-                <Droplets size={48} color="#4fc3f7" strokeWidth={1.5} />
+                <img
+                  src={stage.img}
+                  alt={stage.name}
+                  draggable="false"
+                  className={`tree-img level-${tree?.level} ${tree?.isWithered ? 'withered' : ''} ${(tree?.activeWeather === 'storm' && !tree?.hasTreeProp) ? 'leaning' : ''} ${isMaxLevelAndExp ? 'harvestable' : ''}`}
+                  style={{ width: stage.size, height: stage.size, cursor: isMaxLevelAndExp ? 'pointer' : 'default' }}
+                  onClick={isMaxLevelAndExp ? handleHarvestStone : undefined}
+                />
+
+                {/* Cọc chống cây visual */}
+                {tree?.hasTreeProp && (
+                  <div className="tree-prop-visual" style={{
+                    position: 'absolute', bottom: '10%', right: '35%',
+                    width: '12px', height: '60%', background: '#8d6e63',
+                    borderLeft: '2px solid #5d4037', borderRight: '2px solid #3e2723',
+                    borderRadius: '4px', transform: 'rotate(15deg)', zIndex: 0
+                  }}></div>
+                )}
+
+                {/* Sâu bọ hiển thị trên thân cây */}
+                {tree?.hasPest && (
+                  <div className="pest-bugs-container" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10 }}>
+                    <div className="pest-bug" style={{ position: 'absolute', top: '25%', left: '45%', fontSize: '36px', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.4))', animation: 'bugMove1 2s infinite alternate' }}>🐛</div>
+                    <div className="pest-bug" style={{ position: 'absolute', top: '40%', left: '55%', fontSize: '28px', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.4))', animation: 'bugMove2 3s infinite alternate', transform: 'scaleX(-1)' }}>🐛</div>
+                    <div className="pest-bug" style={{ position: 'absolute', top: '55%', left: '40%', fontSize: '32px', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.4))', animation: 'bugMove3 2.5s infinite alternate' }}>🐛</div>
+                  </div>
+                )}
+
+                {/* Cỏ dại hiển thị ở gốc cây */}
+                {activeWeeds.map((weed) => {
+                  const weedPositions = [
+                    { bottom: '-20px', left: '50%', marginLeft: '-50px' }, // Ở giữa
+                    { bottom: '30px', left: '-40px', marginLeft: '0px' },  // Bên trái
+                    { bottom: '50px', left: '100%', marginLeft: '-60px' },  // Bên phải
+                  ];
+                  const pos = weedPositions[weed.posIndex % weedPositions.length];
+                  return (
+                    <motion.div
+                      key={weed.id}
+                      className="weed-sprite-container"
+                      drag
+                      dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+                      dragElastic={0.8}
+                      onDragEnd={(e, info) => {
+                        const dist = Math.hypot(info.offset.x, info.offset.y);
+                        if (dist > 150) {
+                          setActiveWeeds(prev => prev.filter(w => w.id !== weed.id));
+                          finishPulling();
+                        }
+                      }}
+                      whileDrag={{ scale: 1.2, zIndex: 999 }}
+                      style={{
+                        position: 'absolute', bottom: pos.bottom, left: pos.left, marginLeft: pos.marginLeft,
+                        zIndex: 100, cursor: 'grab',
+                        filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.8)) drop-shadow(0 4px 6px rgba(0,0,0,0.5))'
+                      }}
+                    >
+                      <img
+                        src={weedImages[weed.imgIndex % weedImages.length]}
+                        alt="Cỏ dại"
+                        style={{
+                          width: '100px', height: '100px', objectFit: 'contain',
+                          transformOrigin: 'bottom center'
+                        }}
+                        draggable="false"
+                      />
+                    </motion.div>
+                  );
+                })}
+
+                <AnimatePresence>
+                  {expFloaters.map(f => (
+                    <motion.div
+                      key={f.id}
+                      className={`exp-floater ${f.diff > 0 ? 'positive' : 'negative'}`}
+                      initial={{ opacity: 0, y: 0, scale: 0.1, x: '-50%' }}
+                      animate={{
+                        opacity: [0, 1, 1, 0],
+                        y: [0, -60, -90, -110],
+                        scale: [0.1, 1.4, 1, 1],
+                        x: '-50%'
+                      }}
+                      transition={{
+                        duration: 1.8,
+                        times: [0, 0.2, 0.7, 1],
+                        ease: "easeOut"
+                      }}
+                    >
+                      {f.diff > 0 ? `+${f.diff}` : f.diff} EXP
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
               </motion.div>
-            )}
 
-            {isSunning && (
-              <motion.div
-                className="sun-rays-animation"
-                initial={{ opacity: 0, scale: 0.5, rotate: -45 }}
-                animate={{ opacity: 1, scale: 1.5, rotate: 0 }}
-                exit={{ opacity: 0, scale: 0.5 }}
-              >
-                <Sun size={64} color="#ffb74d" strokeWidth={1.5} fill="#ffe082" />
-              </motion.div>
-            )}
+            </div>
 
-            {levelUpAnimation && <LevelUpEffect />}
-          </AnimatePresence>
-
-          {/* Bỏ pest-bugs-container ở ngoài, di chuyển vào trong tree-image-wrapper để sát hình cây */}
-
-          <motion.div
-            key={`${tree?.level}-${tree?.isWithered}`}
-            className="tree-image-wrapper"
-            onMouseDown={startPress}
-            onMouseUp={cancelPress}
-            onMouseLeave={cancelPress}
-            onTouchStart={startPress}
-            onTouchEnd={cancelPress}
-            style={{ zIndex: isSpraying ? 1001 : 1 }}
-            initial={{ scale: 0.8, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            transition={{ type: 'spring', bounce: 0.5, duration: 1 }}
-          >
-            <img
-              src={stage.img}
-              alt={stage.name}
-              draggable="false"
-              className={`tree-img level-${tree?.level} ${tree?.isWithered ? 'withered' : ''} ${(tree?.activeWeather === 'storm' && !tree?.hasTreeProp) ? 'leaning' : ''} ${isMaxLevelAndExp ? 'harvestable' : ''}`}
-              style={{ width: stage.size, height: stage.size, cursor: isMaxLevelAndExp ? 'pointer' : 'default' }}
-              onClick={isMaxLevelAndExp ? handleHarvestStone : undefined}
-            />
-
-            {/* Cọc chống cây visual */}
-            {tree?.hasTreeProp && (
-              <div className="tree-prop-visual" style={{ 
-                position: 'absolute', bottom: '10%', right: '35%', 
-                width: '12px', height: '60%', background: '#8d6e63', 
-                borderLeft: '2px solid #5d4037', borderRight: '2px solid #3e2723',
-                borderRadius: '4px', transform: 'rotate(15deg)', zIndex: 0 
-              }}></div>
-            )}
-
-            {/* Sâu bọ hiển thị trên thân cây */}
-            {tree?.hasPest && (
-              <div className="pest-bugs-container" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10 }}>
-                <div className="pest-bug" style={{ position: 'absolute', top: '25%', left: '45%', fontSize: '36px', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.4))', animation: 'bugMove1 2s infinite alternate' }}>🐛</div>
-                <div className="pest-bug" style={{ position: 'absolute', top: '40%', left: '55%', fontSize: '28px', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.4))', animation: 'bugMove2 3s infinite alternate', transform: 'scaleX(-1)' }}>🐛</div>
-                <div className="pest-bug" style={{ position: 'absolute', top: '55%', left: '40%', fontSize: '32px', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.4))', animation: 'bugMove3 2.5s infinite alternate' }}>🐛</div>
-              </div>
-            )}
-
-            {/* Cỏ dại hiển thị ở gốc cây */}
-            {activeWeeds.map((weed) => {
-              const weedPositions = [
-                { bottom: '-20px', left: '50%', marginLeft: '-50px' }, // Ở giữa
-                { bottom: '30px', left: '-40px', marginLeft: '0px' },  // Bên trái
-                { bottom: '50px', left: '100%', marginLeft: '-60px' },  // Bên phải
-              ];
-              const pos = weedPositions[weed.posIndex % weedPositions.length];
-              return (
-                <motion.div 
-                  key={weed.id}
-                  className="weed-sprite-container" 
-                  drag
-                  dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-                  dragElastic={0.8}
-                  onDragEnd={(e, info) => {
-                    const dist = Math.hypot(info.offset.x, info.offset.y);
-                    if (dist > 150) {
-                      setActiveWeeds(prev => prev.filter(w => w.id !== weed.id));
-                      finishPulling();
+            <div className="tree-actions-wrapper" style={{ position: 'relative', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              {/* Nút hành động */}
+              <div className="tree-actions">
+                <motion.button
+                  className="action-btn water-btn"
+                  whileTap={(isWaterButtonDone || tree?.isStreakBroken) ? {} : { scale: 0.9 }}
+                  onClick={() => {
+                    if (tree?.isStreakBroken) {
+                      showToast('Chuỗi đã gãy! Không thể tương tác lúc này. Hãy khôi phục chuỗi.', 'error');
+                      return;
                     }
+                    handleInteract('water');
                   }}
-                  whileDrag={{ scale: 1.2, zIndex: 999 }}
-                  style={{ 
-                    position: 'absolute', bottom: pos.bottom, left: pos.left, marginLeft: pos.marginLeft,
-                    zIndex: 100, cursor: 'grab', 
-                    filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.8)) drop-shadow(0 4px 6px rgba(0,0,0,0.5))'
-                  }}
+                  disabled={isWatering || isSunning || isWaterButtonDone || tree?.isStreakBroken}
                 >
-                  <img 
-                    src={weedImages[weed.imgIndex % weedImages.length]} 
-                    alt="Cỏ dại"
-                    style={{ 
-                      width: '100px', height: '100px', objectFit: 'contain',
-                      transformOrigin: 'bottom center'
-                    }}
-                    draggable="false"
-                  />
-                </motion.div>
-              );
-            })}
+                  <div className={`btn-icon-circle water-circle ${(isWaterButtonDone || tree?.isStreakBroken) ? 'disabled' : ''}`}>
+                    <Droplets size={24} color="#fff" />
+                  </div>
+                  <span>{tree?.isStreakBroken ? 'Đã khóa' : isDroughtCooldown ? 'Đang hồi' : 'Tưới nước'}</span>
+                </motion.button>
 
-            <AnimatePresence>
-              {expFloaters.map(f => (
-                <motion.div
-                  key={f.id}
-                  className={`exp-floater ${f.diff > 0 ? 'positive' : 'negative'}`}
-                  initial={{ opacity: 0, y: 0, scale: 0.1, x: '-50%' }}
-                  animate={{
-                    opacity: [0, 1, 1, 0],
-                    y: [0, -60, -90, -110],
-                    scale: [0.1, 1.4, 1, 1],
-                    x: '-50%'
+                <motion.button
+                  className="action-btn sun-btn"
+                  whileTap={(hasSunlightToday || tree?.isStreakBroken) ? {} : { scale: 0.9 }}
+                  onClick={() => {
+                    if (tree?.isStreakBroken) {
+                      showToast('Chuỗi đã gãy! Không thể tương tác lúc này. Hãy khôi phục chuỗi.', 'error');
+                      return;
+                    }
+                    handleInteract('sunlight');
                   }}
-                  transition={{
-                    duration: 1.8,
-                    times: [0, 0.2, 0.7, 1],
-                    ease: "easeOut"
-                  }}
+                  disabled={isWatering || isSunning || hasSunlightToday || tree?.isStreakBroken}
                 >
-                  {f.diff > 0 ? `+${f.diff}` : f.diff} EXP
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </motion.div>
-
-        </div>
-
-        <div className="tree-actions-wrapper" style={{ position: 'relative', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          {/* Nút hành động */}
-          <div className="tree-actions">
-            <motion.button
-              className="action-btn water-btn"
-              whileTap={(isWaterButtonDone || tree?.isStreakBroken) ? {} : { scale: 0.9 }}
-              onClick={() => {
-                if (tree?.isStreakBroken) {
-                  showToast('Chuỗi đã gãy! Không thể tương tác lúc này. Hãy khôi phục chuỗi.', 'error');
-                  return;
-                }
-                handleInteract('water');
-              }}
-              disabled={isWatering || isSunning || isWaterButtonDone || tree?.isStreakBroken}
-            >
-              <div className={`btn-icon-circle water-circle ${(isWaterButtonDone || tree?.isStreakBroken) ? 'disabled' : ''}`}>
-                <Droplets size={24} color="#fff" />
+                  <div className={`btn-icon-circle sun-circle ${(hasSunlightToday || tree?.isStreakBroken) ? 'disabled' : ''}`}>
+                    <Sun size={24} color="#fff" />
+                  </div>
+                  <span>{tree?.isStreakBroken ? 'Đã khóa' : 'Phơi nắng'}</span>
+                </motion.button>
               </div>
-              <span>{tree?.isStreakBroken ? 'Đã khóa' : isDroughtCooldown ? 'Đang hồi' : 'Tưới nước'}</span>
-            </motion.button>
-
-            <motion.button
-              className="action-btn sun-btn"
-              whileTap={(hasSunlightToday || tree?.isStreakBroken) ? {} : { scale: 0.9 }}
-              onClick={() => {
-                if (tree?.isStreakBroken) {
-                  showToast('Chuỗi đã gãy! Không thể tương tác lúc này. Hãy khôi phục chuỗi.', 'error');
-                  return;
-                }
-                handleInteract('sunlight');
-              }}
-              disabled={isWatering || isSunning || hasSunlightToday || tree?.isStreakBroken}
-            >
-              <div className={`btn-icon-circle sun-circle ${(hasSunlightToday || tree?.isStreakBroken) ? 'disabled' : ''}`}>
-                <Sun size={24} color="#fff" />
-              </div>
-              <span>{tree?.isStreakBroken ? 'Đã khóa' : 'Phơi nắng'}</span>
-            </motion.button>
-          </div>
-        </div>
-        </>
+            </div>
+          </>
         )}
       </main>
 
@@ -957,14 +964,14 @@ const LoveTreePage = () => {
               exit={{ y: 50, opacity: 0, scale: 0.9 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <button 
+              <button
                 className="guide-close-btn"
                 onClick={() => setShowSeedModal(false)}
               >
                 <X size={20} />
               </button>
               <h2 style={{ color: '#d94c73', marginBottom: '16px', marginTop: '12px', fontSize: '1.5rem', fontWeight: 'bold' }}>Chọn Hạt Giống</h2>
-              
+
               <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', margin: '24px 0' }}>
                 <div style={{ border: '2px solid #4caf50', borderRadius: '16px', padding: '16px', background: '#f1f8e9', cursor: 'pointer', width: '140px', position: 'relative', overflow: 'hidden' }}>
                   <div style={{ position: 'absolute', top: 0, right: 0, background: '#4caf50', color: 'white', fontSize: '0.7rem', padding: '2px 6px', borderBottomLeftRadius: '8px', fontWeight: 'bold' }}>Đã chọn</div>
@@ -978,7 +985,7 @@ const LoveTreePage = () => {
                 Khi gieo hạt, hành trình chăm sóc cây sẽ chính thức bắt đầu. Hãy nhớ tưới nước và phơi nắng mỗi ngày nhé!
               </p>
 
-              <button 
+              <button
                 onClick={handlePlantTree}
                 style={{ width: '100%', background: 'linear-gradient(135deg, #4caf50, #2e7d32)', color: 'white', border: 'none', padding: '14px', borderRadius: '16px', fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 12px rgba(76, 175, 80, 0.4)' }}
               >
@@ -1220,10 +1227,10 @@ const LoveTreePage = () => {
                     <h4>Thuốc Trừ Sâu (x{tree?.pesticides || 0})</h4>
                     <p>Dùng để diệt sâu bọ.</p>
                   </div>
-                  <button 
-                    className="buy-btn" 
+                  <button
+                    className="buy-btn"
                     style={{ background: ((tree?.pesticides || 0) > 0 && tree?.hasPest) ? 'linear-gradient(135deg, #a78bfa, #8b5cf6)' : '#ccc' }}
-                    onClick={startSprayingMinigame} 
+                    onClick={startSprayingMinigame}
                     disabled={(tree?.pesticides || 0) <= 0 || !tree?.hasPest}
                   >
                     Dùng
@@ -1236,10 +1243,10 @@ const LoveTreePage = () => {
                     <h4>Phân Bón (x{tree?.fertilizers || 0})</h4>
                     <p>Dùng để hồi sinh cây héo.</p>
                   </div>
-                  <button 
-                    className="buy-btn" 
+                  <button
+                    className="buy-btn"
                     style={{ background: ((tree?.fertilizers || 0) > 0 && tree?.isWithered) ? 'linear-gradient(135deg, #a1887f, #8d6e63)' : '#ccc' }}
-                    onClick={handleRevive} 
+                    onClick={handleRevive}
                     disabled={(tree?.fertilizers || 0) <= 0 || !tree?.isWithered}
                   >
                     Dùng
@@ -1252,10 +1259,10 @@ const LoveTreePage = () => {
                     <h4>Khiên Bảo Vệ (x{tree?.shields || 0})</h4>
                     <p>Khôi phục chuỗi khi bị gãy.</p>
                   </div>
-                  <button 
-                    className="buy-btn" 
+                  <button
+                    className="buy-btn"
                     style={{ background: ((tree?.shields || 0) > 0 && tree?.isStreakBroken) ? 'linear-gradient(135deg, #93c5fd, #3b82f6)' : '#ccc' }}
-                    onClick={handleRestoreStreak} 
+                    onClick={handleRestoreStreak}
                     disabled={(tree?.shields || 0) <= 0 || !tree?.isStreakBroken}
                   >
                     Dùng
@@ -1268,10 +1275,10 @@ const LoveTreePage = () => {
                     <h4>Thuốc Siêu Tăng Trưởng (x{tree?.growthPotions || 0})</h4>
                     <p>Nhận ngay 50 EXP.</p>
                   </div>
-                  <button 
-                    className="buy-btn" 
+                  <button
+                    className="buy-btn"
                     style={{ background: ((tree?.growthPotions || 0) > 0 && !tree?.isWithered) ? 'linear-gradient(135deg, #34d399, #10b981)' : '#ccc' }}
-                    onClick={handleUsePotion} 
+                    onClick={handleUsePotion}
                     disabled={(tree?.growthPotions || 0) <= 0 || tree?.isWithered}
                   >
                     Dùng
@@ -1284,10 +1291,10 @@ const LoveTreePage = () => {
                     <h4>Cọc Chống Cây (x{tree?.treeProps || 0})</h4>
                     <p>Giữ cây an toàn trong bão lốc.</p>
                   </div>
-                  <button 
-                    className="buy-btn" 
+                  <button
+                    className="buy-btn"
                     style={{ background: ((tree?.treeProps || 0) > 0 && tree?.activeWeather === 'storm' && !tree?.hasTreeProp) ? 'linear-gradient(135deg, #fbbf24, #f59e0b)' : '#ccc' }}
-                    onClick={handleUseProp} 
+                    onClick={handleUseProp}
                     disabled={(tree?.treeProps || 0) <= 0 || tree?.activeWeather !== 'storm' || tree?.hasTreeProp}
                   >
                     Dùng
@@ -1302,14 +1309,14 @@ const LoveTreePage = () => {
       {/* Dev Menu Modal */}
       <AnimatePresence>
         {showDevMenu && (
-          <motion.div 
+          <motion.div
             className="modal-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setShowDevMenu(false)}
           >
-            <motion.div 
+            <motion.div
               className="modal-content"
               initial={{ scale: 0.8, y: 50 }}
               animate={{ scale: 1, y: 0 }}
@@ -1337,7 +1344,7 @@ const LoveTreePage = () => {
                 <button className="action-btn" style={{ background: '#8b5cf6', color: '#fff', padding: '10px', borderRadius: '8px', border: 'none', fontWeight: 'bold' }} onClick={() => handleDevCheat('add_shield')}>+1 Khiên</button>
                 <button className="action-btn" style={{ background: '#8d6e63', color: '#fff', padding: '10px', borderRadius: '8px', border: 'none', fontWeight: 'bold' }} onClick={() => handleDevCheat('add_fertilizer')}>+1 Phân Bón</button>
                 <button className="action-btn" style={{ background: '#10b981', color: '#fff', padding: '10px', borderRadius: '8px', border: 'none', fontWeight: 'bold', gridColumn: 'span 2' }} onClick={() => handleDevCheat('add_potion')}>+1 Thuốc Tăng Trưởng</button>
-                <button className="action-btn" style={{ background: '#111', color: '#ff4444', padding: '10px', borderRadius: '8px', border: '2px solid #ff4444', fontWeight: 'bold', gridColumn: 'span 2', marginTop: '10px' }} onClick={() => { if(window.confirm('Bạn có chắc chắn muốn xóa toàn bộ dữ liệu Cây (Về cấp 1, mất hết đồ)?')) handleDevCheat('reset_all') }}>Xóa Toàn Bộ Dữ Liệu</button>
+                <button className="action-btn" style={{ background: '#111', color: '#ff4444', padding: '10px', borderRadius: '8px', border: '2px solid #ff4444', fontWeight: 'bold', gridColumn: 'span 2', marginTop: '10px' }} onClick={() => { if (window.confirm('Bạn có chắc chắn muốn xóa toàn bộ dữ liệu Cây (Về cấp 1, mất hết đồ)?')) handleDevCheat('reset_all') }}>Xóa Toàn Bộ Dữ Liệu</button>
               </div>
             </motion.div>
           </motion.div>
@@ -1347,7 +1354,7 @@ const LoveTreePage = () => {
       {/* Spraying Overlay & Minigame */}
       <AnimatePresence>
         {isSpraying && (
-          <motion.div 
+          <motion.div
             className="spraying-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -1361,7 +1368,7 @@ const LoveTreePage = () => {
             <div className="spray-instruction">Vuốt liên tục để diệt sâu!</div>
 
             {sprayParticles.map(p => (
-              <motion.div 
+              <motion.div
                 key={p.id}
                 className="spray-cloud"
                 initial={{ opacity: 0.8, scale: 0.5, x: p.x, y: p.y }}
@@ -1386,14 +1393,14 @@ const LoveTreePage = () => {
       {/* Remind Modal */}
       <AnimatePresence>
         {showRemindModal && (
-          <motion.div 
+          <motion.div
             className="guide-modal-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setShowRemindModal(false)}
           >
-            <motion.div 
+            <motion.div
               className="guide-modal-content remind-modal-content"
               initial={{ y: 50, opacity: 0, scale: 0.9 }}
               animate={{ y: 0, opacity: 1, scale: 1 }}
@@ -1419,8 +1426,8 @@ const LoveTreePage = () => {
                 <p className="remind-desc" style={{ textAlign: 'center' }}>
                   Cây tình yêu đang cần chăm sóc! Hãy gửi ngay một lời nhắc nhở đáng yêu để cùng nhau vun đắp nhé.
                 </p>
-                <button 
-                  className="remind-btn btn-app" 
+                <button
+                  className="remind-btn btn-app"
                   onClick={handleRemindInApp}
                   disabled={isRemindingInApp}
                   style={{ opacity: isRemindingInApp ? 0.7 : 1, cursor: isRemindingInApp ? 'not-allowed' : 'pointer' }}
@@ -1434,8 +1441,8 @@ const LoveTreePage = () => {
                   )}
                   {isRemindingInApp ? 'Đang gửi...' : 'Gửi qua Chat trong App'}
                 </button>
-                <button 
-                  className="remind-btn btn-fb" 
+                <button
+                  className="remind-btn btn-fb"
                   onClick={handleRemindFacebook}
                   disabled={isRemindingInApp}
                 >
@@ -1489,11 +1496,11 @@ const LoveTreePage = () => {
               animate={{ scale: 1, y: 0, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
               transition={{ type: 'spring', bounce: 0.5, duration: 0.8 }}
-              style={{ 
-                textAlign: 'center', 
-                background: 'rgba(255, 255, 255, 0.95)', 
+              style={{
+                textAlign: 'center',
+                background: 'rgba(255, 255, 255, 0.95)',
                 backdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255, 255, 255, 0.5)', 
+                border: '1px solid rgba(255, 255, 255, 0.5)',
                 maxWidth: '380px',
                 borderRadius: '32px',
                 padding: '40px 30px',
@@ -1506,7 +1513,7 @@ const LoveTreePage = () => {
                   transition={{ repeat: Infinity, duration: 2 }}
                   style={{ position: 'absolute', inset: '-20px', background: 'radial-gradient(circle, rgba(244,114,182,0.6) 0%, rgba(244,114,182,0) 70%)', borderRadius: '50%', zIndex: 0 }}
                 />
-                <motion.div 
+                <motion.div
                   animate={{ y: [0, -15, 0], rotate: [0, 5, -5, 0] }}
                   transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
                   style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}
@@ -1514,13 +1521,13 @@ const LoveTreePage = () => {
                   <img src="/tree/love-stone.png" alt="Love Stone" style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 12px 24px rgba(219, 39, 119, 0.5))' }} />
                 </motion.div>
               </div>
-              
-              <h2 style={{ 
+
+              <h2 style={{
                 background: 'linear-gradient(135deg, #e11d48, #db2777, #9d174d)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
-                fontSize: '2.2rem', 
-                marginBottom: '12px', 
+                fontSize: '2.2rem',
+                marginBottom: '12px',
                 fontWeight: '900',
                 letterSpacing: '-0.5px'
               }}>
