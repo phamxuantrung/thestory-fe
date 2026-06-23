@@ -69,13 +69,8 @@ const LoveTreePage = () => {
   const now = new Date(currentTime);
   const isSameDay = (dateStr) => {
     if (!dateStr) return false;
-    const localDate = new Date(dateStr);
-
-    return (
-      localDate.getDate() === now.getDate() &&
-      localDate.getMonth() === now.getMonth() &&
-      localDate.getFullYear() === now.getFullYear()
-    );
+    const toVNString = (d) => new Date(d).toLocaleDateString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' });
+    return toVNString(dateStr) === toVNString(currentTime);
   };
 
   useEffect(() => {
@@ -430,7 +425,11 @@ const LoveTreePage = () => {
     }
   };
 
+  const [isProcessingProp, setIsProcessingProp] = useState(false);
   const handleUseProp = async () => {
+    if (isProcessingProp) return;
+    setIsProcessingProp(true);
+
     try {
       const res = await treeService.useProp();
       if (res.success) {
@@ -441,6 +440,8 @@ const LoveTreePage = () => {
       }
     } catch (e) {
       showToast(e.response?.data?.message || 'Có lỗi xảy ra', 'error');
+    } finally {
+      setIsProcessingProp(false); // Xử lý xong thì nhả ra
     }
   };
 
@@ -553,7 +554,7 @@ const LoveTreePage = () => {
 
   const lastWateredMs = userInteraction?.lastWateredAt ? new Date(userInteraction.lastWateredAt).getTime() : 0;
   const cooldownMs = 4 * 60 * 60 * 1000;
-  const isDroughtCooldown = isDrought && (currentTime - lastWateredMs < cooldownMs);
+  const isDroughtCooldown = isDrought && isSameDay(userInteraction?.lastWateredAt) && (currentTime - lastWateredMs < cooldownMs);
 
   const isWaterButtonDone = hasWateredToday || hasDroughtWateredEnough || isDroughtCooldown;
 
@@ -744,13 +745,12 @@ const LoveTreePage = () => {
               <button className="side-action-btn remind-action" onClick={() => setShowRemindModal(true)} title="Nhắc chăm cây">
                 <BellRing size={24} color="#fff" />
               </button>
-              {/* Nút DevTools đã bị ẩn theo yêu cầu
-          {user?.code === 'ADMIN' && (
-            <button className="side-action-btn dev-action" style={{ background: '#333' }} onClick={() => setShowDevMenu(true)} title="Dev Tools">
-              <Bug size={24} color="#fff" />
-            </button>
-          )}
-          */}
+
+
+              <button className="side-action-btn dev-action" style={{ background: '#333', display: "none" }} onClick={() => setShowDevMenu(true)} title="Dev Tools">
+                <Bug size={24} color="#fff" />
+              </button>
+
               <button className="side-action-btn item-use-action" onClick={() => setShowItemMenu(true)} title="Dùng vật phẩm">
                 <Backpack size={24} color="#fff" />
               </button>
@@ -1293,11 +1293,12 @@ const LoveTreePage = () => {
                   </div>
                   <button
                     className="buy-btn"
-                    style={{ background: ((tree?.treeProps || 0) > 0 && tree?.activeWeather === 'storm' && !tree?.hasTreeProp) ? 'linear-gradient(135deg, #fbbf24, #f59e0b)' : '#ccc' }}
+                    style={{ background: ((tree?.treeProps || 0) > 0 && tree?.activeWeather === 'storm' && !tree?.hasTreeProp && !isProcessingProp) ? 'linear-gradient(135deg, #fbbf24, #f59e0b)' : '#ccc' }}
                     onClick={handleUseProp}
-                    disabled={(tree?.treeProps || 0) <= 0 || tree?.activeWeather !== 'storm' || tree?.hasTreeProp}
+                    // CHẶN SPAM: Thêm biến isProcessingProp vào đây
+                    disabled={(tree?.treeProps || 0) <= 0 || tree?.activeWeather !== 'storm' || tree?.hasTreeProp || isProcessingProp}
                   >
-                    Dùng
+                    {isProcessingProp ? 'Đang dùng...' : 'Dùng'}
                   </button>
                 </div>
               </div>
