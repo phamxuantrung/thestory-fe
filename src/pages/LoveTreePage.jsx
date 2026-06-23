@@ -59,7 +59,14 @@ const LoveTreePage = () => {
 
 
 
-  const now = new Date();
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(Date.now()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const now = new Date(currentTime);
   const isSameDay = (dateStr) => {
     if (!dateStr) return false;
     return new Date(dateStr).toDateString() === now.toDateString();
@@ -533,10 +540,15 @@ const LoveTreePage = () => {
     ui.user === user?._id || ui.user?._id === user?._id
   );
   const isDrought = tree?.activeWeather === 'drought';
-  const hasWateredToday = !isDrought && userInteraction?.lastWateredAt && new Date(userInteraction.lastWateredAt).toDateString() === new Date().toDateString();
+  const hasWateredToday = !isDrought && userInteraction?.lastWateredAt && new Date(userInteraction.lastWateredAt).toDateString() === now.toDateString();
   const hasDroughtWateredEnough = isDrought && (userInteraction?.droughtWaterings || 0) >= 3;
-  const isWaterButtonDone = hasWateredToday || hasDroughtWateredEnough;
-  const hasSunlightToday = userInteraction?.lastSunlightAt && new Date(userInteraction.lastSunlightAt).toDateString() === new Date().toDateString();
+  
+  const lastWateredMs = userInteraction?.lastWateredAt ? new Date(userInteraction.lastWateredAt).getTime() : 0;
+  const cooldownMs = 4 * 60 * 60 * 1000;
+  const isDroughtCooldown = isDrought && (currentTime - lastWateredMs < cooldownMs);
+
+  const isWaterButtonDone = hasWateredToday || hasDroughtWateredEnough || isDroughtCooldown;
+  const hasSunlightToday = userInteraction?.lastSunlightAt && new Date(userInteraction.lastSunlightAt).toDateString() === now.toDateString();
 
   const getStreakTier = (streak) => {
     if (streak >= 100) return 'legendary';
@@ -901,7 +913,7 @@ const LoveTreePage = () => {
               <div className={`btn-icon-circle water-circle ${(isWaterButtonDone || tree?.isStreakBroken) ? 'disabled' : ''}`}>
                 <Droplets size={24} color="#fff" />
               </div>
-              <span>{tree?.isStreakBroken ? 'Đã khóa' : 'Tưới nước'}</span>
+              <span>{tree?.isStreakBroken ? 'Đã khóa' : isDroughtCooldown ? 'Đang hồi' : 'Tưới nước'}</span>
             </motion.button>
 
             <motion.button
