@@ -415,6 +415,13 @@ function App() {
         instructionsPullToRefresh: '',
         instructionsReleaseToRefresh: '',
         instructionsRefreshing: '',
+        shouldPullToRefresh() {
+          // Không kích hoạt trên trang chat để dễ vuốt xem tin nhắn cũ
+          if (window.location.pathname.startsWith('/chat')) {
+            return false;
+          }
+          return !window.scrollY;
+        },
         onRefresh() {
           window.location.reload();
         }

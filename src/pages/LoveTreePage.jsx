@@ -532,7 +532,10 @@ const LoveTreePage = () => {
   const userInteraction = tree?.userInteractions?.find(ui =>
     ui.user === user?._id || ui.user?._id === user?._id
   );
-  const hasWateredToday = userInteraction?.lastWateredAt && new Date(userInteraction.lastWateredAt).toDateString() === new Date().toDateString();
+  const isDrought = tree?.activeWeather === 'drought';
+  const hasWateredToday = !isDrought && userInteraction?.lastWateredAt && new Date(userInteraction.lastWateredAt).toDateString() === new Date().toDateString();
+  const hasDroughtWateredEnough = isDrought && (userInteraction?.droughtWaterings || 0) >= 3;
+  const isWaterButtonDone = hasWateredToday || hasDroughtWateredEnough;
   const hasSunlightToday = userInteraction?.lastSunlightAt && new Date(userInteraction.lastSunlightAt).toDateString() === new Date().toDateString();
 
   const getStreakTier = (streak) => {
@@ -663,7 +666,7 @@ const LoveTreePage = () => {
             {tree?.isPlanted !== false && tree?.activeWeather === 'drought' && (
               <div className="weather-hud" style={{ background: '#fff3e0', border: '1px solid #ffb74d', color: '#e65100', display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', borderRadius: '12px', marginTop: '10px', fontSize: '0.85rem', fontWeight: 'bold' }}>
                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>local_fire_department</span>
-                <span>Tưới hạn hán: {tree?.droughtWaterings || 0}/3 lần</span>
+                <span>Tưới hạn hán: {userInteraction?.droughtWaterings || 0}/3 lần</span>
               </div>
             )}
             
@@ -885,7 +888,7 @@ const LoveTreePage = () => {
           <div className="tree-actions">
             <motion.button
               className="action-btn water-btn"
-              whileTap={(hasWateredToday || tree?.isStreakBroken) ? {} : { scale: 0.9 }}
+              whileTap={(isWaterButtonDone || tree?.isStreakBroken) ? {} : { scale: 0.9 }}
               onClick={() => {
                 if (tree?.isStreakBroken) {
                   showToast('Chuỗi đã gãy! Không thể tương tác lúc này. Hãy khôi phục chuỗi.', 'error');
@@ -893,9 +896,9 @@ const LoveTreePage = () => {
                 }
                 handleInteract('water');
               }}
-              disabled={isWatering || isSunning || hasWateredToday || tree?.isStreakBroken}
+              disabled={isWatering || isSunning || isWaterButtonDone || tree?.isStreakBroken}
             >
-              <div className={`btn-icon-circle water-circle ${(hasWateredToday || tree?.isStreakBroken) ? 'disabled' : ''}`}>
+              <div className={`btn-icon-circle water-circle ${(isWaterButtonDone || tree?.isStreakBroken) ? 'disabled' : ''}`}>
                 <Droplets size={24} color="#fff" />
               </div>
               <span>{tree?.isStreakBroken ? 'Đã khóa' : 'Tưới nước'}</span>
