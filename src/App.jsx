@@ -28,6 +28,8 @@ import GoldenCaveGame from './pages/GoldenCaveGame';
 import InfinityKoiGame from './pages/InfinityKoiGame';
 import ProfilePage from './pages/ProfilePage';
 import QuestPage from './pages/QuestPage';
+import HeartEarnPage from './pages/HeartEarnPage';
+
 
 import StoreLayout from './pages/store/StoreLayout';
 import PartnerStorePage from './pages/store/PartnerStorePage';
@@ -159,6 +161,8 @@ const AppRoutes = () => {
         />
         <Route path="/shared-diary" element={<ProtectedRoute><SharedDiaryPage /></ProtectedRoute>} />
         <Route path="/quests" element={<ProtectedRoute><QuestPage /></ProtectedRoute>} />
+        <Route path="/heart" element={<ProtectedRoute><HeartEarnPage /></ProtectedRoute>} />
+
         
         <Route path="/store" element={<ProtectedRoute><StoreLayout /></ProtectedRoute>}>
           <Route index element={<Navigate to="partner" replace />} />
@@ -416,8 +420,8 @@ function App() {
         instructionsReleaseToRefresh: '',
         instructionsRefreshing: '',
         shouldPullToRefresh() {
-          // Không kích hoạt trên trang chat để dễ vuốt xem tin nhắn cũ
-          if (window.location.pathname.startsWith('/chat')) {
+          // Chỉ kích hoạt pull-to-refresh trên trang chủ
+          if (!window.location.pathname.startsWith('/home')) {
             return false;
           }
           return !window.scrollY;

@@ -305,7 +305,7 @@ p {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 16px calc(4px + env(safe-area-inset-bottom, 8px));
+  padding: 24px 16px calc(4px + env(safe-area-inset-bottom, 8px));
   border-top-left-radius: 32px;
   border-top-right-radius: 32px;
 }

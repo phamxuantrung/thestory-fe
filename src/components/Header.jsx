@@ -3,30 +3,52 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import './Header.css';
 
+// Nút Market đẹp – chỉ dùng ở trang chủ
+const MarketButton = ({ onClick }) => (
+  <button className="market-pill-btn" onClick={onClick} aria-label="Mở gian hàng">
+    <span
+      className="material-symbols-outlined market-pill-icon"
+      style={{ fontVariationSettings: "'FILL' 1" }}
+    >
+      shopping_bag
+    </span>
+  </button>
+);
+
+// Icon tim + số hearts – dùng ở trang store
 const StoreHeartBadge = () => {
   const { user } = useAuth();
   if (!user) return null;
   return (
-    <>
-      <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#f26989' }}>favorite</span>
+    <div className="store-heart-badge">
+      <span
+        className="material-symbols-outlined"
+        style={{ fontSize: '18px', color: '#f26989', fontVariationSettings: "'FILL' 1" }}
+      >
+        favorite
+      </span>
       <span style={{ fontWeight: '800', color: '#1f2937' }}>{user.heart || 0}</span>
-    </>
+    </div>
   );
 };
 
-const Header = ({ title, showBack = true, onBack, rightContent, leftContent, transparent = false }) => {
+const Header = ({
+  title,
+  showBack = true,
+  onBack,
+  rightContent,
+  leftContent,
+  transparent = false,
+  showMarketBtn = false,   // chỉ truyền true ở trang chủ
+  showHeartCount = false,  // chỉ truyền true ở trang store
+}) => {
   const navigate = useNavigate();
   const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 10) {
-        setIsScrolled(true);
-      } else {
-        setIsScrolled(false);
-      }
+      setIsScrolled(window.scrollY > 10);
     };
-
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -45,29 +67,30 @@ const Header = ({ title, showBack = true, onBack, rightContent, leftContent, tra
           )
         )}
       </div>
+
       <div className="header-center">
         <h1 className="header-title">{title}</h1>
       </div>
-      <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        {/* Heart Balance & Store Link */}
-        <div
-          className="store-btn-container"
-          style={{
-            // display: 'flex', 
-            display: 'none',
-            alignItems: 'center',
-            padding: '4px 8px',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease'
-          }}
-          onClick={() => navigate('/store')}
-          onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.opacity = '0.8'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.opacity = '1'; }}
-        >
-          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+
+      <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {/* Nút market – chỉ trang chủ */}
+        {showMarketBtn && (
+          <MarketButton onClick={() => navigate('/store')} />
+        )}
+
+        {/* Số hearts – chỉ trang store */}
+        {showHeartCount && (
+          <div
+            className="store-btn-container"
+            style={{ display: 'flex', alignItems: 'center', padding: '4px 8px', cursor: 'pointer', transition: 'all 0.2s ease' }}
+            onClick={() => navigate('/store')}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+          >
             <StoreHeartBadge />
-          </span>
-        </div>
+          </div>
+        )}
+
         {rightContent}
       </div>
     </header>

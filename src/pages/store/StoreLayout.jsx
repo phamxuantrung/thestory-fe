@@ -8,7 +8,7 @@ const StoreLayout = () => {
 
   return (
     <div className="store-page-container">
-      <Header title="Gian Hàng Tình Yêu" showBack={true} onBack={() => navigate('/')} />
+      <Header title="Gian Hàng Tình Yêu" showBack={true} onBack={() => navigate('/')} showHeartCount={true} />
       
       <div className="store-content">
         <Outlet />

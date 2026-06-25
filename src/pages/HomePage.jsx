@@ -291,7 +291,7 @@ const HomePage = () => {
 
   return (
     <div className="home-page-v2">
-      <Header title="Trang chủ" showBack={true} />
+      <Header title="Trang chủ" showBack={false} showMarketBtn={true} />
 
       <motion.main
         className="home-main-content"
@@ -301,7 +301,7 @@ const HomePage = () => {
       >
         {/* Nhắc nhở bản thân đang dỗi */}
         {user?.isAngry && (
-          <motion.div 
+          <motion.div
             className="self-angry-reminder"
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -425,7 +425,28 @@ const HomePage = () => {
             </motion.section>
           </Link>
 
-          {/* Upcoming Events Widget */}
+          {/* Heart Earn Widget */}
+          <Link to="/heart" style={{ textDecoration: 'none' }}>
+            <motion.section variants={itemVariants} className="seamless-section widget-card" whileTap={{ scale: 0.98 }}
+              style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(135deg, rgba(249,168,201,0.18) 0%, rgba(255,255,255,0.85) 100%)', border: '1.5px solid rgba(249,168,201,0.35)' }}
+            >
+              {/* glow fill */}
+              <div style={{ position: 'absolute', top: 0, left: 0, height: '100%', width: '40%', background: 'linear-gradient(90deg, rgba(249,168,201,0.15), transparent)', borderRadius: 'inherit', pointerEvents: 'none' }} />
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div style={{ width: '42px', height: '42px', borderRadius: '14px', background: 'linear-gradient(135deg, #f9a8c9, #e84393)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(232,67,147,0.25)' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '22px', color: 'white', fontVariationSettings: "'FILL' 1" }}>favorite</span>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <h3 style={{ margin: '0 0 2px', fontSize: '0.95rem', fontWeight: 700, color: '#1a1a2e' }}>Kiếm Heart</h3>
+                  <p style={{ margin: 0, fontSize: '0.8rem', color: '#8c5a6b' }}>
+                    Điểm danh & nhiệm vụ tuần · <strong style={{ color: '#e84393' }}>{user?.heart ?? 0}</strong>
+                  </p>
+                </div>
+                <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#e87a90' }}>chevron_right</span>
+              </div>
+            </motion.section>
+          </Link>
+
           <motion.section variants={itemVariants} className="seamless-section widget-card events-widget">
             <div className="quote-header-v2" style={{ marginBottom: '12px' }}>
               <span className="material-symbols-outlined">event_upcoming</span>
