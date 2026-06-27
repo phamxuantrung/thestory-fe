@@ -143,12 +143,9 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
 }
 
-.telepathy-card.card-a {
-  background: #fce7f3;
-}
-
+.telepathy-card.card-a,
 .telepathy-card.card-b {
-  background: #ffffff;
+  background: #fce7f3;
 }
 
 .telepathy-card:hover {
@@ -178,12 +175,9 @@
   transition: all 0.3s ease;
 }
 
-.telepathy-card.card-a .card-letter {
-  color: #fbcfe8;
-}
-
+.telepathy-card.card-a .card-letter,
 .telepathy-card.card-b .card-letter {
-  color: #f1f5f9;
+  color: #fbcfe8;
 }
 
 .telepathy-card h3 {
@@ -197,12 +191,9 @@
   text-align: left;
 }
 
-.telepathy-card.card-a h3 {
-  color: #831843;
-}
-
+.telepathy-card.card-a h3,
 .telepathy-card.card-b h3 {
-  color: #64748b;
+  color: #831843;
 }
 
 .selected-icon {

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../hooks/useAuth';
 import api from '../../services/api';
+import ImageLoader from '../../components/ImageLoader';
 
 // ── Success modal ─────────────────────────────────────────────────
 const SuccessModal = ({ product, onClose }) => (
@@ -177,7 +178,7 @@ const PartnerStorePage = () => {
           >
             {/* Image & Overlay */}
             <div style={{ position: 'relative', width: '100%', aspectRatio: '4/5', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }}>
-              <img src={p.image} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <ImageLoader src={p.image} alt={p.name} style={{ width: '100%', height: '100%' }} />
               <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '60%', background: 'linear-gradient(to top, rgba(15,15,15,0.95) 0%, rgba(15,15,15,0.6) 50%, transparent 100%)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: '16px', pointerEvents: 'none' }}>
                 <h3 style={{ margin: '0 0 12px 0', fontSize: '1.1rem', color: '#fff', fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: 1.2 }}>
                   {p.name}
@@ -215,7 +216,7 @@ const PartnerStorePage = () => {
 
               {/* Product info */}
               <div style={{ display: 'flex', gap: '14px', marginBottom: '20px' }}>
-                <img src={selectedProduct.image} alt={selectedProduct.name} style={{ width: '76px', height: '76px', borderRadius: '14px', objectFit: 'cover', boxShadow: '0 4px 12px rgba(0,0,0,0.12)' }} />
+                <ImageLoader src={selectedProduct.image} alt={selectedProduct.name} style={{ width: '76px', height: '76px', borderRadius: '14px', boxShadow: '0 4px 12px rgba(0,0,0,0.12)', flexShrink: 0 }} />
                 <div style={{ flex: 1 }}>
                   <h3 style={{ margin: '0 0 6px', fontSize: '1.05rem', fontFamily: "'Playfair Display', serif", fontStyle: 'italic', color: '#1a1a2e' }}>{selectedProduct.name}</h3>
                   <p style={{ margin: 0, color: '#e84393', fontWeight: 800, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '4px' }}>

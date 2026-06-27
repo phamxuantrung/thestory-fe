@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
 import Cropper from 'react-easy-crop';
+import ImageLoader from '../../components/ImageLoader';
 
 // ── Image crop utils ──────────────────────────────────────────────
 const createImage = (url) =>
@@ -190,7 +191,7 @@ const AddEditProductModal = ({ isOpen, onClose, onSave, initialData }) => {
 
                   {previewUrl ? (
                     <div style={{ position: 'relative', width: '100%', aspectRatio: '4/5', borderRadius: '16px', overflow: 'hidden', marginBottom: '10px', boxShadow: '0 8px 20px rgba(0,0,0,0.12)' }}>
-                      <img src={previewUrl} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <ImageLoader src={previewUrl} alt="Preview" style={{ width: '100%', height: '100%' }} />
                       <button
                         type="button"
                         onClick={() => fileInputRef.current.click()}
@@ -401,7 +402,7 @@ const MyStorePage = () => {
             >
               {/* Image card with dark overlay */}
               <div style={{ position: 'relative', width: '100%', aspectRatio: '4/5', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }}>
-                <img src={p.image} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <ImageLoader src={p.image} alt={p.name} style={{ width: '100%', height: '100%' }} />
 
                 {/* Dark gradient overlay */}
                 <div style={{

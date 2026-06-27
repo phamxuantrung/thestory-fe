@@ -537,6 +537,10 @@ p {
   }
 }
 
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
 /* === Scrollbar === */
 ::-webkit-scrollbar {
   width: 4px;

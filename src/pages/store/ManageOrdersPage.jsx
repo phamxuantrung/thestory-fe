@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../hooks/useAuth';
 import api from '../../services/api';
+import ImageLoader from '../../components/ImageLoader';
 
 const STATUS_MAP = {
   pending:   { label: 'Đang chờ',      color: '#d97706', bg: 'rgba(251,191,36,0.12)',  icon: 'schedule'        },
@@ -180,7 +181,7 @@ const ManageOrdersPage = () => {
                   {/* Product Image */}
                   {o.product?.image && (
                     <div style={{ width: '68px', height: '68px', borderRadius: '14px', overflow: 'hidden', flexShrink: 0, boxShadow: '0 4px 12px rgba(0,0,0,0.12)' }}>
-                      <img src={o.product.image} alt={o.product?.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <ImageLoader src={o.product.image} alt={o.product?.name} style={{ width: '100%', height: '100%' }} />
                     </div>
                   )}
                   {/* Info */}
