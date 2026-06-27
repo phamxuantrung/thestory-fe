@@ -92,8 +92,11 @@ const AssistiveTouch = () => {
           dragConstraints={constraintsRef}
           dragElastic={0.1}
           dragMomentum={false}
-          onDragStart={resetIdleTimer}
-          onDrag={resetIdleTimer}
+          onDragStart={() => {
+            setIsIdle(false);
+            if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+          }}
+          onDragEnd={resetIdleTimer}
           whileTap={{ scale: 0.9 }}
           onClick={() => { resetIdleTimer(); setIsOpen(true); }}
           initial={{ opacity: 0.8 }}
