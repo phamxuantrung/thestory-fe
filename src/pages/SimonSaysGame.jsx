@@ -23,6 +23,9 @@ const SimonSaysGame = () => {
       audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
     }
     const ctx = audioCtxRef.current;
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
     // C4, E4, G4, C5
     const freqs = { green: 261.63, red: 329.63, yellow: 392.00, blue: 523.25 }; 
     const baseFreq = freqs[color];

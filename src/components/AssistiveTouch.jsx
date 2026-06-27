@@ -159,6 +159,11 @@ const AssistiveTouch = () => {
           setIsTelepathyModalOpen(false);
           checkDailyStatus();
         }} 
+        onReward={(hearts) => {
+          if (user) {
+            updateUser({ heart: (user.heart || 0) + hearts });
+          }
+        }}
       />
 
       <LuckyWheelModal 

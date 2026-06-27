@@ -27,7 +27,7 @@ const LuckyWheelModal = ({ isOpen, onClose }) => {
   const [spinning, setSpinning] = useState(false);
   const [rotation, setRotation] = useState(0);
   const [result, setResult] = useState(null);
-  
+
   // Fetch status on open
   useEffect(() => {
     if (isOpen) {
@@ -58,7 +58,7 @@ const LuckyWheelModal = ({ isOpen, onClose }) => {
       const res = await luckyWheelService.spin();
       if (res.success) {
         const prizeIndex = res.data.prizeIndex;
-        
+
         // Calculate rotation: 
         // We want the chosen segment to stop at the TOP (270 degrees or -90 degrees in CSS math).
         // Segment angle is 360 / 13 = 27.6923 degrees
@@ -66,10 +66,10 @@ const LuckyWheelModal = ({ isOpen, onClose }) => {
         // We want that center to end up at 270deg relative to container.
         const segmentAngle = 360 / PRIZES.length;
         const targetAngle = prizeIndex * segmentAngle + (segmentAngle / 2);
-        
+
         // Add random extra spins (e.g. 5-7 full rotations)
-        const extraSpins = (Math.floor(Math.random() * 3) + 5) * 360; 
-        
+        const extraSpins = (Math.floor(Math.random() * 3) + 5) * 360;
+
         // Calculate final rotation
         // The pointer is at the TOP. Top is 0 degrees in our setup? 
         // Actually, CSS rotate 0 means original. We need to subtract targetAngle.
@@ -84,7 +84,7 @@ const LuckyWheelModal = ({ isOpen, onClose }) => {
           setResult(res.data.prize);
           setHasSpin(false);
           setSpinning(false);
-          
+
           if (res.data.prize.type === 'heart') {
             triggerConfetti();
           }
@@ -118,13 +118,13 @@ const LuckyWheelModal = ({ isOpen, onClose }) => {
 
   return (
     <AnimatePresence>
-      <motion.div 
+      <motion.div
         className="wheel-overlay"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
       >
-        <motion.div 
+        <motion.div
           className="wheel-modal-container"
           initial={{ scale: 0.9, y: 50, opacity: 0 }}
           animate={{ scale: 1, y: 0, opacity: 1 }}
@@ -143,7 +143,7 @@ const LuckyWheelModal = ({ isOpen, onClose }) => {
 
           <div className="wheel-header">
             <h2>Vòng Quay May Mắn</h2>
-            <p>Mỗi ngày 30% cơ hội nhận 1 lượt quay!</p>
+            <p>Mỗi ngày 50% cơ hội nhận 1 lượt quay!</p>
           </div>
 
           <div className="wheel-content">
@@ -155,10 +155,10 @@ const LuckyWheelModal = ({ isOpen, onClose }) => {
             ) : (
               <div className="wheel-wrapper">
                 <div className="wheel-pointer"></div>
-                <div 
+                <div
                   className="wheel-circle"
-                  style={{ 
-                    background: `conic-gradient(${PRIZES.map((p, i) => `${p.color} ${i * (360/PRIZES.length)}deg ${(i+1) * (360/PRIZES.length)}deg`).join(', ')})`,
+                  style={{
+                    background: `conic-gradient(${PRIZES.map((p, i) => `${p.color} ${i * (360 / PRIZES.length)}deg ${(i + 1) * (360 / PRIZES.length)}deg`).join(', ')})`,
                     transform: `rotate(${rotation}deg)`,
                     transition: spinning ? 'transform 5s cubic-bezier(0.2, 0.8, 0.2, 1)' : 'none'
                   }}
@@ -167,14 +167,14 @@ const LuckyWheelModal = ({ isOpen, onClose }) => {
                   {PRIZES.map((prize, index) => {
                     const angle = index * (360 / 13) + (360 / 13 / 2);
                     return (
-                      <div 
-                        key={index} 
+                      <div
+                        key={index}
                         className="wheel-segment"
                         style={{
                           transform: `rotate(${angle}deg)`
                         }}
                       >
-                        <div 
+                        <div
                           className="segment-text"
                           style={{ color: prize.textColor }}
                         >
@@ -187,8 +187,8 @@ const LuckyWheelModal = ({ isOpen, onClose }) => {
                   {/* Wheel separators */}
                   {PRIZES.map((_, index) => {
                     return (
-                      <div 
-                        key={`sep-${index}`} 
+                      <div
+                        key={`sep-${index}`}
                         className="wheel-separator"
                         style={{
                           transform: `rotate(${index * (360 / 13)}deg)`
@@ -197,8 +197,8 @@ const LuckyWheelModal = ({ isOpen, onClose }) => {
                     );
                   })}
                 </div>
-                
-                <button 
+
+                <button
                   className={`spin-btn ${!hasSpin || spinning ? 'disabled' : ''}`}
                   onClick={handleSpin}
                   disabled={!hasSpin || spinning}
@@ -210,7 +210,7 @@ const LuckyWheelModal = ({ isOpen, onClose }) => {
           </div>
 
           {!loading && result && (
-            <motion.div 
+            <motion.div
               className="wheel-result"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -233,11 +233,11 @@ const LuckyWheelModal = ({ isOpen, onClose }) => {
 
           <div className="wheel-footer-actions">
             <button onClick={() => alert('Tính năng Lịch sử đang phát triển')}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l4 2" /></svg>
               Lịch sử
             </button>
             <button onClick={() => alert('Tính năng Thể lệ đang phát triển')}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" /></svg>
               Thể lệ
             </button>
           </div>

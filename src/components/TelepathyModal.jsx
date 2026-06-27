@@ -12,6 +12,7 @@ const TelepathyModal = ({ isOpen, onClose, onReward }) => {
   const [loading, setLoading] = useState(true);
   const [answering, setAnswering] = useState(false);
   const [result, setResult] = useState(null);
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -23,6 +24,7 @@ const TelepathyModal = ({ isOpen, onClose, onReward }) => {
   const fetchQuiz = async () => {
     try {
       setLoading(true);
+      setErrorMsg('');
       const res = await telepathyService.getTodayQuiz();
       if (res.success) {
         setQuiz(res.data);
@@ -45,9 +47,12 @@ const TelepathyModal = ({ isOpen, onClose, onReward }) => {
         } else if (myChoice) {
           setResult({ bothAnswered: false, isMatched: false });
         }
+      } else {
+        setErrorMsg('Không thể tải câu hỏi.');
       }
     } catch (err) {
       console.error(err);
+      setErrorMsg(err.response?.data?.message || err.message || 'Lỗi kết nối.');
     } finally {
       setLoading(false);
     }
@@ -149,6 +154,17 @@ const TelepathyModal = ({ isOpen, onClose, onReward }) => {
               <div className="telepathy-loading">
                 <Loader2 className="animate-spin" size={40} color="#db2777" />
                 <p>Đang kết nối tâm linh...</p>
+              </div>
+            ) : !quiz ? (
+              <div className="telepathy-error" style={{ textAlign: 'center', padding: '30px 20px', color: '#be185d' }}>
+                <p style={{ fontWeight: 600, fontSize: '1.1rem' }}>Rất tiếc!</p>
+                <p style={{ fontSize: '0.95rem', color: '#64748b', margin: '8px 0 20px' }}>{errorMsg}</p>
+                <button 
+                  onClick={fetchQuiz} 
+                  style={{ background: '#be185d', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '20px', cursor: 'pointer', fontWeight: 600 }}
+                >
+                  Thử lại
+                </button>
               </div>
             ) : (
               <div className="telepathy-cards-container">

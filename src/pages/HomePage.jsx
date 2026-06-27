@@ -16,6 +16,9 @@ import { chatService } from '../services/chatService';
 import api from '../services/api';
 import { telepathyService } from '../services/telepathyService';
 import TelepathyModal from '../components/TelepathyModal';
+import DailyMoodReminderModal from '../components/DailyMoodReminderModal';
+import { moodService } from '../services/moodService';
+import { MOODS } from '../utils/constants';
 import './HomePage.css';
 
 const LOVE_QUOTES = [
@@ -46,13 +49,19 @@ const formatLastSeen = (dateStr) => {
   if (!dateStr) return 'Vừa mới';
   const date = new Date(dateStr);
   const now = new Date();
-  const diffMs = now - date;
-  const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 1) return 'Vừa mới';
-  if (diffMins < 60) return `${diffMins} phút trước`;
-  const diffHours = Math.floor(diffMins / 60);
+  const diffMinutes = Math.floor((now - date) / (1000 * 60));
+  if (diffMinutes < 1) return 'Vừa mới';
+  if (diffMinutes < 60) return `${diffMinutes} phút trước`;
+  const diffHours = Math.floor(diffMinutes / 60);
   if (diffHours < 24) return `${diffHours} giờ trước`;
-  return `${Math.floor(diffHours / 24)} ngày trước`;
+  return date.toLocaleDateString('vi-VN');
+};
+
+const renderMoodIcon = (moodId) => {
+  if (!moodId) return '❓';
+  const m = MOODS.find(x => x.id === moodId);
+  if (!m) return '❓';
+  return <img src={m.emojiUrl} alt={m.label} style={{ width: '32px', height: '32px', objectFit: 'contain', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.25))' }} />;
 };
 
 const HomePage = () => {
@@ -75,6 +84,11 @@ const HomePage = () => {
 
   // Blind bag state
   const [isQuoteRevealed, setIsQuoteRevealed] = useState(false);
+
+  // Mood Reminder state
+  const [showMoodReminder, setShowMoodReminder] = useState(false);
+  const [myMood, setMyMood] = useState(null);
+  const [partnerMood, setPartnerMood] = useState(null);
 
   useEffect(() => {
     const todayStr = new Date().toDateString();
@@ -170,6 +184,74 @@ const HomePage = () => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Kiểm tra nhắc nhở cập nhật Mood
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchTodayMood = async () => {
+      const getVNDateString = () => {
+        const vnTime = new Date(Date.now() + 7 * 60 * 60 * 1000);
+        return `${vnTime.getUTCFullYear()}-${vnTime.getUTCMonth() + 1}-${vnTime.getUTCDate()}`;
+      };
+
+      const todayStr = getVNDateString();
+
+      try {
+        const vnTime = new Date(Date.now() + 7 * 60 * 60 * 1000);
+        const month = vnTime.getUTCMonth() + 1;
+        const year = vnTime.getUTCFullYear();
+        
+        const res = await moodService.getStats(month, year);
+        if (res.success && res.data && res.data.raw) {
+          const myId = user._id || user.id;
+          const partnerId = partner?._id || partner?.id;
+
+          let myTodayMood = null;
+          let partnerTodayMood = null;
+
+          res.data.raw.forEach(m => {
+            const moodDate = new Date(m.date);
+            const vnMoodDate = new Date(moodDate.getTime() + 7 * 60 * 60 * 1000);
+            if (`${vnMoodDate.getUTCFullYear()}-${vnMoodDate.getUTCMonth() + 1}-${vnMoodDate.getUTCDate()}` === todayStr) {
+              const uid = String(m.user._id || m.user.id || m.user);
+              if (uid === String(myId)) {
+                myTodayMood = m.mood;
+              } else if (partnerId && uid === String(partnerId)) {
+                partnerTodayMood = m.mood;
+              }
+            }
+          });
+
+          setMyMood(myTodayMood);
+          setPartnerMood(partnerTodayMood);
+
+          if (!myTodayMood) {
+            // Chưa có mood, kiểm tra xem có nên hiện nhắc nhở không
+            if (localStorage.getItem('dailyMoodSkipDate') !== todayStr && sessionStorage.getItem('dailyMoodRemindLater') !== 'true') {
+              setShowMoodReminder(true);
+            }
+          }
+        }
+      } catch (error) {
+        console.log('Error checking mood stats:', error);
+      }
+    };
+
+    fetchTodayMood();
+  }, [user]);
+
+  const handleSkipMoodReminder = () => {
+    const vnTime = new Date(Date.now() + 7 * 60 * 60 * 1000);
+    const todayStr = `${vnTime.getUTCFullYear()}-${vnTime.getUTCMonth() + 1}-${vnTime.getUTCDate()}`;
+    localStorage.setItem('dailyMoodSkipDate', todayStr);
+    setShowMoodReminder(false);
+  };
+
+  const handleRemindLaterMood = () => {
+    sessionStorage.setItem('dailyMoodRemindLater', 'true');
+    setShowMoodReminder(false);
+  };
 
   const upcomingEvents = getUpcomingEvents(user, partner);
 
@@ -644,6 +726,43 @@ const HomePage = () => {
                   </p>
                 </div>
                 <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#e87a90' }}>chevron_right</span>
+              </div>
+            </motion.section>
+          </Link>
+
+          {/* Mood Tracker Widget */}
+          <Link to="/shared-diary" style={{ textDecoration: 'none' }}>
+            <motion.section variants={itemVariants} className="seamless-section widget-card mood-widget" whileTap={{ scale: 0.98 }}>
+              <div className="mood-widget-content">
+                <div className={`mood-item ${myMood ? myMood : 'none'}`}>
+                  <div className="mood-avatar-wrap">
+                    <img src={user?.avatar || '/default-avatar.png'} alt="Me" />
+                    <div className="mood-emoji-badge">
+                      {renderMoodIcon(myMood)}
+                    </div>
+                  </div>
+                  <span className="mood-name">Bạn</span>
+                </div>
+                
+                <div className="mood-center-graphic">
+                  <motion.div
+                    animate={{ scale: [1, 1.2, 1], opacity: [0.8, 1, 0.8] }}
+                    transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                  >
+                    <span className="material-symbols-outlined" style={{ color: '#f43f5e', fontSize: '28px', fontVariationSettings: "'FILL' 1" }}>favorite</span>
+                  </motion.div>
+                  <span className="mood-center-text">Hôm nay</span>
+                </div>
+
+                <div className={`mood-item ${partnerMood ? partnerMood : 'none'}`}>
+                  <div className="mood-avatar-wrap">
+                    <img src={partner?.avatar || '/default-avatar.png'} alt="Partner" />
+                    <div className="mood-emoji-badge">
+                      {renderMoodIcon(partnerMood)}
+                    </div>
+                  </div>
+                  <span className="mood-name">{partner?.displayName?.trim().split(' ').pop() || 'Người ấy'}</span>
+                </div>
               </div>
             </motion.section>
           </Link>
@@ -1296,6 +1415,14 @@ const HomePage = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Mood Reminder Modal */}
+      <DailyMoodReminderModal
+        isOpen={showMoodReminder}
+        onSkip={handleSkipMoodReminder}
+        onRemindLater={handleRemindLaterMood}
+        onClose={() => setShowMoodReminder(false)}
+      />
     </div>
   );
 };

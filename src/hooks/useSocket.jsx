@@ -15,6 +15,9 @@ const initAudio = () => {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     if (!AudioContext) return;
     audioCtx = new AudioContext();
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
+    }
     // Play a silent beep to unlock the audio engine on iOS
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();

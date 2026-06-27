@@ -53,6 +53,17 @@ const minimax = (squares, depth, isMaximizing) => {
 };
 
 const getBestMove = (squares) => {
+  // 30% cơ hội AI đi một bước ngẫu nhiên để người chơi có thể thắng
+  if (Math.random() < 0.3) {
+    const emptyIndices = [];
+    for (let i = 0; i < 9; i++) {
+      if (!squares[i]) emptyIndices.push(i);
+    }
+    if (emptyIndices.length > 0) {
+      return emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
+    }
+  }
+
   let bestScore = -Infinity;
   let move = -1;
   for (let i = 0; i < 9; i++) {

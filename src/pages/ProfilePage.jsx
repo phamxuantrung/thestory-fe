@@ -6,7 +6,9 @@ import { showToast } from '../components/Toast';
 import Header from '../components/Header';
 import BottomNav from '../components/BottomNav';
 import Avatar from '../components/Avatar';
-import { LogOut, User, Camera, KeyRound, Save, X, Image as ImageIcon } from 'lucide-react';
+import { LogOut, User, Camera, KeyRound, Save, X, Image as ImageIcon, Crop } from 'lucide-react';
+import Cropper from 'react-easy-crop';
+import { getCroppedImg } from '../utils/cropImage';
 import './ProfilePage.css';
 
 const PRESET_AVATARS = [
@@ -42,6 +44,12 @@ const ProfilePage = () => {
   // Avatar Edit
   const [selectedAvatarUrl, setSelectedAvatarUrl] = useState('');
   const fileInputRef = useRef(null);
+
+  // Crop State
+  const [cropImageSrc, setCropImageSrc] = useState(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
   const handleUpdateName = async () => {
     if (!editName.trim()) return showToast('Tên không được để trống', 'error');
@@ -138,26 +146,43 @@ const ProfilePage = () => {
     }
   };
 
-  const handleFileUpload = async (e) => {
+  const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    const formData = new FormData();
-    formData.append('avatar', file);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCropImageSrc(reader.result);
+      setActiveModal('crop');
+    };
+    reader.readAsDataURL(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const onCropComplete = (croppedArea, croppedAreaPixels) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  };
+
+  const handleCropConfirm = async () => {
+    if (!cropImageSrc || !croppedAreaPixels) return;
 
     setLoading(true);
     try {
+      const croppedBlob = await getCroppedImg(cropImageSrc, croppedAreaPixels);
+      const formData = new FormData();
+      formData.append('avatar', croppedBlob, 'avatar.jpg');
+
       const res = await authService.uploadAvatar(formData);
       if (res.success) {
-        showToast('Tải ảnh lên thành công', 'success');
+        showToast('Cập nhật ảnh đại diện thành công', 'success');
         setActiveModal(null);
+        setCropImageSrc(null);
         updateUser({ avatar: res.data.avatar });
       }
     } catch (e) {
-      showToast(e.response?.data?.message || 'Có lỗi khi tải ảnh', 'error');
+      showToast(e?.response?.data?.message || 'Có lỗi khi cắt/tải ảnh', 'error');
     } finally {
       setLoading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -456,6 +481,48 @@ const ProfilePage = () => {
                   </div>
                 ))}
               </div>
+            </motion.div>
+          </div>
+        )}
+
+        {activeModal === 'crop' && (
+          <div className="profile-modal-overlay">
+            <motion.div
+              className="profile-modal crop-modal"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+            >
+              <button className="modal-close" onClick={() => { setActiveModal(null); setCropImageSrc(null); }}><X size={20} /></button>
+              <h3>Cắt Ảnh Đại Diện</h3>
+              <div className="crop-container">
+                <Cropper
+                  image={cropImageSrc}
+                  crop={crop}
+                  zoom={zoom}
+                  aspect={1}
+                  cropShape="round"
+                  showGrid={false}
+                  onCropChange={setCrop}
+                  onCropComplete={onCropComplete}
+                  onZoomChange={setZoom}
+                />
+              </div>
+              <div className="crop-controls">
+                <input
+                  type="range"
+                  value={zoom}
+                  min={1}
+                  max={3}
+                  step={0.1}
+                  aria-labelledby="Zoom"
+                  onChange={(e) => setZoom(e.target.value)}
+                  className="zoom-range"
+                />
+              </div>
+              <button className="profile-btn primary crop-confirm-btn" onClick={handleCropConfirm} disabled={loading}>
+                {loading ? 'Đang xử lý...' : 'Lưu ảnh đại diện'}
+              </button>
             </motion.div>
           </div>
         )}

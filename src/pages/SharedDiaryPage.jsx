@@ -68,7 +68,13 @@ const SharedDiaryPage = () => {
 
   // Check if user already logged today
   const todayStr = new Date().toDateString();
-  const myMoodToday = rawMoods.find(m => m.user._id === user._id && new Date(m.date).toDateString() === todayStr);
+  const myMoodToday = rawMoods.find(m => (m.user?._id || m.user) === (user?._id || user?.id) && new Date(m.date).toDateString() === todayStr);
+
+  useEffect(() => {
+    if (myMoodToday && myMoodToday.mood) {
+      setSelectedMood(myMoodToday.mood);
+    }
+  }, [myMoodToday]);
 
   return (
     <div className="shared-diary-page">

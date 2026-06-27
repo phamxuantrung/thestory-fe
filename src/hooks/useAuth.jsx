@@ -23,6 +23,12 @@ export const AuthProvider = ({ children }) => {
           if (res.success) {
             setUser(res.data);
             setPartner(res.data.partnerId || null);
+            // Cập nhật lại localStorage để tránh mất dữ liệu (ví dụ heart) ở lần tải lại trang sau
+            const storage = localStorage.getItem('ts_token') ? localStorage : sessionStorage;
+            storage.setItem('ts_user', JSON.stringify(res.data));
+            if (res.data.partnerId) {
+              storage.setItem('ts_partner', JSON.stringify(res.data.partnerId));
+            }
           }
         })
         .catch(() => {
