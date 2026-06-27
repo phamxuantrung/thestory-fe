@@ -11,10 +11,10 @@ const StoreBottomNav = () => {
   const location = useLocation();
 
   return (
-    <nav className="bottom-nav-v2">
+    <nav style={{ paddingTop: 24 }} className="bottom-nav-v2">
       {navItems.map(({ path, label, iconName }) => {
         const isActive = location.pathname === path;
-        
+
         return (
           <Link
             key={label}

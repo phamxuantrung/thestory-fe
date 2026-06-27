@@ -13,6 +13,9 @@ import { getUpcomingEvents } from '../utils/dateHelpers';
 import { treeService } from '../services/treeService';
 import { questService } from '../services/questService';
 import { chatService } from '../services/chatService';
+import api from '../services/api';
+import { telepathyService } from '../services/telepathyService';
+import TelepathyModal from '../components/TelepathyModal';
 import './HomePage.css';
 
 const LOVE_QUOTES = [
@@ -64,6 +67,11 @@ const HomePage = () => {
 
   // Quests state
   const [activeQuests, setActiveQuests] = useState([]);
+  const [isQuestsExpanded, setIsQuestsExpanded] = useState(false);
+
+  // Orders state
+  const [activeOrders, setActiveOrders] = useState([]);
+  const [isOrdersExpanded, setIsOrdersExpanded] = useState(false);
 
   // Blind bag state
   const [isQuoteRevealed, setIsQuoteRevealed] = useState(false);
@@ -148,6 +156,13 @@ const HomePage = () => {
           setActiveQuests(res.data || []);
         }
       }).catch(err => console.log('Không tải được nhiệm vụ:', err));
+
+      api.get('/store/partner-orders').then(res => {
+        if (res.data.success && res.data.data) {
+          const active = res.data.data.filter(order => ['pending', 'confirmed'].includes(order.status));
+          setActiveOrders(active);
+        }
+      }).catch(err => console.log('Không tải được đơn hàng:', err));
     }
   }, [user, partner]);
 
@@ -157,6 +172,25 @@ const HomePage = () => {
   }, []);
 
   const upcomingEvents = getUpcomingEvents(user, partner);
+
+  const userId = user?._id || user?.id;
+  const partnerId = partner?._id || partner?.id;
+
+  const pendingQuestsForMe = activeQuests.filter(quest => {
+    if (!partnerId || !userId) return false;
+    const partnerAccepted = quest.acceptedBy?.includes(partnerId);
+    const iAccepted = quest.acceptedBy?.includes(userId);
+    const partnerCompleted = quest.completedBy?.includes(partnerId);
+    const iCompleted = quest.completedBy?.includes(userId);
+    
+    // Nếu người ấy đã nhận mà mình chưa nhận
+    if (partnerAccepted && !iAccepted) return true;
+    
+    // Nếu cả hai đã nhận, người ấy đã xác nhận hoàn thành mà mình chưa xác nhận
+    if (iAccepted && partnerCompleted && !iCompleted) return true;
+    
+    return false;
+  });
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -337,6 +371,171 @@ const HomePage = () => {
             <Link to="/chat" className="angry-alert-btn">
               Đi dỗ ngay
             </Link>
+          </motion.div>
+        )}
+
+        {/* Thông báo Đơn hàng đang chờ / thực hiện */}
+        {activeOrders.length > 0 && (
+          <motion.div
+            className="home-orders-section"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 15 }}
+          >
+            <div 
+              className={`home-orders-header ${isOrdersExpanded ? 'expanded' : ''}`}
+              onClick={() => setIsOrdersExpanded(!isOrdersExpanded)}
+            >
+              <div className="home-orders-header-left">
+                <div className="home-orders-icon-wrapper">
+                  <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>storefront</span>
+                  <div className="home-orders-badge">
+                    <span className="home-orders-badge-pulse"></span>
+                    <span>{activeOrders.length}</span>
+                  </div>
+                </div>
+                <div className="home-orders-title">
+                  <h3>Đơn hàng chờ xử lý</h3>
+                  <p>Chạm để xem chi tiết</p>
+                </div>
+              </div>
+              <motion.div 
+                className="home-orders-toggle"
+                animate={{ rotate: isOrdersExpanded ? 180 : 0 }}
+              >
+                <span className="material-symbols-outlined">expand_more</span>
+              </motion.div>
+            </div>
+            
+            <AnimatePresence>
+              {isOrdersExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: 'easeInOut' }}
+                  style={{ overflow: 'hidden' }}
+                >
+                  <div className="home-orders-list" style={{ marginTop: '8px' }}>
+                    {activeOrders.map(order => (
+                      <Link to="/store/orders" key={order._id} style={{ textDecoration: 'none' }}>
+                        <div className="home-order-card">
+                          <div className="home-order-img-wrapper">
+                            <img src={order.product?.image} alt={order.product?.name} />
+                            <div className="home-order-qty">x{order.quantity}</div>
+                          </div>
+                          <div className="home-order-info">
+                            <p className="home-order-name">{order.product?.name || 'Sản phẩm'}</p>
+                            <div className="home-order-meta">
+                              <span className={`home-order-status status-${order.status}`}>
+                                {order.status === 'pending' ? 'Đang chờ' : 'Đang thực hiện'}
+                              </span>
+                              <span className="home-order-price">
+                                {order.priceAtPurchase} <span className="material-symbols-outlined" style={{ fontSize: '12px', fontVariationSettings: "'FILL' 1" }}>favorite</span>
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                  <div style={{ textAlign: 'center', marginTop: '16px', paddingBottom: '4px' }}>
+                    <Link to="/store/orders" className="home-orders-view-all">
+                      Đi đến Quản lý Đơn
+                    </Link>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        )}
+
+        {/* Thông báo Thử thách chờ xác nhận */}
+        {pendingQuestsForMe.length > 0 && (
+          <motion.div
+            className="home-orders-section"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 15 }}
+          >
+            <div 
+              className={`home-orders-header ${isQuestsExpanded ? 'expanded' : ''}`}
+              onClick={() => setIsQuestsExpanded(!isQuestsExpanded)}
+            >
+              <div className="home-orders-header-left">
+                <div className="home-orders-icon-wrapper" style={{ background: 'linear-gradient(135deg, #fbd3e9, #bb377d)' }}>
+                  <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>volunteer_activism</span>
+                  <div className="home-orders-badge">
+                    <span className="home-orders-badge-pulse"></span>
+                    <span>{pendingQuestsForMe.length}</span>
+                  </div>
+                </div>
+                <div className="home-orders-title">
+                  <h3>Thử thách chờ xác nhận</h3>
+                  <p>Người ấy đang chờ bạn</p>
+                </div>
+              </div>
+              <motion.div 
+                className="home-orders-toggle"
+                animate={{ rotate: isQuestsExpanded ? 180 : 0 }}
+              >
+                <span className="material-symbols-outlined">expand_more</span>
+              </motion.div>
+            </div>
+            
+            <AnimatePresence>
+              {isQuestsExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: 'easeInOut' }}
+                  style={{ overflow: 'hidden' }}
+                >
+                  <div className="home-orders-list" style={{ marginTop: '8px' }}>
+                    {pendingQuestsForMe.map(quest => {
+                      const partnerAccepted = quest.acceptedBy?.includes(partnerId);
+                      const iAccepted = quest.acceptedBy?.includes(userId);
+                      
+                      let statusText = '';
+                      let badgeClass = '';
+                      if (partnerAccepted && !iAccepted) {
+                        statusText = 'Chờ bạn nhận';
+                        badgeClass = 'status-pending'; // Cam
+                      } else {
+                        statusText = 'Chờ bạn xác nhận';
+                        badgeClass = 'status-confirmed'; // Tím
+                      }
+
+                      return (
+                        <Link to="/quests" key={quest._id} style={{ textDecoration: 'none' }}>
+                          <div className="home-order-card">
+                            <div className="home-order-info" style={{ marginLeft: '4px' }}>
+                              <p className="home-order-name" style={{ whiteSpace: 'normal', WebkitLineClamp: 2, display: '-webkit-box', WebkitBoxOrient: 'vertical', lineHeight: '1.4' }}>
+                                {quest.title}
+                              </p>
+                              <div className="home-order-meta" style={{ marginTop: '8px' }}>
+                                <span className={`home-order-status ${badgeClass}`}>
+                                  {statusText}
+                                </span>
+                                <span className="home-order-price" style={{ color: '#d97706', fontSize: '0.8rem' }}>
+                                  +{quest.expReward} EXP
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                  <div style={{ textAlign: 'center', marginTop: '16px', paddingBottom: '4px' }}>
+                    <Link to="/quests" className="home-orders-view-all">
+                      Đi đến Thử Thách
+                    </Link>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         )}
 

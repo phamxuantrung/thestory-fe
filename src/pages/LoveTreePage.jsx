@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth';
-import { getSocket } from '../hooks/useSocket';
+import { useSocket, getSocket } from '../hooks/useSocket';
 import { treeService } from '../services/treeService';
 import { chatService } from '../services/chatService';
 import { showToast } from '../components/Toast';
@@ -20,16 +20,32 @@ import weed5 from '../assets/images/weed5.png';
 
 const weedImages = [weed1, weed2, weed3, weed4, weed5];
 
-const TREE_STAGES = {
-  1: { name: 'Hạt giống', img: '/tree/level-1.svg', size: 140 },
-  2: { name: 'Mầm non', img: '/tree/level-2.svg', size: 180 },
-  3: { name: 'Cây nhỏ', img: '/tree/level-3.svg', size: 260 },
-  4: { name: 'Cây trưởng thành', img: '/tree/level-4.svg', size: 320 },
-  5: { name: 'Cây đơm hoa', img: '/tree/level-5.svg', size: 400 },
+const TREE_TYPES = {
+  basic: {
+    name: 'Cây Tình Yêu',
+    maxLevel: 5,
+    stages: {
+      1: { name: 'Hạt giống', img: '/tree/level-1.svg', size: 140 },
+      2: { name: 'Mầm non', img: '/tree/level-2.svg', size: 180 },
+      3: { name: 'Cây nhỏ', img: '/tree/level-3.svg', size: 260 },
+      4: { name: 'Cây trưởng thành', img: '/tree/level-4.svg', size: 320 },
+      5: { name: 'Cây đơm hoa', img: '/tree/level-5.svg', size: 400 },
+    }
+  },
+  heart: {
+    name: 'Cây Trái Tim',
+    maxLevel: 3,
+    stages: {
+      1: { name: 'Hạt giống Trái Tim', img: '/tree/heart-level-1.png', size: 140 },
+      2: { name: 'Cây non Trái Tim', img: '/tree/heart-level-2.png', size: 220 },
+      3: { name: 'Cây đơm hoa Trái Tim', img: '/tree/heart-level-3.png', size: 300 },
+    }
+  }
 };
 
 const LoveTreePage = () => {
   const { user } = useAuth();
+  const socket = useSocket();
   const navigate = useNavigate();
   const [tree, setTree] = useState(null);
   const [expRequired, setExpRequired] = useState(100);
@@ -43,6 +59,8 @@ const LoveTreePage = () => {
   const [showItemMenu, setShowItemMenu] = useState(false);
   const [showDevMenu, setShowDevMenu] = useState(false);
   const [showRemindModal, setShowRemindModal] = useState(false);
+  const [selectedSeed, setSelectedSeed] = useState('basic');
+  const [harvestedType, setHarvestedType] = useState('basic');
   const [isRemindingInApp, setIsRemindingInApp] = useState(false);
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [showSeedModal, setShowSeedModal] = useState(false);
@@ -77,6 +95,17 @@ const LoveTreePage = () => {
     fetchTree();
     fetchWeather();
   }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+    const handleTreeUpdate = () => {
+      fetchTree();
+    };
+    socket.on('tree:update', handleTreeUpdate);
+    return () => {
+      socket.off('tree:update', handleTreeUpdate);
+    };
+  }, [socket]);
 
   useEffect(() => {
     if (tree?.weedCount !== undefined) {
@@ -192,13 +221,16 @@ const LoveTreePage = () => {
   const handlePlantTree = async () => {
     try {
       setShowSeedModal(false);
-      const res = await treeService.plantTree();
+      const res = await treeService.plantTree(selectedSeed);
       if (res.success) {
         setTree(res.data);
         setExpRequired(res.expRequired);
-        showToast('Đã gieo mầm Cây Tình Yêu thành công!', 'success');
+        showToast('Đã gieo mầm Cây thành công!', 'success');
         setLevelUpAnimation(true);
         setTimeout(() => setLevelUpAnimation(false), 3000);
+        
+        const socket = getSocket();
+        if (socket) socket.emit('tree:update');
       }
     } catch (e) {
       showToast(e.response?.data?.message || 'Không thể trồng cây', 'error');
@@ -522,14 +554,17 @@ const LoveTreePage = () => {
     );
   }
 
-  const stage = TREE_STAGES[Math.min(tree?.level || 1, 5)];
-  const isMaxLevelAndExp = tree?.level >= 5 && tree?.exp >= expRequired;
+  const treeTypeConfig = TREE_TYPES[tree?.treeType || 'basic'];
+  const stage = treeTypeConfig.stages[Math.min(tree?.level || 1, treeTypeConfig.maxLevel)];
+  const isMaxLevelAndExp = tree?.level >= treeTypeConfig.maxLevel && tree?.exp >= expRequired;
   const expPercent = Math.min(100, ((tree?.exp || 0) / expRequired) * 100);
 
   const handleHarvestStone = async () => {
     try {
+      const typeBeforeHarvest = tree?.treeType || 'basic';
       const res = await treeService.harvestStone();
       if (res.success) {
+        setHarvestedType(typeBeforeHarvest);
         setTree(res.data);
         setExpRequired(100); // Level 1 exp
         setShowHarvestModal(true);
@@ -747,7 +782,7 @@ const LoveTreePage = () => {
               </button>
 
 
-              <button className="side-action-btn dev-action" style={{ background: '#333', display: "none" }} onClick={() => setShowDevMenu(true)} title="Dev Tools">
+              <button className="side-action-btn dev-action" style={{ background: '#333', display: 'none' }} onClick={() => setShowDevMenu(true)} title="Dev Tools">
                 <Bug size={24} color="#fff" />
               </button>
 
@@ -972,13 +1007,30 @@ const LoveTreePage = () => {
               </button>
               <h2 style={{ color: '#d94c73', marginBottom: '16px', marginTop: '12px', fontSize: '1.5rem', fontWeight: 'bold' }}>Chọn Hạt Giống</h2>
 
-              <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', margin: '24px 0' }}>
-                <div style={{ border: '2px solid #4caf50', borderRadius: '16px', padding: '16px', background: '#f1f8e9', cursor: 'pointer', width: '140px', position: 'relative', overflow: 'hidden' }}>
-                  <div style={{ position: 'absolute', top: 0, right: 0, background: '#4caf50', color: 'white', fontSize: '0.7rem', padding: '2px 6px', borderBottomLeftRadius: '8px', fontWeight: 'bold' }}>Đã chọn</div>
-                  <img src="/tree/level-1.svg" alt="Cây Tình Yêu" style={{ width: '60px', height: '60px', marginBottom: '8px' }} />
-                  <h4 style={{ color: '#2e7d32', margin: '0 0 4px 0' }}>Cây Tình Yêu</h4>
-                  <p style={{ fontSize: '0.75rem', color: '#4caf50', margin: 0 }}>Cơ bản</p>
-                </div>
+              <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', margin: '24px 0', flexWrap: 'wrap' }}>
+                {Object.keys(TREE_TYPES).map(key => (
+                  <div
+                    key={key}
+                    onClick={() => setSelectedSeed(key)}
+                    style={{
+                      border: `2px solid ${selectedSeed === key ? '#4caf50' : '#ddd'}`,
+                      borderRadius: '16px',
+                      padding: '16px',
+                      background: selectedSeed === key ? '#f1f8e9' : '#fff',
+                      cursor: 'pointer',
+                      width: '140px',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      transition: 'all 0.2s ease'
+                    }}>
+                    {selectedSeed === key && (
+                      <div style={{ position: 'absolute', top: 0, right: 0, background: '#4caf50', color: 'white', fontSize: '0.7rem', padding: '2px 6px', borderBottomLeftRadius: '8px', fontWeight: 'bold' }}>Đã chọn</div>
+                    )}
+                    <img src={TREE_TYPES[key].stages[1].img} alt={TREE_TYPES[key].name} style={{ width: '60px', height: '60px', marginBottom: '8px', objectFit: 'contain' }} />
+                    <h4 style={{ color: selectedSeed === key ? '#2e7d32' : '#333', margin: '0 0 4px 0', fontSize: '0.9rem' }}>{TREE_TYPES[key].name}</h4>
+                    <p style={{ fontSize: '0.75rem', color: selectedSeed === key ? '#4caf50' : '#666', margin: 0 }}>{key === 'basic' ? 'Cơ bản' : 'Mới'}</p>
+                  </div>
+                ))}
               </div>
 
               <p style={{ color: '#795465', fontSize: '0.9rem', marginBottom: '24px', lineHeight: 1.5 }}>
@@ -1519,7 +1571,7 @@ const LoveTreePage = () => {
                   transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
                   style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}
                 >
-                  <img src="/tree/love-stone.png" alt="Love Stone" style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 12px 24px rgba(219, 39, 119, 0.5))' }} />
+                  <img src={harvestedType === 'heart' ? '/tree/heart-level-1.png' : '/tree/love-stone.png'} alt={harvestedType === 'heart' ? 'Heart' : 'Love Stone'} style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'drop-shadow(0 12px 24px rgba(219, 39, 119, 0.5))' }} />
                 </motion.div>
               </div>
 
@@ -1535,12 +1587,12 @@ const LoveTreePage = () => {
                 Tuyệt Vời!
               </h2>
               <p style={{ color: '#6b7280', fontSize: '1.1rem', marginBottom: '12px', fontWeight: '500' }}>
-                Bạn vừa thu hoạch được
+                {harvestedType === 'heart' ? 'Mỗi người vừa nhận được' : 'Bạn vừa thu hoạch được'}
               </p>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '32px' }}>
-                <span style={{ color: '#db2777', fontSize: '2.5rem', fontWeight: '900' }}>+1</span>
+                <span style={{ color: '#db2777', fontSize: '2.5rem', fontWeight: '900' }}>{harvestedType === 'heart' ? '+100' : '+1'}</span>
                 <span style={{ display: 'inline-block', background: '#fce7f3', color: '#db2777', padding: '6px 16px', borderRadius: '20px', fontWeight: 'bold', border: '1px solid #fbcfe8', fontSize: '1.2rem', boxShadow: '0 4px 6px rgba(252, 231, 243, 0.5)' }}>
-                  Love Stone
+                  {harvestedType === 'heart' ? 'Hearts 💖' : 'Love Stone'}
                 </span>
               </div>
 

@@ -6,8 +6,8 @@ export const treeService = {
     return res.data;
   },
 
-  plantTree: async () => {
-    const res = await api.post('/tree/plant');
+  plantTree: async (treeType = 'basic') => {
+    const res = await api.post('/tree/plant', { treeType });
     return res.data;
   },
 

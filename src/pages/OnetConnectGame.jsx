@@ -301,7 +301,7 @@ const OnetConnectGame = () => {
 
   const handleClaim = async () => {
     if (claimed) return;
-    const reward = isWin ? 200 : Math.floor(score / 10);
+    const reward = isWin ? 50 : Math.floor(score / 10);
     try {
       if (reward > 0) {
         await treeService.addReward(reward);
@@ -381,7 +381,7 @@ const OnetConnectGame = () => {
           <h2>{isWin ? 'Tuyệt Vời! 💖' : 'Hết Giờ! 😢'}</h2>
           
           <div className="onet-reward">
-            Thưởng: <Coins size={24} /> {isWin ? 200 : Math.floor(score / 10)} Xu
+            Thưởng: <Coins size={24} /> {isWin ? 50 : Math.floor(score / 10)} Xu
           </div>
 
           <button className="onet-btn-primary" onClick={handleClaim} disabled={claimed}>

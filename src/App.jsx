@@ -36,6 +36,8 @@ import PartnerStorePage from './pages/store/PartnerStorePage';
 import MyStorePage from './pages/store/MyStorePage';
 import ManageOrdersPage from './pages/store/ManageOrdersPage';
 import MyOrdersPage from './pages/store/MyOrdersPage';
+import AssistiveTouch from './components/AssistiveTouch';
+
 // Protected route wrapper
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -442,6 +444,7 @@ function App() {
       <AuthProvider>
         <Preloader>
           <AppRoutes />
+          <AssistiveTouch />
         </Preloader>
       </AuthProvider>
     </BrowserRouter>
