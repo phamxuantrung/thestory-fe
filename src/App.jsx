@@ -22,6 +22,7 @@ import SimonSaysGame from './pages/SimonSaysGame';
 import SnakeGame from './pages/SnakeGame';
 import LoveSurvivorGame from './pages/LoveSurvivorGame';
 import Love2048Game from './pages/Love2048Game';
+import BubbleShooterGame from './pages/BubbleShooterGame';
 import LovePotionGame from './pages/LovePotionGame';
 import OnetConnectGame from './pages/OnetConnectGame';
 import GoldenCaveGame from './pages/GoldenCaveGame';
@@ -267,6 +268,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <Love2048Game />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/game/bubble-shooter"
+          element={
+            <ProtectedRoute>
+              <BubbleShooterGame />
             </ProtectedRoute>
           }
         />

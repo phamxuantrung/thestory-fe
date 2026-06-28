@@ -17,6 +17,7 @@ import logoLovePotion from '../assets/games/logo_lovepotion.png';
 import logoOnet from '../assets/games/logo_onet.png';
 import logoGoldenCave from '../assets/games/logo_goldencave.png';
 import logoInfinityKoi from '../assets/games/logo_infinitykoi.png';
+import logoBubble from '../assets/games/logo_drops.png'; // Reusing drops logo for Bubble Shooter temporarily
 
 const GamesHubPage = () => {
   const navigate = useNavigate();
@@ -28,6 +29,7 @@ const GamesHubPage = () => {
     { id: 'goldenCave', title: 'Hang Động Vàng', image: logoGoldenCave, path: '/game/golden-cave' },
     { id: 'onet', title: 'Nối Thú Cặp Đôi', image: logoOnet, path: '/game/onet-connect' },
     { id: 'love2048', title: '2048 Tình Yêu', image: logoLove2048, path: '/game/love-2048' },
+    { id: 'bubbleShooter', title: 'Bắn Bóng', image: logoBubble, path: '/game/bubble-shooter' },
     { id: 'lovePotion', title: 'Pha Chế Dược', image: logoLovePotion, path: '/game/love-potion' },
     { id: 'drops', title: 'Hứng Nước', image: logoDrops, path: '/game/catch-drops' },
     { id: 'whack', title: 'Đập Sâu', image: logoWhack, path: '/game/whack-a-bug' },

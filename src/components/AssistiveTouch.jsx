@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { BrainCircuit, Home, Store, MessageCircle, Gamepad2, X, Map, Heart, Ticket } from 'lucide-react';
+import { BrainCircuit, Home, Store, MessageCircle, Gamepad2, X, Map, Heart, Ticket, MoonStar } from 'lucide-react';
 import { telepathyService } from '../services/telepathyService';
 import { luckyWheelService } from '../services/luckyWheelService';
 import { useAuth } from '../hooks/useAuth';
 import TelepathyModal from './TelepathyModal';
 import LuckyWheelModal from './LuckyWheelModal';
+import NumerologyModal from './NumerologyModal';
 import './AssistiveTouch.css';
 
 const AssistiveTouch = () => {
@@ -17,6 +18,7 @@ const AssistiveTouch = () => {
   const [isTelepathyModalOpen, setIsTelepathyModalOpen] = useState(false);
   const [hasWheelSpin, setHasWheelSpin] = useState(false);
   const [isLuckyWheelModalOpen, setIsLuckyWheelModalOpen] = useState(false);
+  const [isNumerologyModalOpen, setIsNumerologyModalOpen] = useState(false);
   const [isIdle, setIsIdle] = useState(false);
   const constraintsRef = useRef(null);
   const idleTimerRef = useRef(null);
@@ -79,6 +81,7 @@ const AssistiveTouch = () => {
     { id: 'home', icon: <Home size={28} />, label: 'Trang chủ', action: () => navigate('/') },
     { id: 'telepathy', icon: <BrainCircuit size={28} />, label: 'Thần giao', action: () => setIsTelepathyModalOpen(true), hasBadge: hasUnanswered },
     { id: 'wheel', icon: <Ticket size={28} />, label: 'Vòng quay', action: () => setIsLuckyWheelModalOpen(true), hasBadge: hasWheelSpin },
+    { id: 'numerology', icon: <MoonStar size={28} />, label: 'Thần số học', action: () => setIsNumerologyModalOpen(true) },
     { id: 'store', icon: <Store size={28} />, label: 'Cửa hàng', action: () => navigate('/store') },
     { id: 'games', icon: <Gamepad2 size={28} />, label: 'Giải trí', action: () => navigate('/games') },
   ];
@@ -172,6 +175,11 @@ const AssistiveTouch = () => {
           setIsLuckyWheelModalOpen(false);
           checkDailyStatus();
         }}
+      />
+
+      <NumerologyModal 
+        isOpen={isNumerologyModalOpen}
+        onClose={() => setIsNumerologyModalOpen(false)}
       />
     </>
   );
