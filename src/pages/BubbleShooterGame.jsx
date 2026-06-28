@@ -98,7 +98,7 @@ const BubbleShooterGame = () => {
     stateRef.current.animating = false;
 
     if (score > 0) {
-      const rewardCoins = Math.min(200, Math.floor(score / 10)); // max 200 coins
+      const rewardCoins = Math.floor(score / 10); // no max limit
       try {
         await treeService.addReward(rewardCoins);
         showToast(`Bạn nhận được ${rewardCoins} Xu!`, 'success');
@@ -175,7 +175,7 @@ const BubbleShooterGame = () => {
       const matches = findMatches(row, col, bullet.color);
       if (matches.length >= 3) {
         removeMatches(matches);
-        setScore(s => s + matches.length * 10);
+        setScore(s => s + matches.length * 5); // 5 points per match instead of 10
         checkFloatingBubbles();
         checkWin();
       } else {
@@ -268,7 +268,7 @@ const BubbleShooterGame = () => {
       const first = matches[0];
       const bx = first.c * DIAMETER + (first.r % 2 === 0 ? RADIUS : DIAMETER);
       const by = first.r * ROW_HEIGHT + RADIUS;
-      state.texts.push({ x: bx, y: by, text: `+${matches.length * 10}`, life: 1 });
+      state.texts.push({ x: bx, y: by, text: `+${matches.length * 5}`, life: 1 });
     }
   };
 
@@ -316,7 +316,7 @@ const BubbleShooterGame = () => {
     }
     
     if (dropped > 0) {
-       setScore(s => s + dropped * 20);
+       setScore(s => s + dropped * 10); // 10 points per drop instead of 20
     }
   };
 
@@ -477,12 +477,26 @@ const BubbleShooterGame = () => {
       drawBubble(ctx, gunX, gunY, state.currentBubble);
     }
     
-    // Draw Next Bubble
+    // Draw Next Bubble and Swap Icon
     if (state.nextBubble) {
       drawBubble(ctx, gunX + 60, gunY, state.nextBubble);
+      
+      // Draw Swap Button
+      const swapX = gunX + 30;
+      const swapY = gunY;
+      ctx.beginPath();
+      ctx.arc(swapX, swapY, 14, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
       ctx.fillStyle = '#fff';
-      ctx.font = '12px Arial';
-      ctx.fillText('Tiếp:', gunX + 30, gunY + 5);
+      ctx.font = '16px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('⇆', swapX, swapY);
     }
 
     if (state.animating) {
@@ -501,16 +515,9 @@ const BubbleShooterGame = () => {
     ctx.arc(x, y, RADIUS, 0, Math.PI * 2);
     ctx.fillStyle = grad;
     ctx.fill();
-
-    // Small heart in middle
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-    ctx.font = '14px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('❤', x, y);
   };
 
-  const handleMouseMove = (e) => {
+  const updateMousePos = (e) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
@@ -518,27 +525,89 @@ const BubbleShooterGame = () => {
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
 
-    let clientX, clientY;
-    if (e.touches && e.touches.length > 0) {
+    let clientX = e.clientX;
+    let clientY = e.clientY;
+
+    if (clientX === undefined && e.changedTouches && e.changedTouches.length > 0) {
+      clientX = e.changedTouches[0].clientX;
+      clientY = e.changedTouches[0].clientY;
+    } else if (e.touches && e.touches.length > 0) {
       clientX = e.touches[0].clientX;
       clientY = e.touches[0].clientY;
-    } else {
-      clientX = e.clientX;
-      clientY = e.clientY;
     }
 
-    stateRef.current.mouseX = (clientX - rect.left) * scaleX;
-    stateRef.current.mouseY = (clientY - rect.top) * scaleY;
+    if (clientX !== undefined) {
+      stateRef.current.mouseX = (clientX - rect.left) * scaleX;
+      stateRef.current.mouseY = (clientY - rect.top) * scaleY;
+    }
   };
 
-  const handleClick = (e) => {
-    handleMouseMove(e); // Ensure direction is updated
-    shoot();
+  const handlePointerDown = (e) => {
+    if (e.target.setPointerCapture) {
+      e.target.setPointerCapture(e.pointerId);
+    }
+    stateRef.current.isAiming = true;
+    updateMousePos(e);
+  };
+
+  const handlePointerMove = (e) => {
+    if (stateRef.current.isAiming || e.pointerType === 'mouse') {
+      updateMousePos(e);
+    }
+  };
+
+  const handlePointerUp = (e) => {
+    if (stateRef.current.isAiming) {
+      stateRef.current.isAiming = false;
+      if (e.target.releasePointerCapture) {
+        e.target.releasePointerCapture(e.pointerId);
+      }
+      updateMousePos(e);
+      
+      const state = stateRef.current;
+      const canvas = canvasRef.current;
+      
+      // Gun coordinates
+      const gunX = canvas.width / 2;
+      const gunY = canvas.height - RADIUS;
+      
+      // Check if the click is in the bottom area (near gun, swap icon, or next bubble)
+      const swapZoneStartX = gunX - RADIUS;
+      const swapZoneEndX = gunX + 60 + RADIUS;
+      const swapZoneStartY = gunY - RADIUS * 2;
+      const swapZoneEndY = gunY + RADIUS * 2;
+
+      if (
+        state.mouseX >= swapZoneStartX && 
+        state.mouseX <= swapZoneEndX &&
+        state.mouseY >= swapZoneStartY && 
+        state.mouseY <= swapZoneEndY
+      ) {
+        // Swap bubbles
+        const temp = state.currentBubble;
+        state.currentBubble = state.nextBubble;
+        state.nextBubble = temp;
+        return; // Do not shoot
+      }
+
+      shoot();
+    }
+  };
+
+  const handleBack = async () => {
+    if (isPlaying && Math.floor(score / 10) > 0) {
+      if (window.confirm(`Bạn đang tích luỹ được ${Math.floor(score / 10)} Xu. Bạn có muốn thoát và nhận thưởng ngay không?`)) {
+        await endGame(false);
+        navigate('/games');
+      }
+    } else {
+      navigate('/games');
+    }
   };
 
   return (
     <div className="bubble-shooter-page">
-      <Header title="Bắn Bóng Tình Yêu" showBack={true} onBack={() => navigate('/games')} transparent={true} />
+      <Header title="Bắn Bóng Tình Yêu" showBack={true} onBack={handleBack} transparent={true} />
       
       <div className="bubble-container">
         <div className="bubble-header">
@@ -557,10 +626,10 @@ const BubbleShooterGame = () => {
             ref={canvasRef}
             width={COLS * DIAMETER}
             height={450} 
-            onMouseMove={handleMouseMove}
-            onClick={handleClick}
-            onTouchStart={handleClick}
-            onTouchMove={handleMouseMove}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            style={{ touchAction: 'none' }}
             className="bubble-canvas"
           />
 
@@ -575,10 +644,15 @@ const BubbleShooterGame = () => {
           {won && (
             <div className="bubble-overlay">
               <h2>Tuyệt Vời!</h2>
-              <p>Bạn đã dọn sạch bóng!<br/>Số điểm: {score}</p>
+              <p>Bạn đã dọn sạch bóng!<br/>Số điểm: <strong>{score}</strong><br/>Tích luỹ: <strong>{Math.floor(score/10)}</strong> Xu</p>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button className="btn-start-bubble" onClick={nextLevel}>Level Tiếp ({level + 1})</button>
-                <button className="btn-start-bubble btn-secondary" onClick={() => endGame(true)}>Dừng lại & Nhận Thưởng</button>
+                <button className="btn-start-bubble" onClick={nextLevel} disabled={isGameOver}>Level Tiếp ({level + 1})</button>
+                <button className="btn-start-bubble btn-secondary" disabled={isGameOver} onClick={async () => {
+                  await endGame(true);
+                  navigate('/games');
+                }}>
+                  {isGameOver ? 'Đang nhận...' : 'Dừng lại & Nhận Thưởng'}
+                </button>
               </div>
             </div>
           )}
@@ -586,7 +660,7 @@ const BubbleShooterGame = () => {
           {isGameOver && !won && (
             <div className="bubble-overlay">
               <h2>Kết Thúc!</h2>
-              <p>Bóng đã đầy màn hình!<br/>Bạn đạt được <strong>{score}</strong> điểm.<br/>Nhận được {Math.min(200, Math.floor(score/10))} Xu!</p>
+              <p>Bóng đã đầy màn hình!<br/>Bạn đạt được <strong>{score}</strong> điểm.<br/>Nhận được {Math.floor(score/10)} Xu!</p>
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button className="btn-start-bubble" onClick={startGame}>Chơi Lại</button>
                 <button className="btn-start-bubble btn-secondary" onClick={() => navigate('/games')}>Thoát</button>
