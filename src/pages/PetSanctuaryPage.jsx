@@ -461,19 +461,42 @@ export default function PetSanctuaryPage() {
 
   const fetchPets = useCallback(async () => {
     try {
-      const res = await api.get('/pets');
-      if (res.data.success) {
-        setPets(res.data.pets || []);
-        setMyDefenseTeam(res.data.defenseTeam || []);
-      }
-      if (user?.partnerId) {
-        const resP = await api.get('/pets/partner');
-        if (resP.data.success) {
-          setPartnerPets(resP.data.pets || []);
-          setPartnerDefenseTeam(resP.data.defenseTeam || []);
-          setPartnerShieldUntil(resP.data.partnerShieldUntil || null);
+      const p1 = api.get('/pets').then(res => {
+        if (res.data.success) {
+          setPets(res.data.pets || []);
+          setMyDefenseTeam(res.data.defenseTeam || []);
         }
+      });
+      
+      let p2 = Promise.resolve();
+      if (user?.partnerId) {
+        p2 = api.get('/pets/partner').then(resP => {
+          if (resP.data.success) {
+            setPartnerPets(resP.data.pets || []);
+            setPartnerDefenseTeam(resP.data.defenseTeam || []);
+            setPartnerShieldUntil(resP.data.partnerShieldUntil || null);
+          }
+        });
       }
+
+      // Preload images
+      const preloadUrls = [
+        '/garden-bg.png',
+        '/arena-bg-dark.png',
+        ...SPECIES.map(s => `/pets/${s.id}.png`),
+        ...FOODS.map(f => `/foods/${f.id}.png`),
+        ...ITEMS.map(i => `/items/${i.id}.png`)
+      ];
+
+      const preloadPromise = Promise.all(preloadUrls.map(url => new Promise(resolve => {
+        const img = new Image();
+        img.onload = resolve;
+        img.onerror = resolve; // Ignore errors
+        img.src = url;
+      })));
+
+      await Promise.all([p1, p2, preloadPromise]);
+
     } catch (err) {
       addToast("Không thể tải Vườn Thú", "error");
     } finally {
