@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { BookHeart, Plus, X, Calendar as CalendarIcon, Mail, BookOpen, MapPin, Trees, Gem } from 'lucide-react';
+import { BookHeart, Plus, X, Calendar as CalendarIcon, Mail, BookOpen, MapPin, Trees, Gem, PawPrint, Target } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useSocket } from '../hooks/useSocket';
 import { authService } from '../services/authService';
@@ -834,6 +834,26 @@ const HomePage = () => {
                   <Trees color="#03a9f4" size={28} strokeWidth={2.5} className="anim-tree" />
                 </div>
                 <span className="utility-title">Chăm cây</span>
+              </motion.div>
+            </Link>
+
+            {/* Vườn thú */}
+            <Link to="/pet-sanctuary" style={{ textDecoration: 'none' }}>
+              <motion.div className="utility-card" whileTap={{ scale: 0.95 }}>
+                <div className="utility-icon-wrapper" style={{ background: 'linear-gradient(135deg, #f3e5f5, #e1bee7)' }}>
+                  <PawPrint color="#9c27b0" size={28} strokeWidth={2.5} className="anim-pet" />
+                </div>
+                <span className="utility-title">Vườn thú</span>
+              </motion.div>
+            </Link>
+
+            {/* Thử thách tuần */}
+            <Link to="/quests" style={{ textDecoration: 'none' }}>
+              <motion.div className="utility-card" whileTap={{ scale: 0.95 }}>
+                <div className="utility-icon-wrapper" style={{ background: 'linear-gradient(135deg, #fbe9e7, #ffccbc)' }}>
+                  <Target color="#ff5722" size={28} strokeWidth={2.5} className="anim-target" />
+                </div>
+                <span className="utility-title">Thử thách</span>
               </motion.div>
             </Link>
 
