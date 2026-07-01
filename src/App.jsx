@@ -30,6 +30,8 @@ import InfinityKoiGame from './pages/InfinityKoiGame';
 import ProfilePage from './pages/ProfilePage';
 import QuestPage from './pages/QuestPage';
 import HeartEarnPage from './pages/HeartEarnPage';
+import PetSanctuaryPage from './pages/PetSanctuaryPage';
+import { ErrorBoundary } from './ErrorBoundary';
 
 
 import StoreLayout from './pages/store/StoreLayout';
@@ -165,6 +167,7 @@ const AppRoutes = () => {
         <Route path="/shared-diary" element={<ProtectedRoute><SharedDiaryPage /></ProtectedRoute>} />
         <Route path="/quests" element={<ProtectedRoute><QuestPage /></ProtectedRoute>} />
         <Route path="/heart" element={<ProtectedRoute><HeartEarnPage /></ProtectedRoute>} />
+        <Route path="/pet-sanctuary" element={<ProtectedRoute><ErrorBoundary><PetSanctuaryPage /></ErrorBoundary></ProtectedRoute>} />
 
         
         <Route path="/store" element={<ProtectedRoute><StoreLayout /></ProtectedRoute>}>

@@ -128,9 +128,9 @@ const LoveTreeGame = () => {
 
         <div className="cards-grid">
           {cards.map((card, idx) => (
-            <motion.div
-              key={card.id}
-              className={`card ${card.isFlipped || card.isMatched ? 'flipped' : ''}`}
+              <motion.div
+                key={card.id}
+                className={`memory-card ${card.isFlipped || card.isMatched ? 'flipped' : ''}`}
               onClick={() => handleCardClick(idx)}
               whileTap={{ scale: 0.95 }}
             >

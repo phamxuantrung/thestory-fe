@@ -84,6 +84,7 @@ const AssistiveTouch = () => {
     { id: 'numerology', icon: <MoonStar size={28} />, label: 'Thần số học', action: () => setIsNumerologyModalOpen(true) },
     { id: 'store', icon: <Store size={28} />, label: 'Cửa hàng', action: () => navigate('/store') },
     { id: 'games', icon: <Gamepad2 size={28} />, label: 'Giải trí', action: () => navigate('/games') },
+    { id: 'pets', icon: <Heart size={28} />, label: 'Vườn thú', action: () => navigate('/pet-sanctuary') },
   ];
 
   return (
