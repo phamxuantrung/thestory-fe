@@ -222,6 +222,8 @@
 
 .memory-desc-text {
   margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
 .read-more-btn {

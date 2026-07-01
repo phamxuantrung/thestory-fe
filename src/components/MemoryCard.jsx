@@ -163,7 +163,7 @@ const MemoryCard = ({ memory, onDelete, onLike, onClick }) => {
         <h3 className="memory-card-title">{memory.title}</h3>
 
         {/* Meta Location */}
-        {!hasImages && memory.location && (
+        {memory.location && (
           <div className="memory-meta">
             <span className="meta-item">
               <MapPin size={12} />
