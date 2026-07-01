@@ -189,6 +189,35 @@ function getPseudoRandomPos(idStr, typeIndex, isFlying) {
 
 /* ------------------------------- SUB-COMPONENTS ------------------------------ */
 
+const LazyImage = ({ src, alt, style, wrapperStyle, fallback, className, onErrorCallback, onLoadCallback }) => {
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
+
+  return (
+    <div style={{ position: "relative", display: "inline-flex", justifyContent: "center", alignItems: "center", ...wrapperStyle }} className={className}>
+      {!loaded && !error && (
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)", backgroundSize: "200% 100%", animation: "shimmerLoad 1.5s infinite", borderRadius: "inherit", zIndex: 0 }} />
+      )}
+      {!error && (
+        <img
+          src={src}
+          alt={alt}
+          style={{ ...style, opacity: loaded ? 1 : 0, transition: "opacity 0.3s ease", position: "relative", zIndex: 1 }}
+          onLoad={(e) => {
+            setLoaded(true);
+            if (onLoadCallback) onLoadCallback(e);
+          }}
+          onError={(e) => {
+            setError(true);
+            if (onErrorCallback) onErrorCallback(e);
+          }}
+        />
+      )}
+      {error && fallback}
+    </div>
+  );
+};
+
 function RarityBadge({ rarity, size = "sm" }) {
   const r = RARITY[rarity] || RARITY.common;
   const pd = size === "sm" ? "2px 8px" : "4px 12px";
@@ -233,16 +262,12 @@ function PetAvatar({ pet, size = "big" }) {
           transform: `scale(${size === "big" ? 0.9 : 0.85})` // Thu nhỏ xíu để không đè lên viền
         }}
       >
-        <img
+        <LazyImage
           src={`/pets/${pet?.speciesId}.png`}
           alt={pet?.name}
           style={{ width: size === "big" ? 64 : 32, height: size === "big" ? 64 : 32, objectFit: 'contain' }}
-          onError={(e) => {
-            e.target.style.display = 'none';
-            if (e.target.nextSibling) e.target.nextSibling.style.display = 'inline';
-          }}
+          fallback={<span style={{ fontSize: size === "big" ? 40 : 22 }}>{pet?.emoji}</span>}
         />
-        <span style={{ fontSize: size === "big" ? 40 : 22, display: 'none' }}>{pet?.emoji}</span>
       </div>
       <div
         style={{
@@ -302,11 +327,11 @@ function PetCombatSprite({ pet, currentLog }) {
   const isTarget = currentLog?.targetId === pet._id;
   const isAttacker = currentLog?.attackerId === pet._id;
   const isDead = pet.hp <= 0;
-  
+
   const hpPct = Math.max(0, (pet.hp / pet.maxHp) * 100);
 
   return (
-    <motion.div 
+    <motion.div
       initial={false}
       animate={{
         scale: isAttacker ? [1, 1.4, 1] : 1,
@@ -316,26 +341,25 @@ function PetCombatSprite({ pet, currentLog }) {
         opacity: isDead ? 0.4 : 1,
         zIndex: isAttacker ? 50 : 1
       }}
-      transition={{ 
+      transition={{
         duration: isAttacker ? 0.6 : 0.4,
         times: isAttacker ? [0, 0.15, 1] : undefined
       }}
-      style={{ 
+      style={{
         position: "relative", width: 60, height: 85, display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0
       }}
     >
       <div style={{ position: "relative", width: 50, height: 50, display: "flex", justifyContent: "center", alignItems: "center" }}>
         {/* Team Indicator Aura */}
-        <div style={{ 
-          position: "absolute", 
-          inset: -5, 
-          borderRadius: "50%", 
-          border: pet.team === 'B' ? "2px solid rgba(255, 71, 87, 0.6)" : "2px solid rgba(77, 184, 255, 0.6)", 
+        <div style={{
+          position: "absolute",
+          inset: -5,
+          borderRadius: "50%",
+          border: pet.team === 'B' ? "2px solid rgba(255, 71, 87, 0.6)" : "2px solid rgba(77, 184, 255, 0.6)",
           background: pet.team === 'B' ? "radial-gradient(circle, rgba(255,71,87,0.3) 0%, transparent 70%)" : "radial-gradient(circle, rgba(77,184,255,0.3) 0%, transparent 70%)",
           zIndex: 0
         }} />
-        <img src={`/pets/${pet.speciesId}.png`} alt={pet.name} style={{ width: 48, height: 48, objectFit: 'contain', zIndex: 1, position: "relative" }} onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='inline'; }} />
-        <span style={{ fontSize: "2.2rem", display: 'none', zIndex: 1, position: "relative" }}>{pet.emoji}</span>
+        <LazyImage src={`/pets/${pet.speciesId}.png`} alt={pet.name} style={{ width: 48, height: 48, objectFit: 'contain', zIndex: 1, position: "relative" }} fallback={<span style={{ fontSize: "2.2rem", zIndex: 1, position: "relative" }}>{pet.emoji}</span>} />
       </div>
       <div style={{ width: "100%", height: 10, background: "#ff4757", borderRadius: 5, marginTop: 4, overflow: "hidden", border: "1px solid rgba(0,0,0,0.4)", position: "relative" }}>
         <div style={{ width: `${hpPct}%`, height: "100%", background: "#7fd8a6", borderRadius: 5, transition: "width 0.3s ease" }} />
@@ -346,19 +370,19 @@ function PetCombatSprite({ pet, currentLog }) {
       <div style={{ fontSize: "0.7rem", fontWeight: "900", color: "white", marginTop: 4, textShadow: "0 2px 4px rgba(0,0,0,0.8)", whiteSpace: "nowrap" }}>
         {pet.name}
       </div>
-      
+
       {/* Floating Text */}
       <AnimatePresence>
         {isTarget && (
-           <motion.div
-             key={currentLog.logId} // Ensure re-render on consecutive attacks
-             initial={{ y: 0, opacity: 1, scale: 0.5 }}
-             animate={{ y: -50, opacity: 0, scale: 1.5 }}
-             transition={{ duration: 1 }}
-             style={{ position: "absolute", top: -20, fontWeight: "900", fontSize: "1.5rem", color: currentLog.type === 'dodge' ? "#4db8ff" : (currentLog.type === 'crit' ? "#ffeb3b" : "#ff4757"), textShadow: "0 2px 4px rgba(0,0,0,0.8)", whiteSpace: "nowrap", zIndex: 20 }}
-           >
-             {currentLog.type === 'dodge' ? "Né!" : `-${currentLog.damage}`}
-           </motion.div>
+          <motion.div
+            key={currentLog.logId} // Ensure re-render on consecutive attacks
+            initial={{ y: 0, opacity: 1, scale: 0.5 }}
+            animate={{ y: -50, opacity: 0, scale: 1.5 }}
+            transition={{ duration: 1 }}
+            style={{ position: "absolute", top: -20, fontWeight: "900", fontSize: "1.5rem", color: currentLog.type === 'dodge' ? "#4db8ff" : (currentLog.type === 'crit' ? "#ffeb3b" : "#ff4757"), textShadow: "0 2px 4px rgba(0,0,0,0.8)", whiteSpace: "nowrap", zIndex: 20 }}
+          >
+            {currentLog.type === 'dodge' ? "Né!" : `-${currentLog.damage}`}
+          </motion.div>
         )}
       </AnimatePresence>
     </motion.div>
@@ -481,7 +505,7 @@ export default function PetSanctuaryPage() {
 
     const log = combatLogs[playbackIdx];
     setCurrentDamageLog({ ...log, logId: playbackIdx });
-    
+
     // Phát âm thanh tương ứng
     if (log.type) playSFX(log.type);
 
@@ -512,7 +536,7 @@ export default function PetSanctuaryPage() {
         }
         updateUser(newUpdates);
         fetchPets(); // Refresh stats (care minus)
-        
+
         // Bắt đầu playback
         setPlaybackIdx(0);
         setCurrentDamageLog(null);
@@ -719,7 +743,7 @@ export default function PetSanctuaryPage() {
       <GlobalStyle />
 
       {/* Toast */}
-      <div style={{ position: "fixed", top: 16, left: 0, right: 0, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, pointerEvents: "none" }}>
+      <div style={{ position: "fixed", top: "calc(env(safe-area-inset-top, 0px) + 16px)", left: 0, right: 0, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, pointerEvents: "none" }}>
         <AnimatePresence>
           {toasts.map((t) => (
             <motion.div
@@ -746,14 +770,14 @@ export default function PetSanctuaryPage() {
 
       {/* View Mode Toggle */}
       {user?.partnerId && (
-        <div style={{ position: "absolute", top: 75, left: "50%", transform: "translateX(-50%)", zIndex: 10, background: "rgba(255,255,255,0.85)", borderRadius: "30px", display: "flex", padding: "6px", boxShadow: "0 8px 24px rgba(0,0,0,0.12)", backdropFilter: "blur(12px)" }}>
-          <button 
+        <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 110px)", left: "50%", transform: "translateX(-50%)", zIndex: 10, background: "rgba(255,255,255,0.85)", borderRadius: "30px", display: "flex", padding: "6px", boxShadow: "0 8px 24px rgba(0,0,0,0.12)", backdropFilter: "blur(12px)" }}>
+          <button
             style={{ border: "none", fontFamily: "var(--font-body), sans-serif", whiteSpace: "nowrap", minWidth: "120px", display: "flex", justifyContent: "center", alignItems: "center", background: viewMode === "my" ? "#ffffff" : "transparent", color: viewMode === "my" ? "var(--color-primary)" : "var(--text-secondary)", fontWeight: viewMode === "my" ? "800" : "600", padding: "10px 20px", borderRadius: "24px", fontSize: "0.95rem", boxShadow: viewMode === "my" ? "0 4px 12px rgba(0, 0, 0, 0.08)" : "none", transition: "all 0.3s", cursor: "pointer" }}
             onClick={() => setViewMode("my")}
           >
             Vườn của Tôi
           </button>
-          <button 
+          <button
             style={{ border: "none", fontFamily: "var(--font-body), sans-serif", whiteSpace: "nowrap", minWidth: "120px", display: "flex", justifyContent: "center", alignItems: "center", background: viewMode === "partner" ? "#ffffff" : "transparent", color: viewMode === "partner" ? "var(--color-primary)" : "var(--text-secondary)", fontWeight: viewMode === "partner" ? "800" : "600", padding: "10px 20px", borderRadius: "24px", fontSize: "0.95rem", boxShadow: viewMode === "partner" ? "0 4px 12px rgba(0, 0, 0, 0.08)" : "none", transition: "all 0.3s", cursor: "pointer" }}
             onClick={() => setViewMode("partner")}
           >
@@ -765,27 +789,27 @@ export default function PetSanctuaryPage() {
       {/* Shield Badge */}
       {(() => {
         const formatTimeLeft = (ms) => {
-          const days = Math.floor(ms / (24*60*60*1000));
-          const hrs = Math.floor((ms % (24*60*60*1000)) / (60*60*1000));
-          const mins = Math.floor((ms % (60*60*1000)) / (60*1000));
+          const days = Math.floor(ms / (24 * 60 * 60 * 1000));
+          const hrs = Math.floor((ms % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+          const mins = Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000));
           if (days > 0) return `${days} ngày ${hrs} giờ`;
           if (hrs > 0) return `${hrs} giờ ${mins} phút`;
           return `${mins} phút`;
         };
-        
+
         if (viewMode === "my" && user?.shieldUntil && new Date(user.shieldUntil).getTime() > now) {
           const msLeft = new Date(user.shieldUntil).getTime() - now;
           return (
-            <div style={{ position: "absolute", top: 145, left: "50%", transform: "translateX(-50%)", zIndex: 10, background: "rgba(255,255,255,0.9)", borderRadius: "20px", padding: "6px 16px", display: "flex", alignItems: "center", gap: "6px", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", color: "#0984e3", fontWeight: "bold", fontSize: "0.85rem", backdropFilter: "blur(4px)", border: "1px solid rgba(9, 132, 227, 0.2)", whiteSpace: "nowrap" }}>
+            <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 165px)", left: "50%", transform: "translateX(-50%)", zIndex: 10, background: "rgba(255,255,255,0.9)", borderRadius: "20px", padding: "6px 16px", display: "flex", alignItems: "center", gap: "6px", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", color: "#0984e3", fontWeight: "bold", fontSize: "0.85rem", backdropFilter: "blur(4px)", border: "1px solid rgba(9, 132, 227, 0.2)", whiteSpace: "nowrap" }}>
               <Shield size={16} color="#0984e3" fill="#74b9ff" /> Đang được bảo vệ ({formatTimeLeft(msLeft)})
             </div>
           );
         }
-        
+
         if (viewMode === "partner" && partnerShieldUntil && new Date(partnerShieldUntil).getTime() > now) {
           const msLeft = new Date(partnerShieldUntil).getTime() - now;
           return (
-            <div style={{ position: "absolute", top: 145, left: "50%", transform: "translateX(-50%)", zIndex: 10, background: "rgba(255,255,255,0.9)", borderRadius: "20px", padding: "6px 16px", display: "flex", alignItems: "center", gap: "6px", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", color: "#0984e3", fontWeight: "bold", fontSize: "0.85rem", backdropFilter: "blur(4px)", border: "1px solid rgba(9, 132, 227, 0.2)", whiteSpace: "nowrap" }}>
+            <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 165px)", left: "50%", transform: "translateX(-50%)", zIndex: 10, background: "rgba(255,255,255,0.9)", borderRadius: "20px", padding: "6px 16px", display: "flex", alignItems: "center", gap: "6px", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", color: "#0984e3", fontWeight: "bold", fontSize: "0.85rem", backdropFilter: "blur(4px)", border: "1px solid rgba(9, 132, 227, 0.2)", whiteSpace: "nowrap" }}>
               <Shield size={16} color="#0984e3" fill="#74b9ff" /> Gấu đang bật Khiên ({formatTimeLeft(msLeft)})
             </div>
           );
@@ -797,7 +821,6 @@ export default function PetSanctuaryPage() {
       <div className="garden-area">
         {(viewMode === "my" ? pets : partnerPets).length === 0 ? (
           <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", textAlign: "center", background: "rgba(255,255,255,0.6)", padding: "20px", borderRadius: "24px", backdropFilter: "blur(8px)" }}>
-            <div style={{ fontSize: "3rem", marginBottom: "12px" }}>🌿</div>
             <h3 style={{ marginBottom: "8px", color: "var(--text-primary)" }}>Vườn đang trống</h3>
             <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>{viewMode === "my" ? "Hãy vào Cửa Hàng để đón các bé nhé!" : "Gấu nhà bạn chưa nuôi bé nào cả!"}</p>
           </div>
@@ -807,7 +830,9 @@ export default function PetSanctuaryPage() {
             let groundCount = 0;
             const currentPets = viewMode === "my" ? pets : partnerPets;
             return currentPets.map((pet, idx) => {
-              const isFlying = ["owl", "dragon", "phoenix"].includes(pet.speciesId);
+              const speciesId = pet.speciesId || pet.type;
+              const emoji = pet.emoji || SPECIES.find(s => s.id === speciesId)?.emoji || '🐾';
+              const isFlying = ["owl", "dragon", "phoenix"].includes(speciesId);
               const typeIndex = isFlying ? flyCount++ : groundCount++;
 
               const exploring = pet.status === "exploring";
@@ -839,16 +864,12 @@ export default function PetSanctuaryPage() {
                       {isEpic && !isLegendary && (
                         <div style={{ position: "absolute", width: "120%", height: "120%", borderRadius: "50%", background: `radial-gradient(circle, ${r.color}33, transparent 60%)`, animation: "auraPulse 2s ease-in-out infinite", zIndex: 1 }} />
                       )}
-                      <img
-                        src={`/pets/${pet.speciesId}.png`}
+                      <LazyImage
+                        src={`/pets/${speciesId}.png`}
                         alt={pet.name}
                         style={{ width: 48 * scale, height: 48 * scale, objectFit: 'contain', filter: isLegendary ? "none" : `drop-shadow(${dropShadowStr})`, animation: isLegendary ? "contourFire 1s ease-in-out infinite alternate" : "none", position: "relative", zIndex: 2 }}
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                          if (e.target.nextSibling) e.target.nextSibling.style.display = 'block';
-                        }}
+                        fallback={<div style={{ fontSize: `${2.5 * scale}rem`, filter: isLegendary ? "none" : `drop-shadow(${dropShadowStr})`, animation: isLegendary ? "contourFire 1s ease-in-out infinite alternate" : "none", position: "relative", zIndex: 2 }}>{emoji}</div>}
                       />
-                      <div style={{ fontSize: `${2.5 * scale}rem`, display: 'none', filter: isLegendary ? "none" : `drop-shadow(${dropShadowStr})`, animation: isLegendary ? "contourFire 1s ease-in-out infinite alternate" : "none", position: "relative", zIndex: 2 }}>{pet.emoji}</div>
                     </div>
                     {/* Exploration Status Tag (replaces Name Tag) */}
                     <div style={{
@@ -884,16 +905,12 @@ export default function PetSanctuaryPage() {
                     {isEpic && !isLegendary && (
                       <div style={{ position: "absolute", width: "120%", height: "120%", borderRadius: "50%", background: `radial-gradient(circle, ${r.color}33, transparent 60%)`, animation: "auraPulse 2s ease-in-out infinite", zIndex: 1 }} />
                     )}
-                    <img
-                      src={`/pets/${pet.speciesId}.png`}
+                    <LazyImage
+                      src={`/pets/${speciesId}.png`}
                       alt={pet.name}
                       style={{ width: 64 * scale, height: 64 * scale, objectFit: 'contain', filter: isLegendary ? "none" : `drop-shadow(${dropShadowStr})`, animation: isLegendary ? "contourFire 1s ease-in-out infinite alternate" : "none", position: "relative", zIndex: 2 }}
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        if (e.target.nextSibling) e.target.nextSibling.style.display = 'inline';
-                      }}
+                      fallback={<span style={{ fontSize: `${3 * scale}rem`, filter: isLegendary ? "none" : `drop-shadow(${dropShadowStr})`, animation: isLegendary ? "contourFire 1s ease-in-out infinite alternate" : "none", position: "relative", zIndex: 2 }}>{emoji}</span>}
                     />
-                    <span style={{ fontSize: `${3 * scale}rem`, filter: isLegendary ? "none" : `drop-shadow(${dropShadowStr})`, animation: isLegendary ? "contourFire 1s ease-in-out infinite alternate" : "none", display: 'none', position: "relative", zIndex: 2 }}>{pet.emoji}</span>
                   </div>
 
                   {/* Name tag */}
@@ -913,38 +930,38 @@ export default function PetSanctuaryPage() {
       {/* Bottom Toolbars (chỉ hiện trong vườn của mình) */}
       {viewMode === "my" && (
         <>
-        <div style={{ position: "absolute", bottom: 20, left: 20, display: "flex", gap: "14px", zIndex: 10 }}>
-          <button
-            style={{ width: 56, height: 56, borderRadius: "20px", background: "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.7))", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.8)", boxShadow: "0 8px 32px rgba(31, 38, 135, 0.1), inset 0 2px 4px rgba(255,255,255,0.8)", display: "flex", justifyContent: "center", alignItems: "center", cursor: "pointer", color: "#ff4757", transition: "all 0.2s" }}
-            onClick={() => { setShopTab("pets"); setModal({ type: "shop" }); }}
-          >
-            <Store size={26} strokeWidth={2.5} />
-          </button>
-          <button
-            style={{ width: 56, height: 56, borderRadius: "20px", background: "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.7))", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.8)", boxShadow: "0 8px 32px rgba(31, 38, 135, 0.1), inset 0 2px 4px rgba(255,255,255,0.8)", display: "flex", justifyContent: "center", alignItems: "center", cursor: "pointer", color: "#fca311", transition: "all 0.2s" }}
-            onClick={() => setModal({ type: "map" })}
-          >
-            <Map size={26} strokeWidth={2.5} />
-          </button>
-          <button
-            style={{ width: 56, height: 56, borderRadius: "20px", background: "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.7))", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.8)", boxShadow: "0 8px 32px rgba(31, 38, 135, 0.1), inset 0 2px 4px rgba(255,255,255,0.8)", display: "flex", justifyContent: "center", alignItems: "center", cursor: "pointer", color: "#4facfe", transition: "all 0.2s" }}
-            onClick={() => {
-               setAttackTeamSelection([...myDefenseTeam]); // Pre-fill with existing defense team
-               setModal({ type: "defenseTeamSetup" });
-            }}
-          >
-            <Shield size={26} strokeWidth={2.5} />
-          </button>
-        </div>
-        <div style={{ position: "absolute", bottom: 20, right: 20, zIndex: 10 }}>
-          <button
-            style={{ width: 56, height: 56, borderRadius: "20px", background: "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.7))", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.8)", boxShadow: "0 8px 32px rgba(31, 38, 135, 0.1), inset 0 2px 4px rgba(255,255,255,0.8)", display: "flex", justifyContent: "center", alignItems: "center", cursor: "pointer", color: "#8e44ad", transition: "all 0.2s" }}
-            onClick={fetchCombatHistory}
-          >
-            <History size={26} strokeWidth={2.5} />
-          </button>
-        </div>
-      </>
+          <div style={{ position: "absolute", bottom: 20, left: 20, display: "flex", gap: "14px", zIndex: 10 }}>
+            <button
+              style={{ width: 56, height: 56, borderRadius: "20px", background: "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.7))", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.8)", boxShadow: "0 8px 32px rgba(31, 38, 135, 0.1), inset 0 2px 4px rgba(255,255,255,0.8)", display: "flex", justifyContent: "center", alignItems: "center", cursor: "pointer", color: "#ff4757", transition: "all 0.2s" }}
+              onClick={() => { setShopTab("pets"); setModal({ type: "shop" }); }}
+            >
+              <Store size={26} strokeWidth={2.5} />
+            </button>
+            <button
+              style={{ width: 56, height: 56, borderRadius: "20px", background: "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.7))", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.8)", boxShadow: "0 8px 32px rgba(31, 38, 135, 0.1), inset 0 2px 4px rgba(255,255,255,0.8)", display: "flex", justifyContent: "center", alignItems: "center", cursor: "pointer", color: "#fca311", transition: "all 0.2s" }}
+              onClick={() => setModal({ type: "map" })}
+            >
+              <Map size={26} strokeWidth={2.5} />
+            </button>
+            <button
+              style={{ width: 56, height: 56, borderRadius: "20px", background: "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.7))", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.8)", boxShadow: "0 8px 32px rgba(31, 38, 135, 0.1), inset 0 2px 4px rgba(255,255,255,0.8)", display: "flex", justifyContent: "center", alignItems: "center", cursor: "pointer", color: "#4facfe", transition: "all 0.2s" }}
+              onClick={() => {
+                setAttackTeamSelection([...myDefenseTeam]); // Pre-fill with existing defense team
+                setModal({ type: "defenseTeamSetup" });
+              }}
+            >
+              <Shield size={26} strokeWidth={2.5} />
+            </button>
+          </div>
+          <div style={{ position: "absolute", bottom: 20, right: 20, zIndex: 10 }}>
+            <button
+              style={{ width: 56, height: 56, borderRadius: "20px", background: "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.7))", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.8)", boxShadow: "0 8px 32px rgba(31, 38, 135, 0.1), inset 0 2px 4px rgba(255,255,255,0.8)", display: "flex", justifyContent: "center", alignItems: "center", cursor: "pointer", color: "#8e44ad", transition: "all 0.2s" }}
+              onClick={fetchCombatHistory}
+            >
+              <History size={26} strokeWidth={2.5} />
+            </button>
+          </div>
+        </>
       )}
 
       {/* Đấu Trường Tổng Lực Button (hiện bên vườn Gấu) */}
@@ -952,17 +969,17 @@ export default function PetSanctuaryPage() {
         <div style={{ position: "absolute", bottom: 20, left: "50%", transform: "translateX(-50%)", zIndex: 10 }}>
           {partnerShieldUntil && new Date(partnerShieldUntil).getTime() > now ? (
             <button
-              style={{ 
-                padding: "18px 40px", 
+              style={{
+                padding: "18px 40px",
                 fontFamily: "var(--font-body)",
-                fontSize: "1.3rem", 
-                fontWeight: "900", 
-                borderRadius: "40px", 
-                background: "#dfe6e9", 
-                color: "#b2bec3", 
-                border: "3px solid #fff", 
-                boxShadow: "0 8px 30px rgba(0, 0, 0, 0.1)", 
-                cursor: "not-allowed", 
+                fontSize: "1.3rem",
+                fontWeight: "900",
+                borderRadius: "40px",
+                background: "#dfe6e9",
+                color: "#b2bec3",
+                border: "3px solid #fff",
+                boxShadow: "0 8px 30px rgba(0, 0, 0, 0.1)",
+                cursor: "not-allowed",
                 whiteSpace: "nowrap"
               }}
               disabled={true}
@@ -971,20 +988,20 @@ export default function PetSanctuaryPage() {
             </button>
           ) : (
             <button
-              style={{ 
-                padding: "18px 40px", 
+              style={{
+                padding: "18px 40px",
                 fontFamily: "var(--font-body)",
-                fontSize: "1.3rem", 
-                fontWeight: "900", 
-                borderRadius: "40px", 
-                background: "linear-gradient(135deg, #ff4757, #ff6b81)", 
-                color: "white", 
-                border: "3px solid #fff", 
-                boxShadow: "0 8px 30px rgba(255, 71, 87, 0.5)", 
-                cursor: "pointer", 
+                fontSize: "1.3rem",
+                fontWeight: "900",
+                borderRadius: "40px",
+                background: "linear-gradient(135deg, #ff4757, #ff6b81)",
+                color: "white",
+                border: "3px solid #fff",
+                boxShadow: "0 8px 30px rgba(255, 71, 87, 0.5)",
+                cursor: "pointer",
                 whiteSpace: "nowrap",
                 textShadow: "0 2px 4px rgba(0,0,0,0.3)",
-                animation: "pulseCombatBtn 2s infinite" 
+                animation: "pulseCombatBtn 2s infinite"
               }}
               onClick={() => {
                 setAttackTeamSelection([]);
@@ -1008,14 +1025,14 @@ export default function PetSanctuaryPage() {
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              style={{ 
-                background: "var(--bg-main)", 
-                width: "100%", 
-                maxHeight: modal.type === "combatPlayback" ? "100vh" : "85vh", 
+              style={{
+                background: "var(--bg-main)",
+                width: "100%",
+                maxHeight: modal.type === "combatPlayback" ? "100vh" : "85vh",
                 height: modal.type === "combatPlayback" ? "100vh" : "auto",
-                borderTopLeftRadius: modal.type === "combatPlayback" ? 0 : "28px", 
-                borderTopRightRadius: modal.type === "combatPlayback" ? 0 : "28px", 
-                position: "relative", zIndex: 1, display: "flex", flexDirection: "column", boxShadow: "0 -4px 24px rgba(0,0,0,0.1)" 
+                borderTopLeftRadius: modal.type === "combatPlayback" ? 0 : "28px",
+                borderTopRightRadius: modal.type === "combatPlayback" ? 0 : "28px",
+                position: "relative", zIndex: 1, display: "flex", flexDirection: "column", boxShadow: "0 -4px 24px rgba(0,0,0,0.1)"
               }}
             >
               {/* Drag handle */}
@@ -1176,16 +1193,12 @@ export default function PetSanctuaryPage() {
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px" }}>
                         {SPECIES.map((s) => (
                           <div key={s.id} className="card" style={{ padding: "16px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
-                            <img
+                            <LazyImage
                               src={`/pets/${s.id}.png`}
                               alt={s.name}
                               style={{ width: 64, height: 64, objectFit: 'contain', marginBottom: "8px" }}
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                                if (e.target.nextSibling) e.target.nextSibling.style.display = 'block';
-                              }}
+                              fallback={<div style={{ fontSize: "3rem", marginBottom: "8px" }}>{s.emoji}</div>}
                             />
-                            <div style={{ fontSize: "3rem", marginBottom: "8px", display: 'none' }}>{s.emoji}</div>
                             <div style={{ fontWeight: "800", fontSize: "1rem", color: "var(--text-primary)" }}>{s.name}</div>
                             <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "12px", padding: "2px 8px", background: "rgba(0,0,0,0.03)", borderRadius: "12px" }}>
                               Tier {s.tier}
@@ -1208,16 +1221,12 @@ export default function PetSanctuaryPage() {
                         {FOODS.map((f) => (
                           <div key={f.id} className="card" style={{ padding: "16px", display: "flex", alignItems: "center", gap: "16px" }}>
                             <div style={{ fontSize: "2.5rem", background: "rgba(0,0,0,0.03)", borderRadius: "20px", width: "64px", height: "64px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                              <img
+                              <LazyImage
                                 src={`/foods/${f.id}.png`}
                                 alt={f.name}
                                 style={{ width: 48, height: 48, objectFit: 'contain' }}
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  if (e.target.nextSibling) e.target.nextSibling.style.display = 'block';
-                                }}
+                                fallback={<div>{f.emoji}</div>}
                               />
-                              <div style={{ display: 'none' }}>{f.emoji}</div>
                             </div>
                             <div style={{ flex: 1 }}>
                               <div style={{ fontWeight: "800", fontSize: "1.1rem", color: "var(--text-primary)" }}>{f.name}</div>
@@ -1246,16 +1255,12 @@ export default function PetSanctuaryPage() {
                         {ITEMS.map((item) => (
                           <div key={item.id} className="card" style={{ padding: "16px", display: "flex", alignItems: "center", gap: "16px" }}>
                             <div style={{ fontSize: "2.5rem", background: "rgba(0,0,0,0.03)", borderRadius: "20px", width: "64px", height: "64px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                              <img
+                              <LazyImage
                                 src={`/items/${item.id}.png`}
                                 alt={item.name}
                                 style={{ width: 48, height: 48, objectFit: 'contain' }}
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  if (e.target.nextSibling) e.target.nextSibling.style.display = 'block';
-                                }}
+                                fallback={<div>{item.emoji}</div>}
                               />
-                              <div style={{ display: 'none' }}>{item.emoji}</div>
                             </div>
                             <div style={{ flex: 1 }}>
                               <div style={{ fontWeight: "800", fontSize: "1.1rem", color: "var(--text-primary)" }}>{item.name}</div>
@@ -1302,16 +1307,12 @@ export default function PetSanctuaryPage() {
                         return availableFoods.map(f => (
                           <div key={f.id} style={{ display: "flex", alignItems: "center", gap: "12px", background: "white", padding: "12px", borderRadius: "20px", border: "1px solid rgba(0,0,0,0.05)" }}>
                             <div style={{ fontSize: "2rem", width: "56px", height: "56px", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.03)", borderRadius: "16px" }}>
-                              <img
+                              <LazyImage
                                 src={`/foods/${f.id}.png`}
                                 alt={f.name}
                                 style={{ width: 40, height: 40, objectFit: 'contain' }}
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  if (e.target.nextSibling) e.target.nextSibling.style.display = 'block';
-                                }}
+                                fallback={<div>{f.emoji}</div>}
                               />
-                              <div style={{ display: 'none' }}>{f.emoji}</div>
                             </div>
                             <div style={{ flex: 1 }}>
                               <div style={{ fontWeight: "800", fontSize: "1.05rem", color: "var(--text-primary)" }}>{f.name}</div>
@@ -1472,7 +1473,7 @@ export default function PetSanctuaryPage() {
                 {/* 6.5. Modal: Nhận thưởng */}
                 {modal.type === "reward" && (
                   <div style={{ textAlign: "center", paddingTop: "10px", display: "flex", flexDirection: "column", alignItems: "center" }}>
-                    
+
 
 
                     <h2 style={{ fontFamily: "var(--font-heading, 'Nunito', sans-serif)", color: "var(--color-primary)", marginBottom: "4px", fontSize: "2.4rem", fontWeight: "900", textShadow: "0 2px 10px rgba(242, 105, 137, 0.2)" }}>
@@ -1484,7 +1485,7 @@ export default function PetSanctuaryPage() {
 
                     {/* Reward Card */}
                     <div style={{ width: "100%", background: "linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.5) 100%)", backdropFilter: "blur(20px)", padding: "28px 20px", borderRadius: "32px", boxShadow: "0 20px 40px rgba(242, 105, 137, 0.15), inset 0 2px 4px rgba(255,255,255,0.8)", border: "2px solid rgba(255,255,255,0.6)", marginBottom: "32px" }}>
-                      
+
                       {/* Coins/Hearts */}
                       <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "12px" }}>
                         <div style={{ background: "rgba(242, 177, 85, 0.15)", padding: "16px 32px", borderRadius: "24px", display: "flex", alignItems: "center", gap: "12px", border: "1px solid rgba(242, 177, 85, 0.4)", boxShadow: "inset 0 4px 12px rgba(255,255,255,0.8)" }}>
@@ -1565,88 +1566,85 @@ export default function PetSanctuaryPage() {
                       <h2 style={{ fontFamily: "var(--font-heading)", color: "var(--text-primary)", fontSize: "1.4rem", margin: 0 }}>⚔️ Đội Hình Tác Chiến</h2>
                       <button onClick={() => setModal(null)} style={{ background: "transparent", border: "none", color: "var(--text-secondary)" }}><X size={24} /></button>
                     </div>
-                    
+
                     <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", marginBottom: "16px" }}>Chọn tối đa 5 thú cưng để xuất chiến. Vị trí 1-2 là Tiền đạo (chịu sát thương vật lý).</p>
 
                     <div style={{ display: "flex", gap: "8px", marginBottom: "24px" }}>
                       {/* Team My */}
                       <div style={{ flex: 1, minWidth: 0, background: "rgba(127, 216, 166, 0.1)", borderRadius: "16px", padding: "8px", border: "2px solid #7fd8a6" }}>
-                         <h4 style={{ color: "#2d985a", textAlign: "center", marginBottom: "8px", fontSize: "0.9rem" }}>Phe Bạn (Công)</h4>
-                         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                           {[0, 1, 2, 3, 4].map(idx => {
-                             const selectedId = attackTeamSelection[idx];
-                             const p = pets.find(x => x._id === selectedId);
-                             return (
-                               <div key={idx} style={{ height: 50, background: "white", borderRadius: "12px", border: "1px dashed #7fd8a6", display: "flex", alignItems: "center", padding: "0 6px", gap: "6px", minWidth: 0 }} onClick={() => {
-                                 if (p) setAttackTeamSelection(prev => prev.filter(id => id !== p._id));
-                               }}>
-                                 <div style={{ width: 24, height: 24, flexShrink: 0, borderRadius: "50%", background: idx < 2 ? "#ff7675" : "#74b9ff", color: "white", fontSize: "0.7rem", display: "flex", justifyContent: "center", alignItems: "center", fontWeight: "bold" }}>{idx + 1}</div>
-                                 {p ? (
-                                   <>
-                                     <img src={`/pets/${p.speciesId}.png`} alt={p.name} style={{ width: 28, height: 28, flexShrink: 0, objectFit: 'contain' }} onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='inline'; }} />
-                                     <span style={{ fontSize: "1.2rem", display: 'none', flexShrink: 0 }}>{p.emoji}</span>
-                                     <div style={{ fontSize: "0.75rem", fontWeight: "bold", color: "var(--text-primary)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
-                                   </>
-                                 ) : <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Trống...</div>}
-                               </div>
-                             )
-                           })}
-                         </div>
+                        <h4 style={{ color: "#2d985a", textAlign: "center", marginBottom: "8px", fontSize: "0.9rem" }}>Phe Bạn (Công)</h4>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                          {[0, 1, 2, 3, 4].map(idx => {
+                            const selectedId = attackTeamSelection[idx];
+                            const p = pets.find(x => x._id === selectedId);
+                            return (
+                              <div key={idx} style={{ height: 50, background: "white", borderRadius: "12px", border: "1px dashed #7fd8a6", display: "flex", alignItems: "center", padding: "0 6px", gap: "6px", minWidth: 0 }} onClick={() => {
+                                if (p) setAttackTeamSelection(prev => prev.filter(id => id !== p._id));
+                              }}>
+                                <div style={{ width: 24, height: 24, flexShrink: 0, borderRadius: "50%", background: idx < 2 ? "#ff7675" : "#74b9ff", color: "white", fontSize: "0.7rem", display: "flex", justifyContent: "center", alignItems: "center", fontWeight: "bold" }}>{idx + 1}</div>
+                                {p ? (
+                                  <>
+                                    <LazyImage src={`/pets/${p.speciesId}.png`} alt={p.name} style={{ width: 28, height: 28, flexShrink: 0, objectFit: 'contain' }} fallback={<span style={{ fontSize: "1.2rem", flexShrink: 0 }}>{p.emoji}</span>} />
+                                    <div style={{ fontSize: "0.75rem", fontWeight: "bold", color: "var(--text-primary)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                                  </>
+                                ) : <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Trống...</div>}
+                              </div>
+                            )
+                          })}
+                        </div>
                       </div>
-                      
+
                       {/* Team Partner (Defense) */}
                       <div style={{ flex: 1, minWidth: 0, background: "rgba(242, 105, 137, 0.1)", borderRadius: "16px", padding: "8px", border: "2px solid #f26989" }}>
-                         <h4 style={{ color: "#d94c73", textAlign: "center", marginBottom: "8px", fontSize: "0.9rem" }}>Phe Gấu (Thủ)</h4>
-                         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                           {[0, 1, 2, 3, 4].map(idx => {
-                             // Nếu partner có defenseTeam, hiển thị theo đó. Nếu không hiển thị top 5
-                             let p;
-                             if (partnerDefenseTeam.length > 0) {
-                               const defId = partnerDefenseTeam[idx];
-                               p = partnerPets.find(x => x._id === defId);
-                             } else {
-                               const top5 = [...partnerPets].sort((a,b) => (b.stats.str+b.stats.agi+b.stats.int+b.stats.luk) - (a.stats.str+a.stats.agi+a.stats.int+a.stats.luk)).slice(0, 5);
-                               p = top5[idx];
-                             }
-                             
-                             return (
-                               <div key={idx} style={{ height: 50, background: "white", borderRadius: "12px", border: "1px solid #f26989", display: "flex", alignItems: "center", padding: "0 6px", gap: "6px", minWidth: 0 }}>
-                                 <div style={{ width: 24, height: 24, flexShrink: 0, borderRadius: "50%", background: idx < 2 ? "#ff7675" : "#74b9ff", color: "white", fontSize: "0.7rem", display: "flex", justifyContent: "center", alignItems: "center", fontWeight: "bold" }}>{idx + 1}</div>
-                                 {p ? (
-                                   <>
-                                     <img src={`/pets/${p.speciesId}.png`} alt={p.name} style={{ width: 28, height: 28, flexShrink: 0, objectFit: 'contain' }} onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='inline'; }} />
-                                     <span style={{ fontSize: "1.2rem", display: 'none', flexShrink: 0 }}>{p.emoji}</span>
-                                     <div style={{ fontSize: "0.75rem", fontWeight: "bold", color: "var(--text-primary)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
-                                   </>
-                                 ) : <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Trống...</div>}
-                               </div>
-                             )
-                           })}
-                         </div>
+                        <h4 style={{ color: "#d94c73", textAlign: "center", marginBottom: "8px", fontSize: "0.9rem" }}>Phe Gấu (Thủ)</h4>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                          {[0, 1, 2, 3, 4].map(idx => {
+                            // Nếu partner có defenseTeam, hiển thị theo đó. Nếu không hiển thị top 5
+                            let p;
+                            if (partnerDefenseTeam.length > 0) {
+                              const defId = partnerDefenseTeam[idx];
+                              p = partnerPets.find(x => x._id === defId);
+                            } else {
+                              const top5 = [...partnerPets].sort((a, b) => (b.stats.str + b.stats.agi + b.stats.int + b.stats.luk) - (a.stats.str + a.stats.agi + a.stats.int + a.stats.luk)).slice(0, 5);
+                              p = top5[idx];
+                            }
+
+                            return (
+                              <div key={idx} style={{ height: 50, background: "white", borderRadius: "12px", border: "1px solid #f26989", display: "flex", alignItems: "center", padding: "0 6px", gap: "6px", minWidth: 0 }}>
+                                <div style={{ width: 24, height: 24, flexShrink: 0, borderRadius: "50%", background: idx < 2 ? "#ff7675" : "#74b9ff", color: "white", fontSize: "0.7rem", display: "flex", justifyContent: "center", alignItems: "center", fontWeight: "bold" }}>{idx + 1}</div>
+                                {p ? (
+                                  <>
+                                    <LazyImage src={`/pets/${p.speciesId}.png`} alt={p.name} style={{ width: 28, height: 28, flexShrink: 0, objectFit: 'contain' }} fallback={<span style={{ fontSize: "1.2rem", flexShrink: 0 }}>{p.emoji}</span>} />
+                                    <div style={{ fontSize: "0.75rem", fontWeight: "bold", color: "var(--text-primary)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                                  </>
+                                ) : <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Trống...</div>}
+                              </div>
+                            )
+                          })}
+                        </div>
                       </div>
                     </div>
 
                     <h4 style={{ color: "var(--text-primary)", marginBottom: "8px" }}>Chọn linh thú (Bấm để thêm)</h4>
                     <div style={{ display: "flex", gap: "12px", overflowX: "auto", paddingBottom: "12px", marginBottom: "16px" }}>
-                       {pets.filter(p => p.status === 'idle' && (p.care?.happiness >= 30) && (p.care?.fullness >= 30) && !attackTeamSelection.includes(p._id)).map(p => (
-                         <div key={p._id} style={{ minWidth: 60, height: 60, background: "var(--bg-glass-strong)", borderRadius: "16px", display: "flex", justifyContent: "center", alignItems: "center", cursor: "pointer", boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }} onClick={() => {
-                           if (attackTeamSelection.length < 5) setAttackTeamSelection(prev => [...prev, p._id]);
-                           else addToast("Đội hình tối đa 5 thú cưng!", "error");
-                         }}>
-                           <img src={`/pets/${p.speciesId}.png`} alt={p.name} style={{ width: 40, height: 40, objectFit: 'contain' }} onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='inline'; }} />
-                           <span style={{ fontSize: "1.8rem", display: 'none' }}>{p.emoji}</span>
-                         </div>
-                       ))}
+                      {pets.filter(p => p.status === 'idle' && (p.care?.happiness >= 30) && (p.care?.fullness >= 30) && !attackTeamSelection.includes(p._id)).map(p => (
+                        <div key={p._id} style={{ minWidth: 60, height: 60, background: "var(--bg-glass-strong)", borderRadius: "16px", display: "flex", justifyContent: "center", alignItems: "center", cursor: "pointer", boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }} onClick={() => {
+                          if (attackTeamSelection.length < 5) setAttackTeamSelection(prev => [...prev, p._id]);
+                          else addToast("Đội hình tối đa 5 thú cưng!", "error");
+                        }}>
+                          <LazyImage src={`/pets/${p.speciesId}.png`} alt={p.name} style={{ width: 40, height: 40, objectFit: 'contain' }} fallback={<span style={{ fontSize: "1.8rem" }}>{p.emoji}</span>} />
+                        </div>
+                      ))}
                     </div>
 
-                    <button 
-                      className="btn btn-primary" 
-                      style={{ width: "100%", padding: "16px", fontSize: "1.1rem", borderRadius: "20px", opacity: combatCooldown > 0 ? 0.6 : 1 }} 
+                    <button
+                      className="btn btn-primary"
+                      style={{ width: "100%", padding: "16px", fontSize: "1.1rem", borderRadius: "20px", opacity: combatCooldown > 0 ? 0.6 : 1 }}
                       disabled={combatCooldown > 0}
                       onClick={handleCombat}
                     >
-                      {combatCooldown > 0 
-                        ? `⚔️ ĐẠI CHIẾN ĐANG HỒI (${Math.floor(combatCooldown / 3600000)}h ${Math.floor((combatCooldown % 3600000) / 60000)}m)` 
+                      {combatCooldown > 0
+                        ? `⚔️ ĐẠI CHIẾN ĐANG HỒI (${Math.floor(combatCooldown / 3600000)}h ${Math.floor((combatCooldown % 3600000) / 60000)}m)`
                         : "⚔️ BẮT ĐẦU ĐẠI CHIẾN!"}
                     </button>
                   </div>
@@ -1659,7 +1657,7 @@ export default function PetSanctuaryPage() {
                       <h2 style={{ fontFamily: "var(--font-heading)", color: "var(--text-primary)", fontSize: "1.4rem", margin: 0 }}>🛡️ Lập Đội Thủ</h2>
                       <button onClick={() => setModal(null)} style={{ background: "transparent", border: "none", color: "var(--text-secondary)" }}><X size={24} /></button>
                     </div>
-                    
+
                     <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", marginBottom: "16px" }}>Thiết lập 5 thú cưng để phòng thủ khi Gấu sang thách đấu. Vị trí 1-2 là Tiền đạo (chịu đòn trước).</p>
 
                     <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "24px", background: "rgba(0,198,255,0.1)", padding: "16px", borderRadius: "16px" }}>
@@ -1673,8 +1671,7 @@ export default function PetSanctuaryPage() {
                             <div style={{ width: 28, height: 28, borderRadius: "50%", background: idx < 2 ? "#ff7675" : "#74b9ff", color: "white", fontSize: "0.8rem", display: "flex", justifyContent: "center", alignItems: "center", fontWeight: "bold" }}>{idx + 1}</div>
                             {p ? (
                               <>
-                                <img src={`/pets/${p.speciesId}.png`} alt={p.name} style={{ width: 40, height: 40, objectFit: 'contain' }} onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='inline'; }} />
-                                <span style={{ fontSize: "1.5rem", display: 'none' }}>{p.emoji}</span>
+                                <LazyImage src={`/pets/${p.speciesId}.png`} alt={p.name} style={{ width: 40, height: 40, objectFit: 'contain' }} fallback={<span style={{ fontSize: "1.5rem" }}>{p.emoji}</span>} />
                                 <div style={{ fontSize: "1rem", fontWeight: "bold", color: "var(--text-primary)", flex: 1 }}>{p.name}</div>
                               </>
                             ) : <div style={{ fontSize: "0.9rem", color: "var(--text-secondary)" }}>Bấm linh thú bên dưới để thêm vào ô này...</div>}
@@ -1685,15 +1682,14 @@ export default function PetSanctuaryPage() {
 
                     <h4 style={{ color: "var(--text-primary)", marginBottom: "8px" }}>Kho linh thú của bạn</h4>
                     <div style={{ display: "flex", gap: "12px", overflowX: "auto", paddingBottom: "12px", marginBottom: "16px" }}>
-                       {pets.filter(p => !attackTeamSelection.includes(p._id)).map(p => (
-                         <div key={p._id} style={{ minWidth: 60, height: 60, background: "var(--bg-glass-strong)", borderRadius: "16px", display: "flex", justifyContent: "center", alignItems: "center", cursor: "pointer", boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }} onClick={() => {
-                           if (attackTeamSelection.length < 5) setAttackTeamSelection(prev => [...prev, p._id]);
-                           else addToast("Đội hình tối đa 5 thú cưng!", "error");
-                         }}>
-                           <img src={`/pets/${p.speciesId}.png`} alt={p.name} style={{ width: 40, height: 40, objectFit: 'contain' }} onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='inline'; }} />
-                           <span style={{ fontSize: "1.8rem", display: 'none' }}>{p.emoji}</span>
-                         </div>
-                       ))}
+                      {pets.filter(p => !attackTeamSelection.includes(p._id)).map(p => (
+                        <div key={p._id} style={{ minWidth: 60, height: 60, background: "var(--bg-glass-strong)", borderRadius: "16px", display: "flex", justifyContent: "center", alignItems: "center", cursor: "pointer", boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }} onClick={() => {
+                          if (attackTeamSelection.length < 5) setAttackTeamSelection(prev => [...prev, p._id]);
+                          else addToast("Đội hình tối đa 5 thú cưng!", "error");
+                        }}>
+                          <LazyImage src={`/pets/${p.speciesId}.png`} alt={p.name} style={{ width: 40, height: 40, objectFit: 'contain' }} fallback={<span style={{ fontSize: "1.8rem" }}>{p.emoji}</span>} />
+                        </div>
+                      ))}
                     </div>
 
                     <button className="btn btn-primary" style={{ width: "100%", padding: "16px", fontSize: "1.1rem", borderRadius: "20px", background: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)", border: "none", boxShadow: "0 4px 15px rgba(0,198,255,0.4)" }} onClick={() => handleSaveDefenseTeam(attackTeamSelection)}>💾 LƯU ĐỘI THỦ</button>
@@ -1705,49 +1701,49 @@ export default function PetSanctuaryPage() {
                   <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "url('/arena-bg-dark.png') center/cover", overflow: "hidden", position: "relative" }}>
                     <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.3)" }} />
                     <h3 style={{ position: "relative", zIndex: 1, textAlign: "center", padding: "calc(env(safe-area-inset-top, 20px) + 20px) 16px 16px", color: "white", textShadow: "0 2px 8px rgba(0,0,0,0.8)", fontSize: "1.8rem", fontWeight: "900", textTransform: "uppercase", letterSpacing: "2px" }}>Đại Chiến Tác Chiến</h3>
-                    
+
                     <div style={{ position: "relative", zIndex: 1, display: "flex", flex: 1, alignItems: "center", justifyContent: "center", padding: "20px 0" }}>
                       {/* Team A */}
                       <div style={{ flex: 1, display: "flex", justifyContent: "center", gap: "25px", minWidth: 0 }}>
                         {/* Hậu vệ */}
                         <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: "15px" }}>
                           {combatTeamA.filter(p => p.slot >= 3).map(p => (
-                             <PetCombatSprite key={p._id} pet={p} currentLog={currentDamageLog} />
+                            <PetCombatSprite key={p._id} pet={p} currentLog={currentDamageLog} />
                           ))}
                         </div>
                         {/* Tiền đạo */}
                         <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: "40px" }}>
                           {combatTeamA.filter(p => p.slot <= 2).map(p => (
-                             <PetCombatSprite key={p._id} pet={p} currentLog={currentDamageLog} />
+                            <PetCombatSprite key={p._id} pet={p} currentLog={currentDamageLog} />
                           ))}
                         </div>
                       </div>
-                      
+
                       <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", textAlign: "center", fontWeight: "900", color: "#ff4757", fontSize: "1.8rem", textShadow: "0 2px 8px rgba(0,0,0,0.8)", zIndex: 0, opacity: 0.5 }}>VS</div>
-                      
+
                       {/* Team B */}
                       <div style={{ flex: 1, display: "flex", justifyContent: "center", gap: "25px", minWidth: 0 }}>
                         {/* Tiền đạo */}
                         <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: "40px" }}>
                           {combatTeamB.filter(p => p.slot <= 2).map(p => (
-                             <PetCombatSprite key={p._id} pet={p} currentLog={currentDamageLog} />
+                            <PetCombatSprite key={p._id} pet={p} currentLog={currentDamageLog} />
                           ))}
                         </div>
                         {/* Hậu vệ */}
                         <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: "15px" }}>
                           {combatTeamB.filter(p => p.slot >= 3).map(p => (
-                             <PetCombatSprite key={p._id} pet={p} currentLog={currentDamageLog} />
+                            <PetCombatSprite key={p._id} pet={p} currentLog={currentDamageLog} />
                           ))}
                         </div>
                       </div>
                     </div>
-                    
+
                     <div style={{ position: "relative", zIndex: 1, background: "rgba(0,0,0,0.6)", color: "white", padding: "16px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
                       <div style={{ fontSize: "1.1rem", fontWeight: "bold", minHeight: "24px" }}>
                         {currentDamageLog?.msg || "Trận đấu chuẩn bị bắt đầu..."}
                       </div>
 
-                      <button 
+                      <button
                         onClick={handleNextTurn}
                         style={{
                           padding: "12px 40px",
@@ -1778,25 +1774,25 @@ export default function PetSanctuaryPage() {
 
                     <div style={{ display: "flex", gap: "12px", justifyContent: "center", marginBottom: "20px" }}>
                       <div style={{ background: "#4db8ff22", color: "#4db8ff", padding: "8px 16px", borderRadius: "20px", fontWeight: "bold", textAlign: "center" }}>
-                        EXP Cả Đội<br/>
+                        EXP Cả Đội<br />
                         <span style={{ fontSize: "1.5rem" }}>+{combatResult.expGain}</span>
                       </div>
                       {combatResult.reward > 0 && (
                         <div style={{ background: "#f2698922", color: "var(--color-primary)", padding: "8px 16px", borderRadius: "20px", fontWeight: "bold", textAlign: "center" }}>
-                          Quà Tặng<br/>
+                          Quà Tặng<br />
                           <span style={{ fontSize: "1.5rem" }}>+{combatResult.reward} ❤️</span>
                         </div>
                       )}
                     </div>
-                    
+
                     {combatResult.leveledPets && combatResult.leveledPets.length > 0 && (
-                       <p style={{ textAlign: "center", color: "#f2b155", fontWeight: "bold", marginBottom: "16px", animation: "pulseAura 1s infinite alternate" }}>
-                         🎉 Đã thăng cấp: {combatResult.leveledPets.join(", ")}! 🎉
-                       </p>
+                      <p style={{ textAlign: "center", color: "#f2b155", fontWeight: "bold", marginBottom: "16px", animation: "pulseAura 1s infinite alternate" }}>
+                        🎉 Đã thăng cấp: {combatResult.leveledPets.join(", ")}! 🎉
+                      </p>
                     )}
-                    
+
                     <p style={{ textAlign: "center", fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "24px" }}>
-                       *Lưu ý: Toàn đội đã tiêu hao rất nhiều thể lực (Độ Vui vẻ & Độ No). Hãy chăm sóc các bé nhé!
+                      *Lưu ý: Toàn đội đã tiêu hao rất nhiều thể lực (Độ Vui vẻ & Độ No). Hãy chăm sóc các bé nhé!
                     </p>
 
                     <button className="btn btn-primary" style={{ width: "100%", padding: "16px", fontSize: "1.1rem", borderRadius: "20px" }} onClick={() => setModal(null)}>Trở về Vườn</button>
@@ -1820,14 +1816,14 @@ export default function PetSanctuaryPage() {
                         combatHistoryList.map(h => {
                           const isMeAttacker = h.attackerId === user._id;
                           const didIWin = isMeAttacker ? h.isAttackerWin : !h.isAttackerWin;
-                          
+
                           let bgColor = didIWin ? "rgba(46, 204, 113, 0.1)" : "rgba(231, 76, 60, 0.1)";
                           let borderColor = didIWin ? "#2ecc71" : "#e74c3c";
                           let textColor = didIWin ? "#27ae60" : "#c0392b";
-                          
+
                           let message = "";
                           if (isMeAttacker) {
-                            message = h.isAttackerWin 
+                            message = h.isAttackerWin
                               ? `Bạn đã càn quét Đội Thủ của Gấu! 🏆 +${h.reward} tim`
                               : `Bạn đã thất bại khi công thành! ☠️`;
                           } else {
@@ -1835,7 +1831,7 @@ export default function PetSanctuaryPage() {
                               ? `Gấu đã đánh tan Đội Thủ của bạn! 💔 Bị cướp ${h.reward} tim`
                               : `Đội Thủ của bạn đã phòng ngự xuất sắc trước đợt tấn công của Gấu! 🛡️`;
                           }
-                          
+
                           // Format time
                           const dateObj = new Date(h.createdAt);
                           const timeStr = dateObj.toLocaleString('vi-VN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -1887,7 +1883,7 @@ function GlobalStyle() {
       }
       .garden-area {
         position: absolute;
-        top: 80px;
+        top: 130px;
         bottom: 100px;
         left: 0;
         right: 0;
