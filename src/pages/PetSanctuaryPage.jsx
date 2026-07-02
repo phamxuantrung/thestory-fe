@@ -124,16 +124,26 @@ function formatDurationHours(h) {
 
 function getCurrentCare(pet, now) {
   if (!pet.care) return { happiness: 100, fullness: 100, cleanliness: 100 };
-  if (pet.status === "exploring") return pet.care;
-  const hours = Math.max(0, (now - new Date(pet.care.lastUpdate).getTime()) / 3600000);
+
+  let passiveHours = 0;
+  if (pet.status === "exploring") {
+    const endMs = pet.expeditionEnd ? new Date(pet.expeditionEnd).getTime() : 0;
+    if (endMs && now > endMs) {
+      passiveHours = (now - endMs) / 3600000;
+    } else {
+      return pet.care;
+    }
+  } else {
+    passiveHours = Math.max(0, (now - new Date(pet.care.lastUpdate).getTime()) / 3600000);
+  }
 
   const speciesDef = SPECIES.find(s => s.id === pet.speciesId);
   const decay = speciesDef?.decay || { f: 5, h: 4, c: 3 };
 
   return {
-    happiness: clamp(pet.care.happiness - decay.h * hours, pet.care.maxHappiness || 100),
-    fullness: clamp(pet.care.fullness - decay.f * hours, pet.care.maxFullness || 100),
-    cleanliness: clamp(pet.care.cleanliness - decay.c * hours, pet.care.maxCleanliness || 100),
+    happiness: clamp(pet.care.happiness - decay.h * passiveHours, pet.care.maxHappiness || 100),
+    fullness: clamp(pet.care.fullness - decay.f * passiveHours, pet.care.maxFullness || 100),
+    cleanliness: clamp(pet.care.cleanliness - decay.c * passiveHours, pet.care.maxCleanliness || 100),
   };
 }
 
@@ -467,7 +477,7 @@ export default function PetSanctuaryPage() {
           setMyDefenseTeam(res.data.defenseTeam || []);
         }
       });
-      
+
       let p2 = Promise.resolve();
       if (user?.partnerId) {
         p2 = api.get('/pets/partner').then(resP => {
@@ -793,7 +803,7 @@ export default function PetSanctuaryPage() {
 
       {/* View Mode Toggle */}
       {user?.partnerId && (
-        <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 110px)", left: "50%", transform: "translateX(-50%)", zIndex: 10, background: "rgba(255,255,255,0.85)", borderRadius: "30px", display: "flex", padding: "6px", boxShadow: "0 8px 24px rgba(0,0,0,0.12)", backdropFilter: "blur(12px)" }}>
+        <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top, 0px) + 70px)", left: "50%", transform: "translateX(-50%)", zIndex: 10, background: "rgba(255,255,255,0.85)", borderRadius: "30px", display: "flex", padding: "6px", boxShadow: "0 8px 24px rgba(0,0,0,0.12)", backdropFilter: "blur(12px)" }}>
           <button
             style={{ border: "none", fontFamily: "var(--font-body), sans-serif", whiteSpace: "nowrap", minWidth: "120px", display: "flex", justifyContent: "center", alignItems: "center", background: viewMode === "my" ? "#ffffff" : "transparent", color: viewMode === "my" ? "var(--color-primary)" : "var(--text-secondary)", fontWeight: viewMode === "my" ? "800" : "600", padding: "10px 20px", borderRadius: "24px", fontSize: "0.95rem", boxShadow: viewMode === "my" ? "0 4px 12px rgba(0, 0, 0, 0.08)" : "none", transition: "all 0.3s", cursor: "pointer" }}
             onClick={() => setViewMode("my")}
@@ -823,7 +833,7 @@ export default function PetSanctuaryPage() {
         if (viewMode === "my" && user?.shieldUntil && new Date(user.shieldUntil).getTime() > now) {
           const msLeft = new Date(user.shieldUntil).getTime() - now;
           return (
-            <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 165px)", left: "50%", transform: "translateX(-50%)", zIndex: 10, background: "rgba(255,255,255,0.9)", borderRadius: "20px", padding: "6px 16px", display: "flex", alignItems: "center", gap: "6px", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", color: "#0984e3", fontWeight: "bold", fontSize: "0.85rem", backdropFilter: "blur(4px)", border: "1px solid rgba(9, 132, 227, 0.2)", whiteSpace: "nowrap" }}>
+            <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top, 0px) + 165px)", left: "50%", transform: "translateX(-50%)", zIndex: 10, background: "rgba(255,255,255,0.9)", borderRadius: "20px", padding: "6px 16px", display: "flex", alignItems: "center", gap: "6px", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", color: "#0984e3", fontWeight: "bold", fontSize: "0.85rem", backdropFilter: "blur(4px)", border: "1px solid rgba(9, 132, 227, 0.2)", whiteSpace: "nowrap" }}>
               <Shield size={16} color="#0984e3" fill="#74b9ff" /> Đang được bảo vệ ({formatTimeLeft(msLeft)})
             </div>
           );
@@ -832,7 +842,7 @@ export default function PetSanctuaryPage() {
         if (viewMode === "partner" && partnerShieldUntil && new Date(partnerShieldUntil).getTime() > now) {
           const msLeft = new Date(partnerShieldUntil).getTime() - now;
           return (
-            <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 165px)", left: "50%", transform: "translateX(-50%)", zIndex: 10, background: "rgba(255,255,255,0.9)", borderRadius: "20px", padding: "6px 16px", display: "flex", alignItems: "center", gap: "6px", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", color: "#0984e3", fontWeight: "bold", fontSize: "0.85rem", backdropFilter: "blur(4px)", border: "1px solid rgba(9, 132, 227, 0.2)", whiteSpace: "nowrap" }}>
+            <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top, 0px) + 165px)", left: "50%", transform: "translateX(-50%)", zIndex: 10, background: "rgba(255,255,255,0.9)", borderRadius: "20px", padding: "6px 16px", display: "flex", alignItems: "center", gap: "6px", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", color: "#0984e3", fontWeight: "bold", fontSize: "0.85rem", backdropFilter: "blur(4px)", border: "1px solid rgba(9, 132, 227, 0.2)", whiteSpace: "nowrap" }}>
               <Shield size={16} color="#0984e3" fill="#74b9ff" /> Gấu đang bật Khiên ({formatTimeLeft(msLeft)})
             </div>
           );
@@ -908,7 +918,7 @@ export default function PetSanctuaryPage() {
                       alignItems: "center",
                       gap: "2px",
                       zIndex: 10,
-                      animation: ready ? "floatY 1.5s ease-in-out infinite alternate" : "none"
+                      animation: ready ? "bounceY 1.5s ease-in-out infinite alternate" : "none"
                     }}>
                       <span style={{ fontSize: "0.75rem", fontWeight: "900", color: ready ? "white" : "var(--text-primary)", whiteSpace: "nowrap" }}>
                         {ready ? "🎁 Xong!" : "Đang đi..."}
@@ -1540,7 +1550,7 @@ export default function PetSanctuaryPage() {
                     </div>
 
                     {modal.leveled && (
-                      <div style={{ background: "linear-gradient(135deg, #7fd8a6 0%, #2d985a 100%)", padding: "12px 24px", borderRadius: "24px", color: "white", fontWeight: "900", display: "inline-flex", alignItems: "center", gap: "10px", fontSize: "1.3rem", boxShadow: "0 8px 24px rgba(45, 152, 90, 0.4)", animation: "floatY 2s infinite alternate", border: "2px solid rgba(255,255,255,0.4)", marginBottom: "24px" }}>
+                      <div style={{ background: "linear-gradient(135deg, #7fd8a6 0%, #2d985a 100%)", padding: "12px 24px", borderRadius: "24px", color: "white", fontWeight: "900", display: "inline-flex", alignItems: "center", gap: "10px", fontSize: "1.3rem", boxShadow: "0 8px 24px rgba(45, 152, 90, 0.4)", animation: "bounceY 2s infinite alternate", border: "2px solid rgba(255,255,255,0.4)", marginBottom: "24px" }}>
                         <Sparkles size={24} color="#fff" fill="#fff" /> Lên cấp {modal.pet.level}!
                       </div>
                     )}
@@ -1929,6 +1939,10 @@ function GlobalStyle() {
       @keyframes floatY { 
         0%, 100% { transform: translateX(-50%) translateY(0); } 
         50% { transform: translateX(-50%) translateY(-15px); } 
+      }
+      @keyframes bounceY {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-15px); }
       }
       @keyframes auraSpin {
         from { transform: rotate(0deg); }
