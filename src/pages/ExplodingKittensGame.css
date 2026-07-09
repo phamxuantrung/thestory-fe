@@ -1,0 +1,218 @@
+.ek-page {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-image: url('/cards/background.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Poppins', sans-serif;
+  color: white;
+}
+
+/* Force landscape hint if portrait */
+@media screen and (orientation: portrait) {
+  .ek-rotate-prompt {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.9);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 24px;
+    text-align: center;
+    padding: 20px;
+  }
+}
+@media screen and (orientation: landscape) {
+  .ek-rotate-prompt {
+    display: none;
+  }
+}
+
+.ek-canvas {
+  width: 100%;
+  height: 100%;
+  touch-action: none; /* Prevent scroll on touch */
+}
+
+/* Popups */
+.ek-modal-backdrop {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(5px);
+}
+
+.ek-modal {
+  background: white;
+  padding: 30px;
+  border-radius: 20px;
+  text-align: center;
+  color: #333;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  max-width: 400px;
+  width: 90%;
+  border: 4px solid #ff758c;
+}
+
+.ek-modal h2 {
+  color: #ff3b5c;
+  margin-top: 0;
+  font-size: 28px;
+}
+
+.ek-modal p {
+  font-size: 16px;
+  color: #666;
+  margin-bottom: 20px;
+}
+
+.ek-btn {
+  background: linear-gradient(90deg, #ff3b5c, #ff6fcf);
+  color: white;
+  border: none;
+  padding: 12px 30px;
+  font-size: 18px;
+  font-weight: bold;
+  border-radius: 30px;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(255, 59, 92, 0.4);
+  transition: transform 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+
+.ek-btn:active {
+  transform: scale(0.95);
+}
+
+.ek-btn:disabled {
+  background: #ccc;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.ek-future-container {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  margin-top: 20px;
+  margin-bottom: 20px;
+}
+
+.ek-future-card-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.ek-future-card-label {
+  font-size: 13px;
+  font-weight: bold;
+  color: #ff3b5c;
+  background: rgba(255, 59, 92, 0.1);
+  padding: 4px 10px;
+  border-radius: 12px;
+}
+
+.ek-future-card-img {
+  width: 90px;
+  height: 140px;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  object-fit: contain;
+  transition: transform 0.2s;
+}
+
+.ek-future-card-img:hover {
+  transform: translateY(-5px);
+}
+
+.ek-back-btn {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  background: rgba(255, 255, 255, 0.85);
+  border: none;
+  color: #ff3b5c;
+  padding: 10px;
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(255, 59, 92, 0.2);
+  transition: transform 0.2s, background 0.2s;
+}
+
+.ek-back-btn:hover {
+  background: white;
+  transform: scale(1.05);
+}
+
+/* Defusing Deck UI */
+.ek-defuse-deck-container {
+  position: relative;
+  width: 100%;
+  height: 120px;
+  margin: 20px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none; /* Prevent scrolling while dragging */
+  user-select: none;
+}
+
+.ek-defuse-deck-track {
+  position: relative;
+  height: 90px;
+  display: flex;
+  align-items: center;
+}
+
+.ek-defuse-card-back {
+  position: absolute;
+  width: 60px;
+  height: 90px;
+  border-radius: 8px;
+  box-shadow: -2px 0 5px rgba(0,0,0,0.2);
+  transition: transform 0.2s;
+}
+
+.ek-defuse-kitten-card {
+  position: absolute;
+  width: 65px;
+  height: 98px;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+  z-index: 10;
+  pointer-events: none;
+  transform: translateY(-20px);
+  transition: left 0.15s ease-out;
+}
+
+@keyframes ek-toast-in {
+  from { opacity: 0; transform: translate(-50%, -100%); }
+  to { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+@keyframes ek-toast-out {
+  from { opacity: 1; transform: translate(-50%, -50%); }
+  to { opacity: 0; transform: translate(-50%, -100%); }
+}

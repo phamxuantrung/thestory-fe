@@ -1,0 +1,2830 @@
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Heart, Sparkles, Sword, Wind, Brain, Clover, Timer, MapPin,
+  ShoppingBag, PawPrint, X, Check, ChevronRight, Gem, AlertTriangle, Smile, Bath, Utensils, Gamepad2, Pencil, HandHeart, Store, Map, Shield, History, Home, Gift, Camera, Coins, Shirt, Star, Leaf, Sprout, Trees, HeartPulse
+} from "lucide-react";
+import api from "../services/api";
+import { useAuth } from "../hooks/useAuth";
+import { motion, AnimatePresence } from "framer-motion";
+import Header from "../components/Header";
+import BatheMiniGame from "../components/BatheMiniGame";
+import { RARITY, SPECIES, FOODS, DESTINATIONS, MAX_PETS, ITEMS, PET_SKINS } from "../utils/gameConfig";
+
+/* ---------------------------------- DATA ---------------------------------- */
+
+const CARE_THRESHOLD = 40;
+
+/* --------------------------------- HELPERS --------------------------------- */
+
+const getPetImageSrc = (pet) => pet?.activeSkin ? `/pets/skins/${pet.activeSkin}.webp` : `/pets/${pet?.speciesId}.webp`;
+
+let audioCtx = null;
+const getAudioCtx = () => {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+};
+
+export const playSFX = (type) => {
+  try {
+    const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') return;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const now = ctx.currentTime;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if (type === 'hit') {
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(200, now);
+      osc.frequency.exponentialRampToValueAtTime(50, now + 0.1);
+      gain.gain.setValueAtTime(0.1, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+      osc.start(now);
+      osc.stop(now + 0.1);
+    } else if (type === 'crit') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(300, now);
+      osc.frequency.exponentialRampToValueAtTime(100, now + 0.2);
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+      osc.start(now);
+      osc.stop(now + 0.2);
+    } else if (type === 'dodge') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(600, now);
+      osc.frequency.linearRampToValueAtTime(800, now + 0.1);
+      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+      osc.start(now);
+      osc.stop(now + 0.1);
+    } else if (type === 'die') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(300, now);
+      osc.frequency.exponentialRampToValueAtTime(50, now + 0.5);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+      osc.start(now);
+      osc.stop(now + 0.5);
+    } else if (type === 'eat') {
+      const audio = new window.Audio('/eat.mp3');
+      audio.volume = 0.8;
+      audio.play().catch(e => console.warn("Cannot play eat sound", e));
+    }
+  } catch (e) { console.warn("Audio disabled", e); }
+};
+
+export const playBGM = () => {
+  try {
+    const ctx = getAudioCtx();
+    if (window.__bgmInterval) clearInterval(window.__bgmInterval);
+    const notes = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63]; // C E G C G E
+    let i = 0;
+    window.__bgmInterval = setInterval(() => {
+      if (ctx.state === 'suspended') return;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(notes[i % notes.length], ctx.currentTime);
+      gain.gain.setValueAtTime(0.03, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.2);
+      i++;
+    }, 250);
+  } catch (e) { console.warn("Audio disabled", e); }
+};
+
+export const stopBGM = () => {
+  if (window.__bgmInterval) {
+    clearInterval(window.__bgmInterval);
+    window.__bgmInterval = null;
+  }
+};
+
+const clamp = (v, max) => Math.max(0, Math.min(max, Math.round(v)));
+
+function statScoreOf(pet) {
+  const s = pet.stats;
+  return (s.str + s.agi + s.luk + s.int) / 4;
+}
+
+function expToNext(level) {
+  return Math.floor(100 * Math.pow(1.15, level - 1));
+}
+
+function formatClock(ms) {
+  if (ms <= 0) return "00:00:00";
+  const s = Math.floor(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sc = s % 60;
+  return [h, m, sc].map((x) => x.toString().padStart(2, "0")).join(":");
+}
+
+function formatDurationHours(h) {
+  return h === 1 ? "1 giờ" : `${h} giờ`;
+}
+
+function getCurrentCare(pet, now) {
+  if (!pet.care) return { happiness: 100, fullness: 100, cleanliness: 100 };
+
+  let passiveHours = 0;
+  if (pet.status === "exploring") {
+    const endMs = pet.expeditionEnd ? new Date(pet.expeditionEnd).getTime() : 0;
+    if (endMs && now > endMs) {
+      passiveHours = (now - endMs) / 3600000;
+    } else {
+      return pet.care;
+    }
+  } else {
+    passiveHours = Math.max(0, (now - new Date(pet.care.lastUpdate).getTime()) / 3600000);
+  }
+
+  const speciesDef = SPECIES.find(s => s.id === pet.speciesId);
+  const decay = speciesDef?.decay || { f: 5, h: 4, c: 3 };
+
+  return {
+    happiness: clamp(pet.care.happiness - decay.h * passiveHours, pet.care.maxHappiness || 100),
+    fullness: clamp(pet.care.fullness - decay.f * passiveHours, pet.care.maxFullness || 100),
+    cleanliness: clamp(pet.care.cleanliness - decay.c * passiveHours, pet.care.maxCleanliness || 100),
+  };
+}
+
+function isEligibleForExpedition(pet, now) {
+  const care = getCurrentCare(pet, now);
+  const score = statScoreOf(pet);
+  return care.happiness > CARE_THRESHOLD &&
+    care.fullness > CARE_THRESHOLD &&
+    care.cleanliness > CARE_THRESHOLD &&
+    score >= 10 &&
+    pet.status === "idle";
+}
+
+function isPetBusyForCombat(pet, now) {
+  if (pet.isSick) return true;
+  if (pet.status === 'exploring') {
+    if (!pet.expeditionEnd) return true;
+    if (new Date(pet.expeditionEnd).getTime() > now) return true;
+  }
+  return false;
+}
+
+const FLYING_SLOTS = [
+  { left: 50, top: 15 }, // Top Center
+  { left: 20, top: 20 }, // Top Left
+  { left: 80, top: 20 }, // Top Right
+  { left: 35, top: 35 }, // Inner Left
+  { left: 65, top: 35 }, // Inner Right
+  { left: 50, top: 30 }, // Mid Center
+  { left: 20, top: 40 }, // Mid Left
+  { left: 80, top: 40 }, // Mid Right
+];
+
+const GROUND_SLOTS = [
+  { left: 50, top: 75 }, // Bottom Center
+  { left: 20, top: 70 }, // Bottom Left
+  { left: 80, top: 70 }, // Bottom Right
+  { left: 35, top: 55 }, // Inner Left
+  { left: 65, top: 55 }, // Inner Right
+  { left: 50, top: 60 }, // Mid Center
+  { left: 20, top: 85 }, // Very Bottom Left
+  { left: 80, top: 85 }, // Very Bottom Right
+];
+
+// Hàm sinh vị trí dựa trên lưới phân loại bay/đi bộ
+function getPseudoRandomPos(idStr, typeIndex, isFlying) {
+  const slots = isFlying ? FLYING_SLOTS : GROUND_SLOTS;
+  const slot = slots[typeIndex % slots.length];
+
+  // Tạo dao động cực nhỏ để vị trí trông tự nhiên nhưng không làm mất đội hình
+  let hash = 0;
+  for (let i = 0; i < idStr.length; i++) hash = idStr.charCodeAt(i) + ((hash << 5) - hash);
+
+  const offsetX = (Math.abs(hash) % 6) - 3; // dao động từ -3% đến +3%
+  const offsetY = (Math.abs(hash >> 3) % 6) - 3;
+
+  return {
+    left: `${Math.max(15, Math.min(85, slot.left + offsetX))}%`,
+    top: `${Math.max(10, Math.min(85, slot.top + offsetY))}%`
+  };
+}
+
+/* ------------------------------- SUB-COMPONENTS ------------------------------ */
+
+const LazyImage = ({ src, alt, style, wrapperStyle, fallback, className, onErrorCallback, onLoadCallback }) => {
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
+
+  return (
+    <div style={{ position: "relative", display: "inline-flex", justifyContent: "center", alignItems: "center", ...wrapperStyle }} className={className}>
+      {!loaded && !error && (
+        <div className="shimmer-overlay" style={{ zIndex: 0 }} />
+      )}
+      {!error && (
+        <img
+          src={src}
+          alt={alt}
+          style={{ ...style, opacity: loaded ? 1 : 0, transition: "opacity 0.3s ease", position: "relative", zIndex: 1 }}
+          onLoad={(e) => {
+            setLoaded(true);
+            if (onLoadCallback) onLoadCallback(e);
+          }}
+          onError={(e) => {
+            setError(true);
+            if (onErrorCallback) onErrorCallback(e);
+          }}
+        />
+      )}
+      {error && fallback}
+    </div>
+  );
+};
+
+function RarityBadge({ rarity, size = "sm" }) {
+  const r = RARITY[rarity] || RARITY.common;
+  const pd = size === "sm" ? "2px 8px" : "4px 12px";
+  const fs = size === "sm" ? "10px" : "12px";
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", borderRadius: "99px", fontWeight: "bold", fontSize: fs, padding: pd, background: `${r.color}22`, color: r.color, border: `1px solid ${r.color}55` }}>
+      <Gem size={size === "sm" ? 10 : 14} />
+      {r.label}
+    </span>
+  );
+}
+
+function PetAvatar({ pet, size = "big" }) {
+  const r = RARITY[pet?.rarity] || RARITY.common;
+  const dim = size === "big" ? 96 : 56;
+
+  // Tính phần trăm EXP
+  const expPercent = pet ? Math.min(100, (pet.exp / expToNext(pet.level)) * 100) : 0;
+  const strokeWidth = size === "big" ? 6 : 4;
+  const radius = (dim - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const offset = circumference - (expPercent / 100) * circumference;
+
+  return (
+    <div style={{ position: "relative", flexShrink: 0, width: dim, height: dim }}>
+      {/* Vòng tròn EXP */}
+      <svg width={dim} height={dim} style={{ position: "absolute", top: 0, left: 0, transform: "rotate(-90deg)" }}>
+        <circle cx={dim / 2} cy={dim / 2} r={radius} stroke="rgba(0,0,0,0.05)" strokeWidth={strokeWidth} fill="none" />
+        <circle cx={dim / 2} cy={dim / 2} r={radius} stroke={r.color} strokeWidth={strokeWidth} fill="none" strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" style={{ transition: "stroke-dashoffset 0.5s ease-in-out" }} />
+      </svg>
+
+      <div
+        style={{
+          width: "100%", height: "100%", borderRadius: "50%",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          background: `radial-gradient(circle at 35% 30%, ${r.color}55, rgba(255,255,255,0.4) 70%)`,
+          boxShadow: `inset 0 0 0 2px ${r.color}66`,
+          backgroundColor: 'rgba(255,255,255,0.7)',
+          backdropFilter: 'blur(4px)',
+          position: "relative",
+          zIndex: 1,
+          transform: `scale(${size === "big" ? 0.9 : 0.85})` // Thu nhỏ xíu để không đè lên viền
+        }}
+      >
+        <LazyImage
+          src={getPetImageSrc(pet)}
+          alt={pet?.name}
+          style={{ width: size === "big" ? 64 : 32, height: size === "big" ? 64 : 32, objectFit: 'contain', filter: pet?.isSick ? "grayscale(100%) opacity(0.6)" : "none" }}
+          fallback={<span style={{ fontSize: size === "big" ? 40 : 22, filter: pet?.isSick ? "grayscale(100%) opacity(0.6)" : "none" }}>{pet?.emoji}</span>}
+        />
+      </div>
+      {pet?.isSick && (
+        <div style={{ position: "absolute", top: -5, right: -5, background: "white", borderRadius: "50%", width: size === "big" ? 32 : 20, height: size === "big" ? 32 : 20, display: "flex", alignItems: "center", justifyContent: "center", fontSize: size === "big" ? "1.5rem" : "0.9rem", boxShadow: "0 2px 4px rgba(0,0,0,0.2)", zIndex: 2 }}>
+          🤒
+        </div>
+      )}
+      <div
+        style={{
+          position: "absolute", bottom: -6, left: "50%", transform: "translateX(-50%)",
+          background: "linear-gradient(to right, #d94c73, #f26989)",
+          color: "white", fontSize: size === "big" ? 11 : 9, fontWeight: "bold",
+          padding: size === "big" ? "2px 8px" : "1px 6px",
+          borderRadius: 12, border: "2px solid #fff",
+          boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+          whiteSpace: "nowrap",
+          zIndex: 2
+        }}
+      >
+        Lv.{pet?.level}
+      </div>
+    </div>
+  );
+}
+
+function CareBar({ icon: Icon, label, value, max = 100, colorType }) {
+  let color = "var(--color-primary)";
+  if (value < CARE_THRESHOLD) color = "#ff4757";
+  else if (colorType === 'food') color = "#f2b155";
+  else if (colorType === 'bath') color = "#4db8ff";
+  else if (colorType === 'happy') color = "#f26989";
+
+  const pct = Math.min(100, Math.round((value / max) * 100));
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "6px", flex: 1 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", fontWeight: "bold", color: "var(--text-secondary)" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><Icon size={14} color={color} /> {label}</span>
+        <span style={{ color: color }}>{value}/{max}</span>
+      </div>
+      <div style={{ width: "100%", height: "10px", background: "rgba(0,0,0,0.05)", borderRadius: "99px", overflow: "hidden", position: "relative" }}>
+        <div style={{ width: `${pct}%`, height: "100%", background: color, transition: "width 1s ease", borderRadius: "99px" }} />
+      </div>
+    </div>
+  );
+}
+
+function StatBar({ icon: Icon, label, value, color }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "4px", flex: 1, alignItems: "center", background: "rgba(0,0,0,0.02)", padding: "12px 4px", borderRadius: "16px" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", color: "var(--text-secondary)", fontSize: "0.75rem", fontWeight: "bold" }}>
+        <div style={{ background: "white", padding: "6px", borderRadius: "50%", boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
+          <Icon size={16} color={color} />
+        </div>
+        {label}
+      </div>
+      <div style={{ fontSize: "1.1rem", fontWeight: "900", color: "var(--text-primary)" }}>{value}</div>
+    </div>
+  );
+}
+
+function PetCombatSprite({ pet, currentLog }) {
+  const isTarget = currentLog?.targetId === pet._id;
+  const isAttacker = currentLog?.attackerId === pet._id;
+  const isDead = pet.hp <= 0;
+
+  const hpPct = Math.max(0, (pet.hp / pet.maxHp) * 100);
+
+  return (
+    <motion.div
+      initial={false}
+      animate={{
+        scale: isAttacker ? [1, 1.4, 1] : 1,
+        x: isAttacker ? [0, pet.team === 'A' ? 120 : -120, 0] : (isTarget && currentLog?.type !== 'dodge' ? [0, -5, 5, -5, 0] : 0),
+        y: isAttacker ? [0, -20, 0] : 0,
+        filter: isDead ? "grayscale(100%)" : (isTarget && currentLog?.type !== 'dodge' ? ["brightness(1)", "brightness(2) drop-shadow(0 0 10px red)", "brightness(0.5) sepia(1) hue-rotate(-50deg) saturate(5)", "brightness(1)"] : "brightness(1)"),
+        opacity: isDead ? 0.4 : 1,
+        zIndex: isAttacker ? 50 : 1
+      }}
+      transition={{
+        duration: isAttacker ? 0.6 : 0.4,
+        times: isAttacker ? [0, 0.15, 1] : undefined
+      }}
+      style={{
+        position: "relative", width: 60, height: 85, display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0
+      }}
+    >
+      <div style={{ position: "relative", width: 50, height: 50, display: "flex", justifyContent: "center", alignItems: "center" }}>
+        {/* Team Indicator Aura */}
+        <div style={{
+          position: "absolute",
+          inset: -5,
+          borderRadius: "50%",
+          border: pet.team === 'B' ? "2px solid rgba(255, 71, 87, 0.6)" : "2px solid rgba(77, 184, 255, 0.6)",
+          background: pet.team === 'B' ? "radial-gradient(circle, rgba(255,71,87,0.3) 0%, transparent 70%)" : "radial-gradient(circle, rgba(77,184,255,0.3) 0%, transparent 70%)",
+          zIndex: 0
+        }} />
+        <div style={{ position: "absolute", top: -8, left: -8, background: "rgba(255,255,255,0.9)", borderRadius: "50%", padding: "2px" }}><RarityBadge rarity={pet.rarity} /></div>
+        <LazyImage src={getPetImageSrc(pet)} alt={pet.name} style={{ width: 48, height: 48, objectFit: 'contain', zIndex: 1, position: "relative" }} fallback={<span style={{ fontSize: "2.2rem", zIndex: 1, position: "relative" }}>{pet.emoji}</span>} />
+        {pet.isSick && <div style={{ position: "absolute", top: -5, right: -5, zIndex: 2, fontSize: "1.2rem", background: "white", borderRadius: "50%" }}>🤒</div>}
+      </div>
+      <div style={{ width: "100%", height: 10, background: "#ff4757", borderRadius: 5, marginTop: 4, overflow: "hidden", border: "1px solid rgba(0,0,0,0.4)", position: "relative" }}>
+        <div style={{ width: `${hpPct}%`, height: "100%", background: "#7fd8a6", borderRadius: 5, transition: "width 0.3s ease" }} />
+        <div style={{ position: "absolute", inset: 0, display: "flex", justifyContent: "center", alignItems: "center", fontSize: "0.5rem", fontWeight: "900", color: "white", textShadow: "0 1px 2px black" }}>
+          {pet.hp}/{pet.maxHp}
+        </div>
+      </div>
+      <div style={{ fontSize: "0.7rem", fontWeight: "900", color: "white", marginTop: 4, textShadow: "0 2px 4px rgba(0,0,0,0.8)", whiteSpace: "nowrap" }}>
+        {pet.name}
+      </div>
+
+      {/* Floating Text */}
+      <AnimatePresence>
+        {isTarget && (
+          <motion.div
+            key={currentLog.logId} // Ensure re-render on consecutive attacks
+            initial={{ y: 0, opacity: 1, scale: 0.5 }}
+            animate={{ y: -50, opacity: 0, scale: 1.5 }}
+            transition={{ duration: 1 }}
+            style={{ position: "absolute", top: -20, fontWeight: "900", fontSize: "1.5rem", color: currentLog.type === 'dodge' ? "#4db8ff" : (currentLog.type === 'crit' ? "#ffeb3b" : "#ff4757"), textShadow: "0 2px 4px rgba(0,0,0,0.8)", whiteSpace: "nowrap", zIndex: 20 }}
+          >
+            {currentLog.type === 'dodge' ? "Né!" : `-${currentLog.damage}`}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+function ShopPetCard({ s, pets, isBuying, handleBuy }) {
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgError, setImgError] = useState(false);
+
+  return (
+    <div className="card" style={{ padding: "16px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", position: "relative", overflow: "hidden" }}>
+      {!imgLoaded && !imgError && (
+        <div className="shimmer-overlay" />
+      )}
+      <LazyImage
+        src={`/pets/${s.id}.webp`}
+        alt={s.name}
+        style={{ width: 64, height: 64, objectFit: 'contain', marginBottom: "8px" }}
+        fallback={<div style={{ fontSize: "3rem", marginBottom: "8px" }}>{s.emoji}</div>}
+        onLoadCallback={() => setImgLoaded(true)}
+        onErrorCallback={() => setImgError(true)}
+      />
+      <div style={{ fontWeight: "800", fontSize: "1rem", color: "var(--text-primary)" }}>{s.name}</div>
+      <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "12px", padding: "2px 8px", background: "rgba(0,0,0,0.03)", borderRadius: "12px" }}>
+        Tier {s.tier}
+      </div>
+      <button
+        className="btn btn-primary"
+        style={{ width: "100%", padding: "10px 0", fontSize: "0.9rem", opacity: pets.length >= MAX_PETS || isBuying ? 0.5 : 1, cursor: isBuying ? "not-allowed" : "pointer", position: "relative", zIndex: 11 }}
+        disabled={pets.length >= MAX_PETS || isBuying}
+        onClick={() => handleBuy(s)}
+      >
+        {pets.length >= MAX_PETS ? "Vườn Đầy" : <><Heart size={14} fill="white" /> {s.price}</>}
+      </button>
+    </div>
+  );
+}
+
+function ShopFoodCard({ f, user, isBuying, handleBuyFood }) {
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgError, setImgError] = useState(false);
+
+  return (
+    <div className="card" style={{ padding: "16px", display: "flex", alignItems: "center", gap: "16px", position: "relative", overflow: "hidden" }}>
+      {!imgLoaded && !imgError && (
+        <div className="shimmer-overlay" />
+      )}
+      <div style={{ fontSize: "2.5rem", background: "rgba(0,0,0,0.03)", borderRadius: "20px", width: "64px", height: "64px", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", zIndex: 1 }}>
+        <LazyImage
+          src={`/foods/${f.id}.webp`}
+          alt={f.name}
+          style={{ width: 48, height: 48, objectFit: 'contain' }}
+          fallback={<div>{f.emoji}</div>}
+          onLoadCallback={() => setImgLoaded(true)}
+          onErrorCallback={() => setImgError(true)}
+        />
+      </div>
+      <div style={{ flex: 1, position: "relative", zIndex: 1 }}>
+        <div style={{ fontWeight: "800", fontSize: "1.1rem", color: "var(--text-primary)" }}>{f.name}</div>
+        <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "4px" }}>
+          Hồi: <span style={{ color: "#f2b155", fontWeight: "bold" }}>+{f.fullness} No</span>
+          {f.happiness > 0 && <span style={{ marginLeft: "8px", color: "#f26989", fontWeight: "bold" }}>+{f.happiness} Vui</span>}
+        </div>
+        <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: "4px" }}>
+          Đang có: {user?.petFoods?.find(x => x.foodId === f.id)?.quantity || 0}
+        </div>
+      </div>
+      <button
+        className="btn btn-primary"
+        disabled={isBuying}
+        style={{ padding: "10px 16px", fontSize: "1rem", opacity: isBuying ? 0.7 : 1, cursor: isBuying ? "not-allowed" : "pointer", position: "relative", zIndex: 11 }}
+        onClick={() => handleBuyFood(f)}
+      >
+        <Heart size={16} fill="white" /> {f.price}
+      </button>
+    </div>
+  );
+}
+
+function ShopItemCard({ item, isBuying, handleBuyItem }) {
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgError, setImgError] = useState(false);
+
+  return (
+    <div className="card" style={{ padding: "16px", display: "flex", alignItems: "center", gap: "16px", position: "relative", overflow: "hidden" }}>
+      {!imgLoaded && !imgError && (
+        <div className="shimmer-overlay" />
+      )}
+      <div style={{ fontSize: "2.5rem", background: "rgba(0,0,0,0.03)", borderRadius: "20px", width: "64px", height: "64px", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", zIndex: 1 }}>
+        <LazyImage
+          src={`/items/${item.id}.webp`}
+          alt={item.name}
+          style={{ width: 48, height: 48, objectFit: 'contain' }}
+          fallback={<div>{item.emoji}</div>}
+          onLoadCallback={() => setImgLoaded(true)}
+          onErrorCallback={() => setImgError(true)}
+        />
+      </div>
+      <div style={{ flex: 1, position: "relative", zIndex: 1 }}>
+        <div style={{ fontWeight: "800", fontSize: "1.1rem", color: "var(--text-primary)" }}>{item.name}</div>
+        <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "4px" }}>
+          {item.desc}
+        </div>
+      </div>
+      <button
+        className="btn btn-primary"
+        style={{ padding: "10px 16px", borderRadius: "16px", position: "relative", zIndex: 11 }}
+        onClick={() => handleBuyItem(item.id)}
+      >
+        <Heart size={16} fill="white" /> {item.price}
+      </button>
+    </div>
+  );
+}
+
+function ShopSkinCard({ skin, user, isBuying, handleBuySkin }) {
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgError, setImgError] = useState(false);
+  const isOwned = user?.unlockedSkins?.includes(skin.id);
+
+  return (
+    <div className="card" style={{ padding: "16px", display: "flex", alignItems: "center", gap: "16px", position: "relative", overflow: "hidden" }}>
+      {!imgLoaded && !imgError && (
+        <div className="shimmer-overlay" />
+      )}
+      <div style={{ fontSize: "2.5rem", background: "rgba(0,0,0,0.03)", borderRadius: "20px", width: "64px", height: "64px", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", zIndex: 1 }}>
+        <LazyImage
+          src={`/pets/skins/${skin.id}.webp`}
+          alt={skin.name}
+          style={{ width: 48, height: 48, objectFit: 'contain' }}
+          fallback={<div>🎨</div>}
+          onLoadCallback={() => setImgLoaded(true)}
+          onErrorCallback={() => setImgError(true)}
+        />
+      </div>
+      <div style={{ flex: 1, position: "relative", zIndex: 1 }}>
+        <div style={{ fontWeight: "800", fontSize: "1.1rem", color: "var(--text-primary)" }}>{skin.name}</div>
+        <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "4px" }}>
+          Trang phục cho loài: {SPECIES.find(s => s.id === skin.speciesId)?.name || 'Chưa rõ'}
+        </div>
+      </div>
+      {isOwned ? (
+        <div style={{ padding: "10px 16px", borderRadius: "16px", background: "var(--bg-card)", color: "var(--text-secondary)", fontWeight: "bold", position: "relative", zIndex: 11 }}>
+          Đã sở hữu
+        </div>
+      ) : (
+        <button
+          className="btn btn-primary"
+          style={{ padding: "10px 16px", borderRadius: "16px", position: "relative", zIndex: 11 }}
+          onClick={() => handleBuySkin(skin.id)}
+          disabled={isBuying}
+        >
+          <Heart size={16} fill="white" /> {skin.price}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* --------------------------------- MAIN PAGE --------------------------------- */
+
+const ASSETS_TO_PRELOAD = [
+  '/garden-bg.webp',
+  '/arena-bg-dark.webp',
+  '/room-bg.png',
+  '/kitchen-bg.png',
+  '/bathroom-bg.png',
+  ...SPECIES.map(s => `/pets/${s.id}.webp`),
+  ...FOODS.map(f => `/foods/${f.id}.webp`),
+  ...ITEMS.map(i => `/items/${i.id}.webp`),
+  ...PET_SKINS.map(s => `/pets/skins/${s.id}.webp`)
+];
+
+
+class PetDetailErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  render() {
+    if (this.state.hasError) return <div style={{ background: 'red', color: 'white', padding: 20, zIndex: 999999, position: 'fixed', inset: 0, overflow: 'auto' }}>{this.state.error.stack}</div>;
+    return this.props.children;
+  }
+}
+export default function PetSanctuaryPage() {
+  const navigate = useNavigate();
+  const { user, updateUser } = useAuth();
+  const [pets, setPets] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  const [now, setNow] = useState(Date.now());
+  const [modal, setModal] = useState(null);
+  const [detailPetId, setDetailPetId] = useState(null);
+  const [detailMode, setDetailMode] = useState("normal"); // 'petDetail', 'shop', 'map', 'reward', 'reveal', 'feed', 'bathe'
+  const [foodPage, setFoodPage] = useState(0);
+  const [selectedDest, setSelectedDest] = useState(null);
+  const [toasts, setToasts] = useState([]);
+  const [renaming, setRenaming] = useState(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [shopTab, setShopTab] = useState("pets");
+
+  // Mới: Giao diện đấu trường / Vườn của Gấu
+  const [viewMode, setViewMode] = useState("my"); // "my" or "partner"
+  const [partnerPets, setPartnerPets] = useState([]);
+  const [combatLogs, setCombatLogs] = useState([]);
+  const [combatResult, setCombatResult] = useState(null);
+  const [combatTeamA, setCombatTeamA] = useState([]);
+  const [combatTeamB, setCombatTeamB] = useState([]);
+  const [myDefenseTeam, setMyDefenseTeam] = useState([]);
+  const [partnerDefenseTeam, setPartnerDefenseTeam] = useState([]);
+  const [attackTeamSelection, setAttackTeamSelection] = useState([]);
+  const [playbackIdx, setPlaybackIdx] = useState(0);
+  const [currentDamageLog, setCurrentDamageLog] = useState(null);
+  const [combatHistoryList, setCombatHistoryList] = useState([]);
+  const [partnerShieldUntil, setPartnerShieldUntil] = useState(null);
+  const [isCaring, setIsCaring] = useState(false);
+  const [isBuying, setIsBuying] = useState(false);
+  const [isCombating, setIsCombating] = useState(false);
+  const [preloadingState, setPreloadingState] = useState({ isPreloading: true, progress: 0 });
+
+  useEffect(() => {
+    let loadedCount = 0;
+    const totalAssets = ASSETS_TO_PRELOAD.length;
+
+    if (totalAssets === 0) {
+      setPreloadingState({ isPreloading: false, progress: 100 });
+      return;
+    }
+
+    const loadImages = () => {
+      ASSETS_TO_PRELOAD.forEach(src => {
+        const img = new window.Image();
+        const onLoadOrError = () => {
+          loadedCount++;
+          setPreloadingState(prev => ({ ...prev, progress: (loadedCount / totalAssets) * 100 }));
+          if (loadedCount === totalAssets) {
+            setTimeout(() => setPreloadingState(prev => ({ ...prev, isPreloading: false })), 400);
+          }
+        };
+        img.onload = onLoadOrError;
+        img.onerror = onLoadOrError;
+        img.src = src;
+      });
+    };
+    loadImages();
+  }, []);
+
+  const toastId = useRef(0);
+
+  const addToast = useCallback((text, type = "info") => {
+    const id = ++toastId.current;
+    setToasts((t) => {
+      const last = t[t.length - 1];
+      if (last && last.text === text && last.type === type) {
+        const count = (last.count || 1) + 1;
+        return [...t.slice(0, t.length - 1), { ...last, count }];
+      }
+      const newToasts = [...t, { id, text, type, count: 1 }];
+      if (newToasts.length > 3) {
+        return newToasts.slice(newToasts.length - 3);
+      }
+      return newToasts;
+    });
+    setTimeout(() => {
+      setToasts((t) => {
+        if (!t.some(x => x.id === id)) return t;
+        return t.filter((x) => x.id !== id);
+      });
+    }, 3800);
+  }, []);
+
+  const [combatCooldown, setCombatCooldown] = useState(0);
+
+  useEffect(() => {
+    if (user?.lastCombatDate) {
+      const msPassed = now - new Date(user.lastCombatDate).getTime();
+      const msLeft = 24 * 60 * 60 * 1000 - msPassed;
+      setCombatCooldown(Math.max(0, msLeft));
+    } else {
+      setCombatCooldown(0);
+    }
+  }, [user?.lastCombatDate, now]);
+
+  useEffect(() => {
+    const iv = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(iv);
+  }, []);
+
+  const fetchPets = useCallback(async () => {
+    try {
+      const p1 = api.get('/pets').then(res => {
+        if (res.data.success) {
+          const safePets = res.data.pets || [];
+          setPets(safePets);
+          setMyDefenseTeam((res.data.defenseTeam || []).filter(id => safePets.some(p => p._id === id)));
+        }
+      });
+
+      let p2 = Promise.resolve();
+      if (user?.partnerId) {
+        p2 = api.get('/pets/partner').then(resP => {
+          if (resP.data.success) {
+            const safePartnerPets = resP.data.pets || [];
+            setPartnerPets(safePartnerPets);
+            setPartnerDefenseTeam((resP.data.defenseTeam || []).filter(id => safePartnerPets.some(p => p._id === id)));
+            setPartnerShieldUntil(resP.data.partnerShieldUntil || null);
+          }
+        });
+      }
+
+      await Promise.all([p1, p2]);
+
+    } catch (err) {
+      addToast("Không thể tải Vườn Thú", "error");
+    } finally {
+      setLoaded(true);
+    }
+  }, [addToast, user?.partnerId]);
+
+  useEffect(() => {
+    fetchPets();
+  }, [fetchPets]);
+
+  // Combat Playback Effect
+  useEffect(() => {
+    if (modal?.type !== 'combatPlayback') {
+      stopBGM();
+      return;
+    }
+    if (playbackIdx === 0 && combatLogs?.length > 0) {
+      playBGM();
+    }
+  }, [modal, playbackIdx, combatLogs]);
+
+  const handleNextTurn = () => {
+    if (!combatLogs || playbackIdx >= combatLogs.length) {
+      stopBGM();
+      setModal({ type: 'combatLogs' });
+      return;
+    }
+
+    const log = combatLogs[playbackIdx];
+    setCurrentDamageLog({ ...log, logId: playbackIdx });
+
+    // Phát âm thanh tương ứng
+    if (log.type) playSFX(log.type);
+
+    // Cập nhật HP
+    if (log.targetHPLeft !== undefined) {
+      setCombatTeamA(prev => prev.map(p => p._id === log.targetId ? { ...p, hp: log.targetHPLeft } : p));
+      setCombatTeamB(prev => prev.map(p => p._id === log.targetId ? { ...p, hp: log.targetHPLeft } : p));
+    }
+
+    setPlaybackIdx(idx => idx + 1);
+  };
+
+  async function handleCombat() {
+    if (attackTeamSelection.length === 0) {
+      addToast("Vui lòng chọn đội hình xuất chiến!", "error");
+      return;
+    }
+    if (isCombating) return;
+    setIsCombating(true);
+    try {
+      const res = await api.post('/pets/combat', { myTeamIds: attackTeamSelection });
+      if (res.data.success) {
+        setCombatResult(res.data.result);
+        setCombatLogs(res.data.logs);
+        setCombatTeamA(res.data.teamA);
+        setCombatTeamB(res.data.teamB);
+        let newUpdates = { lastCombatDate: res.data.lastCombatDate };
+        if (res.data.result.reward > 0) {
+          newUpdates.heart = user.heart + res.data.result.reward;
+        }
+        updateUser(newUpdates);
+        fetchPets(); // Refresh stats (care minus)
+
+        // Bắt đầu playback
+        setPlaybackIdx(0);
+        setCurrentDamageLog(null);
+        setModal({ type: 'combatPlayback' });
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || "Lỗi chiến đấu", "error");
+    } finally {
+      setIsCombating(false);
+    }
+  }
+
+  async function handleSaveDefenseTeam(selectedIds) {
+    try {
+      const res = await api.put('/pets/defense-team', { petIds: selectedIds });
+      if (res.data.success) {
+        addToast("Đã lưu Đội Thủ thành công!", "success");
+        setMyDefenseTeam(selectedIds);
+        setModal(null);
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || "Lỗi lưu đội thủ", "error");
+    }
+  }
+
+  async function handleBuy(species) {
+    if (isBuying) return;
+    if (user.heart < species.price) {
+      addToast("Không đủ Heart để đón thú cưng này!", "error");
+      return;
+    }
+    setIsBuying(true);
+    try {
+      const res = await api.post('/pets/buy', { ...species, speciesId: species.id });
+      if (res.data.success) {
+        updateUser({ heart: res.data.heart });
+        setPets((p) => [...p, res.data.pet]);
+        setModal({ type: "reveal", pet: res.data.pet });
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || "Lỗi giao dịch", "error");
+    } finally {
+      setIsBuying(false);
+    }
+  }
+
+  async function handleBuyFood(food) {
+    if (isBuying) return;
+    if (user.heart < food.price) {
+      addToast("Không đủ Heart!", "error");
+      return;
+    }
+    setIsBuying(true);
+    try {
+      const res = await api.post('/pets/buy-food', { foodId: food.id, amount: 1 });
+      if (res.data.success) {
+        updateUser({ heart: res.data.heart, petFoods: res.data.petFoods });
+        addToast(`Đã mua 1 ${food.name}!`, "success");
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || "Lỗi mua hàng", "error");
+    } finally {
+      setIsBuying(false);
+    }
+  }
+
+  async function handleCare(petId, action, foodId = null) {
+    if (isCaring) return;
+    const p = pets.find((x) => x._id === petId);
+    if (!p) return;
+    if (p.status === "exploring") {
+      addToast("Thú cưng đang đi xa, không thể chăm sóc lúc này!", "error");
+      return;
+    }
+
+    setIsCaring(true);
+    try {
+      const res = await api.post(`/pets/${petId}/care`, { type: action, foodId });
+      if (res.data.success) {
+        setPets((prev) => prev.map((x) => (x._id === petId ? res.data.pet : x)));
+        if (res.data.petFoods) {
+          updateUser({ petFoods: res.data.petFoods });
+        }
+        const msg = action === "feed" ? "Cho ăn no nê! 🍖" : action === "play" ? "Đã vuốt ve bé! ❤️" : "Tắm rửa sạch sẽ! 🛁";
+        addToast(msg, "success");
+        if (action === "feed") {
+          // Keep the feed modal open so the user can feed multiple times
+        }
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || "Lỗi chăm sóc", "error");
+    } finally {
+      setIsCaring(false);
+    }
+  }
+
+  async function handleSellPet(petId) {
+    const pet = pets.find((x) => x._id === petId);
+    if (!pet) return;
+    const speciesDef = SPECIES.find(s => s.id === pet.speciesId);
+    if (!speciesDef) return;
+    const sellRatio = 0.4 + (pet.level - 1) * 0.1;
+    const sellValue = Math.floor(speciesDef.price * sellRatio);
+
+    if (!window.confirm(`Bạn có chắc muốn thả ${pet.name} về rừng? Bạn sẽ nhận lại ${sellValue} Heart.`)) {
+      return;
+    }
+
+    try {
+      const res = await api.delete(`/pets/${petId}/sell`);
+      if (res.data.success) {
+        setPets((prev) => prev.filter((x) => x._id !== petId));
+        setMyDefenseTeam(prev => prev.filter(id => id !== petId));
+        updateUser({ heart: res.data.heart });
+        addToast(res.data.message || "Đã thả về rừng", "success");
+        setModal(null);
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || "Không thể bán", "error");
+    }
+  }
+
+  async function handleBuyItem(itemId) {
+    try {
+      const res = await api.post('/pets/buy-item', { itemId });
+      if (res.data.success) {
+        updateUser({ heart: res.data.heart, shieldUntil: res.data.shieldUntil });
+        addToast(res.data.message, "success");
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || "Mua vật phẩm thất bại", "error");
+    }
+  }
+
+  async function handleBuySkin(skinId) {
+    try {
+      const res = await api.post('/pets/buy-skin', { skinId });
+      if (res.data.success) {
+        updateUser({ heart: res.data.heart, unlockedSkins: res.data.unlockedSkins });
+        addToast(res.data.message, "success");
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || "Mua trang phục thất bại", "error");
+    }
+  }
+
+  async function handleEquipSkin(petId, skinId) {
+    try {
+      const res = await api.post(`/pets/${petId}/equip-skin`, { skinId });
+      if (res.data.success) {
+        setPets(prev => prev.map(p => p._id === petId ? res.data.pet : p));
+        addToast(res.data.message, "success");
+        setModal(null);
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || "Đổi trang phục thất bại", "error");
+    }
+  }
+
+  async function fetchCombatHistory() {
+    try {
+      const res = await api.get('/pets/combat-history');
+      if (res.data.success) {
+        setCombatHistoryList(res.data.history || []);
+        setModal({ type: "combatHistory" });
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || "Không thể tải lịch sử đấu trường", "error");
+    }
+  }
+
+  async function commitRename(petId) {
+    setRenaming(null);
+    if (!renameValue.trim()) return;
+    try {
+      const res = await api.put(`/pets/${petId}/name`, { name: renameValue });
+      if (res.data.success) {
+        setPets((prev) => prev.map((x) => (x._id === petId ? res.data.pet : x)));
+        addToast("Đổi tên thành công!", "success");
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || "Đổi tên thất bại", "error");
+    }
+  }
+
+  async function startExpedition(petId, destId) {
+    try {
+      const res = await api.post(`/pets/${petId}/expedition/start`, { destinationId: destId });
+      if (res.data.success) {
+        setPets((prev) => prev.map((x) => (x._id === petId ? res.data.pet : x)));
+        addToast("Đã khởi hành thám hiểm!", "success");
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || "Không thể thám hiểm", "error");
+    }
+  }
+
+  async function claimReward(petId) {
+    try {
+      const res = await api.post(`/pets/${petId}/expedition/collect`);
+      if (res.data.success) {
+        if (res.data.dead) {
+          setPets((prev) => prev.filter(p => p._id !== petId));
+          setMyDefenseTeam(prev => prev.filter(id => id !== petId));
+          setModal({ type: "dead", petName: res.data.petName });
+        } else {
+          updateUser({ heart: res.data.heart });
+          setPets((prev) => prev.map((x) => (x._id === petId ? res.data.pet : x)));
+          setModal({ type: "reward", data: res.data.reward, pet: res.data.pet, leveled: res.data.leveled, foundFoods: res.data.foundFoods });
+        }
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || "Không thể thu hoạch", "error");
+    }
+  }
+
+  async function handleDevAction(action) {
+    try {
+      const res = await api.post('/pets/dev', { action });
+      if (res.data.success) {
+        addToast(res.data.message || "Thành công!", "success");
+        if (res.data.userHeart !== undefined) updateUser({ heart: res.data.userHeart });
+        fetchPets();
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || "Lỗi hệ thống", "error");
+    }
+  }
+
+  if (!loaded || preloadingState.isPreloading) {
+    return (
+      <div className="app-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--gradient-main)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+          <div className="spinner"></div>
+          <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.2rem', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
+            Đang tải dữ liệu... {Math.round(preloadingState.progress)}%
+          </div>
+          <div style={{ width: '200px', height: '8px', background: 'rgba(0,0,0,0.2)', borderRadius: '4px', overflow: 'hidden' }}>
+            <div style={{ width: `${preloadingState.progress}%`, height: '100%', background: 'white', transition: 'width 0.3s' }}></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Lấy chi tiết pet hiện tại nếu đang mở modal detail
+
+
+
+
+
+
+
+  return (
+    <div className="app-container garden-wrap">
+      <GlobalStyle />
+
+      {/* Toast */}
+      <div style={{ position: "fixed", top: "calc(env(safe-area-inset-top, 0px) + 16px)", left: 0, right: 0, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, pointerEvents: "none" }}>
+        <AnimatePresence>
+          {toasts.map((t) => (
+            <motion.div
+              key={t.id}
+              initial={{ opacity: 0, y: -20, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              style={{
+                background: t.type === "error" ? "#ff4757" : "var(--color-primary)",
+                color: "white", padding: "10px 20px", borderRadius: "99px",
+                fontWeight: "bold", fontSize: "14px", boxShadow: "0 4px 12px rgba(242, 105, 137, 0.4)",
+                display: "flex", alignItems: "center", gap: "8px"
+              }}
+            >
+              {t.type === "error" ? <AlertTriangle size={16} /> : <Check size={16} />}
+              {t.text} {t.count > 1 && <span style={{ background: "rgba(0,0,0,0.2)", padding: "2px 6px", borderRadius: "10px", fontSize: "0.8em" }}>x{t.count}</span>}
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+
+      {/* Standard Header */}
+      <Header title="Khu Vườn Cổ Tích" transparent={true} showHeartCount={true} />
+
+      {/* View Mode Toggle */}
+      {user?.partnerId && (
+        <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top, 0px) + 70px)", left: "50%", transform: "translateX(-50%)", zIndex: 10, background: "rgba(255,255,255,0.85)", borderRadius: "30px", display: "flex", padding: "6px", boxShadow: "0 8px 24px rgba(0,0,0,0.12)", backdropFilter: "blur(12px)" }}>
+          <button
+            style={{ border: "none", fontFamily: "var(--font-body), sans-serif", whiteSpace: "nowrap", minWidth: "120px", display: "flex", justifyContent: "center", alignItems: "center", background: viewMode === "my" ? "#ffffff" : "transparent", color: viewMode === "my" ? "var(--color-primary)" : "var(--text-secondary)", fontWeight: viewMode === "my" ? "800" : "600", padding: "10px 20px", borderRadius: "24px", fontSize: "0.95rem", boxShadow: viewMode === "my" ? "0 4px 12px rgba(0, 0, 0, 0.08)" : "none", transition: "all 0.3s", cursor: "pointer" }}
+            onClick={() => setViewMode("my")}
+          >
+            Vườn của Tôi
+          </button>
+          <button
+            style={{ border: "none", fontFamily: "var(--font-body), sans-serif", whiteSpace: "nowrap", minWidth: "120px", display: "flex", justifyContent: "center", alignItems: "center", background: viewMode === "partner" ? "#ffffff" : "transparent", color: viewMode === "partner" ? "var(--color-primary)" : "var(--text-secondary)", fontWeight: viewMode === "partner" ? "800" : "600", padding: "10px 20px", borderRadius: "24px", fontSize: "0.95rem", boxShadow: viewMode === "partner" ? "0 4px 12px rgba(0, 0, 0, 0.08)" : "none", transition: "all 0.3s", cursor: "pointer" }}
+            onClick={() => setViewMode("partner")}
+          >
+            Vườn của Gấu
+          </button>
+        </div>
+      )}
+
+      {/* Shield Badge */}
+      {(() => {
+        const formatTimeLeft = (ms) => {
+          const days = Math.floor(ms / (24 * 60 * 60 * 1000));
+          const hrs = Math.floor((ms % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+          const mins = Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000));
+          if (days > 0) return `${days} ngày ${hrs} giờ`;
+          if (hrs > 0) return `${hrs} giờ ${mins} phút`;
+          return `${mins} phút`;
+        };
+
+        if (viewMode === "my" && user?.shieldUntil && new Date(user.shieldUntil).getTime() > now) {
+          const msLeft = new Date(user.shieldUntil).getTime() - now;
+          return (
+            <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top, 0px) + 125px)", left: "50%", transform: "translateX(-50%)", zIndex: 10, background: "rgba(255,255,255,0.9)", borderRadius: "20px", padding: "6px 16px", display: "flex", alignItems: "center", gap: "6px", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", color: "#0984e3", fontWeight: "bold", fontSize: "0.85rem", backdropFilter: "blur(4px)", border: "1px solid rgba(9, 132, 227, 0.2)", whiteSpace: "nowrap" }}>
+              <Shield size={16} color="#0984e3" fill="#74b9ff" /> Đang được bảo vệ ({formatTimeLeft(msLeft)})
+            </div>
+          );
+        }
+
+        if (viewMode === "partner" && partnerShieldUntil && new Date(partnerShieldUntil).getTime() > now) {
+          const msLeft = new Date(partnerShieldUntil).getTime() - now;
+          return (
+            <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top, 0px) + 125px)", left: "50%", transform: "translateX(-50%)", zIndex: 10, background: "rgba(255,255,255,0.9)", borderRadius: "20px", padding: "6px 16px", display: "flex", alignItems: "center", gap: "6px", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", color: "#0984e3", fontWeight: "bold", fontSize: "0.85rem", backdropFilter: "blur(4px)", border: "1px solid rgba(9, 132, 227, 0.2)", whiteSpace: "nowrap" }}>
+              <Shield size={16} color="#0984e3" fill="#74b9ff" /> Gấu đang bật Khiên ({formatTimeLeft(msLeft)})
+            </div>
+          );
+        }
+        return null;
+      })()}
+
+      {/* Khu vực Vườn (Garden Area) */}
+      <div className="garden-area">
+        {(viewMode === "my" ? pets : partnerPets).length === 0 ? (
+          <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", textAlign: "center", background: "rgba(255,255,255,0.6)", padding: "20px", borderRadius: "24px", backdropFilter: "blur(8px)" }}>
+            <h3 style={{ marginBottom: "8px", color: "var(--text-primary)" }}>Vườn đang trống</h3>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>{viewMode === "my" ? "Hãy vào Cửa Hàng để đón các bé nhé!" : "Gấu nhà bạn chưa nuôi bé nào cả!"}</p>
+          </div>
+        ) : (
+          (() => {
+            let flyCount = 0;
+            let groundCount = 0;
+            const currentPets = viewMode === "my" ? pets : partnerPets;
+            return currentPets.map((pet, idx) => {
+              const speciesId = pet.speciesId || pet.type;
+              const emoji = pet.emoji || SPECIES.find(s => s.id === speciesId)?.emoji || '🐾';
+              const isFlying = ["owl", "dragon", "phoenix"].includes(speciesId);
+              const typeIndex = isFlying ? flyCount++ : groundCount++;
+
+              const exploring = pet.status === "exploring";
+              const pos = getPseudoRandomPos(pet._id, typeIndex, isFlying);
+              const r = RARITY[pet.rarity] || RARITY.common;
+              const care = getCurrentCare(pet, now);
+
+              // Trung bình cộng của 3 chỉ số chăm sóc
+              const careAvg = (care.fullness + care.happiness + care.cleanliness) / 3;
+              let dotColor = "#7fd8a6"; // xanh
+              if (careAvg < 40) dotColor = "#ff4757"; // đỏ
+              else if (careAvg < 70) dotColor = "#f2b155"; // vàng
+
+              const level = pet.level || 1;
+              const scale = Math.min(1.5, 1 + (level - 1) * 0.05);
+              const isEpic = level >= 10;
+              const isLegendary = level >= 20;
+
+              let dropShadowStr = `0 4px 8px ${r.glow}`;
+              if (isLegendary) dropShadowStr = `0 0 16px ${r.color}, 0 0 24px ${r.color}`;
+              else if (isEpic) dropShadowStr = `0 0 12px ${r.color}`;
+
+              let petFilter = isLegendary ? "none" : `drop-shadow(${dropShadowStr})`;
+              if (pet.isSick) {
+                petFilter = "grayscale(100%)";
+              }
+
+              if (exploring) {
+                const endMs = new Date(pet.expeditionEnd).getTime();
+                const ready = endMs <= now;
+                return (
+                  <div key={pet._id} className="garden-pet pet-float" style={{ left: pos.left, top: pos.top, animationDelay: `${(idx % 5) * 0.4}s` }} onClick={(e) => {
+                    e.stopPropagation();
+                    if (ready) {
+                      claimReward(pet._id);
+                    } else if (viewMode === "my") {
+                      setDetailPetId(pet._id);
+                    } else {
+                      setModal({ type: "combatChallenge", partnerPet: pet });
+                    }
+                  }}>
+                    <div style={{ position: "relative", filter: "grayscale(40%) opacity(80%)", display: "flex", justifyContent: "center", alignItems: "center", width: 70 * scale, height: 70 * scale, borderRadius: "50%" }}>
+                      {isEpic && !isLegendary && (
+                        <div style={{ position: "absolute", width: "120%", height: "120%", borderRadius: "50%", background: `radial-gradient(circle, ${r.color}33, transparent 60%)`, animation: "auraPulse 2s ease-in-out infinite", zIndex: 1 }} />
+                      )}
+                      <div style={{ position: "relative", width: 48 * scale, height: 48 * scale, zIndex: 2 }}>
+                        <LazyImage
+                          src={getPetImageSrc(pet)}
+                          alt={pet.name}
+                          style={{ width: "100%", height: "100%", objectFit: 'contain', filter: petFilter, animation: isLegendary ? "contourFire 1s ease-in-out infinite alternate" : "none", position: "relative" }}
+                          fallback={<div style={{ fontSize: `${2.5 * scale}rem`, filter: petFilter, animation: isLegendary ? "contourFire 1s ease-in-out infinite alternate" : "none", position: "relative" }}>{emoji}</div>}
+                        />
+                        {care.cleanliness < CARE_THRESHOLD && (
+                          <div className="dirt-overlay" style={{ WebkitMaskImage: `url(${getPetImageSrc(pet)})`, maskImage: `url(${getPetImageSrc(pet)})` }} />
+                        )}
+                      </div>
+                    </div>
+                    {/* Exploration Status Tag (replaces Name Tag) */}
+                    {(() => {
+                      const destInfo = DESTINATIONS.find(d => d.id === pet.destinationId);
+                      return (
+                        <div style={{
+                          marginTop: "4px",
+                          background: ready ? "linear-gradient(135deg, #7fd8a6, #2d985a)" : "rgba(255,255,255,0.88)",
+                          backdropFilter: "blur(4px)",
+                          padding: "4px 10px",
+                          borderRadius: "12px",
+                          border: ready ? "1px solid rgba(255,255,255,0.6)" : "1px solid rgba(255,255,255,1)",
+                          boxShadow: ready ? "0 4px 12px rgba(45, 152, 90, 0.4)" : "0 2px 8px rgba(0,0,0,0.05)",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          gap: "1px",
+                          zIndex: 10,
+                          animation: ready ? "bounceY 1.5s ease-in-out infinite alternate" : "none"
+                        }}>
+                          {ready ? (
+                            <span style={{ fontSize: "0.75rem", fontWeight: "900", color: "white", whiteSpace: "nowrap" }}>
+                              🎁 Xong!
+                            </span>
+                          ) : (
+                            <>
+                              <span style={{ fontSize: "0.65rem", fontWeight: "700", color: "var(--text-secondary)", whiteSpace: "nowrap", lineHeight: 1 }}>
+                                Thám hiểm
+                              </span>
+                              <span style={{ fontSize: "0.75rem", fontWeight: "900", color: "var(--text-primary)", lineHeight: 1.2, maxWidth: "90px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>
+                                {destInfo ? `${destInfo.name}` : "Đang đi..."}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                );
+              }
+
+
+
+
+              return (
+                <div key={pet._id} className="garden-pet pet-float" style={{ left: pos.left, top: pos.top, animationDelay: `${(idx % 5) * 0.4}s` }} onClick={() => viewMode === "my" ? setDetailPetId(pet._id) : setModal({ type: "teamCombatChallenge" })}>
+                  {/* Thú cưng */}
+                  <div style={{ position: "relative", width: 70 * scale, height: 70 * scale, display: "flex", justifyContent: "center", alignItems: "center", background: `radial-gradient(circle, ${r.color}33, transparent 70%)`, borderRadius: "50%" }}>
+
+                    {isEpic && !isLegendary && (
+                      <div style={{ position: "absolute", width: "120%", height: "120%", borderRadius: "50%", background: `radial-gradient(circle, ${r.color}33, transparent 60%)`, animation: "auraPulse 2s ease-in-out infinite", zIndex: 1 }} />
+                    )}
+                    <div style={{ position: "relative", width: 64 * scale, height: 64 * scale, zIndex: 2 }}>
+                      <LazyImage
+                        src={getPetImageSrc(pet)}
+                        alt={pet.name}
+                        style={{ width: "100%", height: "100%", objectFit: 'contain', filter: petFilter, animation: isLegendary ? "contourFire 1s ease-in-out infinite alternate" : "none", position: "relative" }}
+                        fallback={<span style={{ fontSize: `${3 * scale}rem`, filter: petFilter, animation: isLegendary ? "contourFire 1s ease-in-out infinite alternate" : "none", position: "relative" }}>{emoji}</span>}
+                      />
+                      {care.cleanliness < CARE_THRESHOLD && (
+                        <div className="dirt-overlay" style={{ WebkitMaskImage: `url(${getPetImageSrc(pet)})`, maskImage: `url(${getPetImageSrc(pet)})` }} />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Name tag */}
+                  <div style={{ marginTop: "4px", background: "rgba(255,255,255,0.8)", backdropFilter: "blur(4px)", padding: "4px 10px", borderRadius: "12px", border: "1px solid rgba(255,255,255,1)", boxShadow: "0 2px 8px rgba(0,0,0,0.05)", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
+                    <span style={{ fontSize: "0.75rem", fontWeight: "bold", color: "var(--text-primary)", maxWidth: "80px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {pet.isSick ? "Đang ốm..." : pet.name}
+                    </span>
+                    {/* Status dot */}
+                    <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: pet.isSick ? "#ff4757" : dotColor }}></div>
+                  </div>
+                </div>
+              );
+            })
+          })()
+        )}
+      </div>
+
+      {/* Bottom Toolbars (chỉ hiện trong vườn của mình) */}
+      {viewMode === "my" && (
+        <>
+          <div style={{ position: "absolute", bottom: 20, left: 20, display: "flex", gap: "14px", zIndex: 10 }}>
+            <button
+              style={{ width: 56, height: 56, borderRadius: "20px", background: "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.7))", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.8)", boxShadow: "0 8px 32px rgba(31, 38, 135, 0.1), inset 0 2px 4px rgba(255,255,255,0.8)", display: "flex", justifyContent: "center", alignItems: "center", cursor: "pointer", color: "#ff4757", transition: "all 0.2s" }}
+              onClick={() => { setShopTab("pets"); setModal({ type: "shop" }); }}
+            >
+              <Store size={26} strokeWidth={2.5} />
+            </button>
+            <button
+              style={{ width: 56, height: 56, borderRadius: "20px", background: "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.7))", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.8)", boxShadow: "0 8px 32px rgba(31, 38, 135, 0.1), inset 0 2px 4px rgba(255,255,255,0.8)", display: "flex", justifyContent: "center", alignItems: "center", cursor: "pointer", color: "#fca311", transition: "all 0.2s" }}
+              onClick={() => setModal({ type: "map" })}
+            >
+              <Map size={26} strokeWidth={2.5} />
+            </button>
+            <button
+              style={{ width: 56, height: 56, borderRadius: "20px", background: "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.7))", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.8)", boxShadow: "0 8px 32px rgba(31, 38, 135, 0.1), inset 0 2px 4px rgba(255,255,255,0.8)", display: "flex", justifyContent: "center", alignItems: "center", cursor: "pointer", color: "#4facfe", transition: "all 0.2s" }}
+              onClick={() => {
+                setAttackTeamSelection([...myDefenseTeam]); // Pre-fill with existing defense team
+                setModal({ type: "defenseTeamSetup" });
+              }}
+            >
+              <Shield size={26} strokeWidth={2.5} />
+            </button>
+          </div>
+          <div style={{ position: "absolute", bottom: 20, right: 20, zIndex: 10, display: "flex", flexDirection: "column", gap: "14px", alignItems: "flex-end" }}>
+            {/* Dev Mode button removed */}
+            <button
+              style={{ width: 56, height: 56, borderRadius: "20px", background: "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.7))", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.8)", boxShadow: "0 8px 32px rgba(31, 38, 135, 0.1), inset 0 2px 4px rgba(255,255,255,0.8)", display: "flex", justifyContent: "center", alignItems: "center", cursor: "pointer", color: "#8e44ad", transition: "all 0.2s" }}
+              onClick={fetchCombatHistory}
+            >
+              <History size={26} strokeWidth={2.5} />
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Đấu Trường Tổng Lực Button (hiện bên vườn Gấu) */}
+      {viewMode === "partner" && partnerPets.length > 0 && (
+        <div style={{ position: "absolute", bottom: 20, left: "50%", transform: "translateX(-50%)", zIndex: 10 }}>
+          {partnerShieldUntil && new Date(partnerShieldUntil).getTime() > now ? (
+            <button
+              style={{
+                padding: "18px 40px",
+                fontFamily: "var(--font-body)",
+                fontSize: "1.3rem",
+                fontWeight: "900",
+                borderRadius: "40px",
+                background: "#dfe6e9",
+                color: "#b2bec3",
+                border: "3px solid #fff",
+                boxShadow: "0 8px 30px rgba(0, 0, 0, 0.1)",
+                cursor: "not-allowed",
+                whiteSpace: "nowrap"
+              }}
+              disabled={true}
+            >
+              🛡️ ĐANG BẬT KHIÊN
+            </button>
+          ) : (
+            <button
+              style={{
+                padding: "18px 40px",
+                fontFamily: "var(--font-body)",
+                fontSize: "1.3rem",
+                fontWeight: "900",
+                borderRadius: "40px",
+                background: "linear-gradient(135deg, #ff4757, #ff6b81)",
+                color: "white",
+                border: "3px solid #fff",
+                boxShadow: "0 8px 30px rgba(255, 71, 87, 0.5)",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                textShadow: "0 2px 4px rgba(0,0,0,0.3)",
+                animation: "pulseCombatBtn 2s infinite"
+              }}
+              onClick={() => {
+                setAttackTeamSelection([]);
+                setModal({ type: "teamCombatChallenge" });
+              }}
+            >
+              ⚔️ ĐẠI CHIẾN TỔNG LỰC
+            </button>
+          )}
+        </div>
+      )}
+
+
+      {/* Pet Detail Full Page View */}
+      {detailPetId && (() => {
+        const pet = pets.find(p => p._id === detailPetId);
+        if (!pet) return null;
+
+        const exploring = pet.status === "exploring";
+        const endMs = pet.expeditionEnd ? new Date(pet.expeditionEnd).getTime() : 0;
+        const startMs = pet.expeditionStart ? new Date(pet.expeditionStart).getTime() : 0;
+        const currentLevel = pet.level || 1;
+        const exp = pet.exp || 0;
+        const nextLevelExp = expToNext(currentLevel);
+        const levelProgress = Math.min(100, (exp / nextLevelExp) * 100);
+        const r = RARITY[pet.rarity] || RARITY.common;
+        const care = getCurrentCare(pet, now);
+
+        const playCooldown = pet.care?.lastPlayed ? Math.max(0, 3600000 - (now - new Date(pet.care.lastPlayed).getTime())) : 0;
+        const batheCooldown = pet.care?.lastBathed ? Math.max(0, 14400000 - (now - new Date(pet.care.lastBathed).getTime())) : 0;
+        const formatCD = (ms) => {
+          const m = Math.ceil(ms / 60000);
+          if (m >= 60) return `${Math.floor(m / 60)}h${m % 60}m`;
+          return `${m}p`;
+        };
+
+        const getStatusColor = (val) => val > 60 ? "#7bed9f" : val > 30 ? "#feca57" : "#ff4757";
+
+        return (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            style={{
+              position: "fixed", inset: 0, zIndex: 50,
+              display: "flex", flexDirection: "column"
+            }}
+          >
+            {/* Background crossfade layers - opacity transition thay vì background transition để mượt mà */}
+            <div style={{ position: "absolute", inset: 0, backgroundImage: "url('/room-bg.png')", backgroundSize: "cover", backgroundPosition: "center", opacity: detailMode === "normal" || detailMode === "shop" || detailMode === "reward" || detailMode === "reveal" ? 1 : 0, transition: "opacity 0.45s ease-in-out", zIndex: 0 }} />
+            <div style={{ position: "absolute", inset: 0, backgroundImage: "url('/kitchen-bg.png')", backgroundSize: "cover", backgroundPosition: "center", opacity: detailMode === "feed" ? 1 : 0, transition: "opacity 0.45s ease-in-out", zIndex: 0 }} />
+            <div style={{ position: "absolute", inset: 0, backgroundImage: "url('/bathroom-bg.png')", backgroundSize: "cover", backgroundPosition: "center", opacity: detailMode === "bathe" ? 1 : 0, transition: "opacity 0.45s ease-in-out", zIndex: 0 }} />
+            {/* Content wrapper - nổi lên trên các background layer */}
+            <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+              {/* Top Bar */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", marginTop: "env(safe-area-inset-top, 0px)" }}>
+                {/* Top Bar Left */}
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <button onClick={() => { setDetailPetId(null); setModal(null); setDetailMode("normal"); }} style={{ width: "36px", height: "36px", borderRadius: "50%", background: "rgba(0,0,0,0.4)", color: "white", border: "2px solid rgba(255,255,255,0.8)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.2)", cursor: "pointer" }}>
+                    <Home size={18} color="#ffffff" strokeWidth={2.5} />
+                  </button>
+                  {/* Currency */}
+                  <div style={{ background: "rgba(0,0,0,0.2)", backdropFilter: "blur(4px)", padding: "4px 12px", borderRadius: "99px", display: "flex", alignItems: "center", gap: "8px", color: "white", fontWeight: "bold", border: "1px solid rgba(255,255,255,0.3)" }}>
+                    <Heart size={18} fill="#ff4757" color="#ff4757" style={{ filter: "drop-shadow(0 2px 2px rgba(0,0,0,0.3))" }} />
+                    <span>{user?.heart || 0}</span>
+                    <button style={{ width: "24px", height: "24px", borderRadius: "50%", background: "#7bed9f", color: "white", border: "none", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", boxShadow: "0 2px 4px rgba(0,0,0,0.2)" }}>+</button>
+                  </div>
+                </div>
+
+                {/* Level Progress */}
+                <div style={{
+                  position: "relative",
+                  width: "140px",
+                  height: "36px",
+                  background: "rgba(0,0,0,0.4)",
+                  borderRadius: "99px",
+                  border: "2px solid rgba(255,255,255,0.8)",
+                  overflow: "hidden",
+                  boxShadow: "inset 0 4px 8px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.15)"
+                }}>
+                  {/* Fill */}
+                  <div style={{
+                    position: "absolute",
+                    top: 0, left: 0, bottom: 0,
+                    width: `${levelProgress}%`,
+                    background: "linear-gradient(90deg, #feca57, #ff9f43)",
+                    borderRadius: "99px"
+                  }}></div>
+
+                  {/* Inner Shine */}
+                  <div style={{
+                    position: "absolute", top: "2px", left: "6px", right: "6px", height: "40%",
+                    background: "linear-gradient(to bottom, rgba(255,255,255,0.5), transparent)",
+                    borderRadius: "99px", pointerEvents: "none"
+                  }}></div>
+
+                  {/* Content */}
+                  <div style={{
+                    position: "absolute", inset: 0,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    gap: "6px", color: "white", fontWeight: "bold", fontSize: "1rem",
+                    textShadow: "0 2px 4px rgba(0,0,0,0.6)"
+                  }}>
+                    <Star size={16} fill="#fff" color="#fff" />
+                    Lv.{currentLevel}
+                  </div>
+                </div>
+
+                {/* Settings */}
+                <button onClick={() => setModal({ type: "equipSkin", petId: pet._id, speciesId: pet.speciesId })} style={{ width: "40px", height: "40px", borderRadius: "50%", background: "linear-gradient(to bottom, #ff7979, #eb4d4b)", color: "white", border: "2px solid #fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(235, 77, 75, 0.4)" }}>
+                  <Shirt size={20} color="#ffffff" strokeWidth={2.5} />
+                </button>
+              </div>
+
+              {/* Name + Tag + Stats Card */}
+              {(() => {
+                const speciesInfo = SPECIES?.find?.(s => s.id === pet.speciesId);
+                return (
+                  <div style={{ margin: "0 20px", background: "rgba(255,255,255,0.88)", backdropFilter: "blur(10px)", borderRadius: "20px", overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.12)", border: "1px solid rgba(255,255,255,1)" }}>
+                    {/* Tầng 1: Tên + Tag */}
+                    <div style={{ padding: "10px 16px 8px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0, flex: 1 }}>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          {/* Tên pet - inline edit */}
+                          {renaming === pet._id ? (
+                            <input
+                              autoFocus
+                              value={renameValue}
+                              onChange={e => setRenameValue(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === "Enter") commitRename(pet._id);
+                                if (e.key === "Escape") setRenaming(null);
+                              }}
+                              onBlur={() => commitRename(pet._id)}
+                              maxLength={20}
+                              style={{
+                                fontWeight: "900", fontSize: "1.1rem", lineHeight: 1.2,
+                                border: "none", borderBottom: `2px solid ${r.color}`,
+                                background: "transparent", outline: "none",
+                                color: "var(--text-primary)", width: "100%",
+                                padding: "0 0 2px 0"
+                              }}
+                            />
+                          ) : (
+                            <div
+                              onClick={() => { setRenaming(pet._id); setRenameValue(pet.name || ""); }}
+                              style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", group: true }}
+                            >
+                              <span style={{ fontWeight: "900", fontSize: "1.1rem", color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.2 }}>
+                                {pet.name || speciesInfo?.name || "Linh Thú"}
+                              </span>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={r.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.7 }}>
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                              </svg>
+                            </div>
+                          )}
+                          {/* Tên loài nhỏ */}
+                          <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", fontWeight: "600", marginTop: "1px" }}>
+                            {speciesInfo?.name || ""}
+                          </div>
+                        </div>
+                      </div>
+                      {/* Rarity badge */}
+                      <span style={{
+                        display: "inline-flex", alignItems: "center", gap: "4px",
+                        padding: "4px 10px", borderRadius: "99px", flexShrink: 0,
+                        fontWeight: "800", fontSize: "0.75rem",
+                        background: `${r.color}22`, color: r.color,
+                        border: `1.5px solid ${r.color}66`,
+                        boxShadow: `0 2px 8px ${r.color}33`
+                      }}>
+                        {r.label}
+                      </span>
+                    </div>
+
+                    {/* Tầng 2: 4 chỉ số */}
+                    <div style={{ padding: "8px", display: "flex", justifyContent: "space-around", alignItems: "center" }}>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: "bold" }}><Sword size={12} color="#ff4757" /> S.Mạnh</div>
+                        <div style={{ fontSize: "1.1rem", fontWeight: "900", color: "var(--text-primary)" }}>{pet.stats.str}</div>
+                      </div>
+                      <div style={{ width: "1px", height: "24px", background: "rgba(0,0,0,0.1)" }} />
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: "bold" }}><Wind size={12} color="#4db8ff" /> N.Nhẹn</div>
+                        <div style={{ fontSize: "1.1rem", fontWeight: "900", color: "var(--text-primary)" }}>{pet.stats.agi}</div>
+                      </div>
+                      <div style={{ width: "1px", height: "24px", background: "rgba(0,0,0,0.1)" }} />
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: "bold" }}><Brain size={12} color="#8f6fff" /> T.Tuệ</div>
+                        <div style={{ fontSize: "1.1rem", fontWeight: "900", color: "var(--text-primary)" }}>{pet.stats.int}</div>
+                      </div>
+                      <div style={{ width: "1px", height: "24px", background: "rgba(0,0,0,0.1)" }} />
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: "bold" }}><Clover size={12} color="#7fd8a6" /> M.Mắn</div>
+                        <div style={{ fontSize: "1.1rem", fontWeight: "900", color: "var(--text-primary)" }}>{pet.stats.luk}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+
+              {/* Main Area */}
+              <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {/* Floating Left Buttons */}
+                {!["feed", "bathe"].includes(detailMode) && (
+                  <div style={{ position: "absolute", left: "16px", top: "50%", transform: "translateY(-50%)", display: "flex", flexDirection: "column", gap: "16px", zIndex: 10 }}>
+                    <button onClick={() => { setModal({ type: "map" }); setDetailMode("normal"); }} style={{ background: "rgba(255,255,255,0.95)", border: "3px solid #f1f2f6", borderRadius: "16px", width: "64px", height: "64px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 16px rgba(0,0,0,0.15)" }}>
+                      <Map size={26} color="#ff4757" strokeWidth={2.5} style={{ marginBottom: "2px" }} />
+                      <span style={{ fontSize: "0.7rem", fontWeight: "bold", color: "var(--text-secondary)" }}>Bản đồ</span>
+                    </button>
+                    <button onClick={() => { setModal({ type: "shop", foodOnly: true }); setShopTab("foods"); }} style={{ background: "rgba(255,255,255,0.95)", border: "3px solid #f1f2f6", borderRadius: "16px", width: "64px", height: "64px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 16px rgba(0,0,0,0.15)" }}>
+                      <Store size={26} color="#1e90ff" strokeWidth={2.5} style={{ marginBottom: "2px" }} />
+                      <span style={{ fontSize: "0.7rem", fontWeight: "bold", color: "var(--text-secondary)" }}>Cửa hàng</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Floating Right Buttons */}
+                {!["feed", "bathe"].includes(detailMode) && (
+                  <div style={{ position: "absolute", right: "16px", top: "50%", transform: "translateY(-50%)", display: "flex", flexDirection: "column", gap: "16px", zIndex: 10 }}>
+                    <button onClick={() => setModal({ type: "heal", petId: pet._id })} style={{ background: "rgba(255,255,255,0.95)", border: "3px solid #f1f2f6", borderRadius: "16px", width: "64px", height: "64px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 16px rgba(0,0,0,0.15)" }}>
+                      <HeartPulse size={26} color="#ff4757" strokeWidth={2.5} style={{ marginBottom: "2px" }} />
+                      <span style={{ fontSize: "0.7rem", fontWeight: "bold", color: "var(--text-secondary)" }}>Thuốc</span>
+                    </button>
+                    <button onClick={() => handleSellPet(pet._id)} style={{ background: "rgba(255,255,255,0.95)", border: "3px solid #f1f2f6", borderRadius: "16px", width: "64px", height: "64px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 16px rgba(0,0,0,0.15)" }}>
+                      <Sprout size={26} color="#2ed573" strokeWidth={2.5} style={{ marginBottom: "2px" }} />
+                      <span style={{ fontSize: "0.7rem", fontWeight: "bold", color: "var(--text-secondary)" }}>Thả</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Pet Image */}
+                <div style={{ position: "relative", transform: detailMode === "feed" ? "translateY(55px)" : "translateY(50px)", transition: "transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  {/* Ground Shadow */}
+                  <div style={{ position: "absolute", bottom: "16px", width: "140px", height: "20px", background: "rgba(0,0,0,0.35)", borderRadius: "50%", filter: "blur(4px)", zIndex: 0 }}></div>
+                  <div style={{ position: "relative", width: "240px", height: "240px", zIndex: 1 }}>
+                    <motion.img
+                      src={getPetImageSrc(pet)}
+                      style={{ width: "100%", height: "100%", objectFit: "contain", position: "relative", filter: pet.isSick ? "grayscale(100%)" : "none" }}
+                    />
+                    {care.cleanliness < CARE_THRESHOLD && (
+                      <div className="dirt-overlay" style={{ WebkitMaskImage: `url(${getPetImageSrc(pet)})`, maskImage: `url(${getPetImageSrc(pet)})` }} />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom: 3 nút chăm sóc hoặc thanh tiến trình thám hiểm */}
+              {exploring ? (() => {
+                const totalDuration = endMs - startMs;
+                const elapsed = now - startMs;
+                const progress = totalDuration > 0 ? Math.min(100, Math.max(0, (elapsed / totalDuration) * 100)) : 0;
+                const msLeft = Math.max(0, endMs - now);
+                const hLeft = Math.floor(msLeft / 3600000);
+                const mLeft = Math.floor((msLeft % 3600000) / 60000);
+                const sLeft = Math.floor((msLeft % 60000) / 1000);
+                const timeStr = hLeft > 0 ? `${hLeft}h ${mLeft}m` : mLeft > 0 ? `${mLeft}p ${sLeft}s` : `${sLeft}s`;
+                const dest = pet.destinationId;
+                const destInfo = dest ? DESTINATIONS?.find?.(d => d.id === dest) : null;
+                const speciesInfo = SPECIES?.find?.(s => s.id === pet.speciesId);
+                const accentColor = destInfo?.color || "#feca57";
+                return (
+                  <div style={{ padding: "0 24px 36px" }}>
+                    {/* Label */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span style={{ fontSize: "1.4rem" }}>{destInfo?.emoji || "🧭"}</span>
+                        <span style={{ fontWeight: "800", fontSize: "1rem", color: "white", textShadow: "0 2px 6px rgba(0,0,0,0.6)" }}>
+                          {destInfo?.name || "Đang thám hiểm..."}
+                        </span>
+                      </div>
+                      <div style={{
+                        background: "rgba(0,0,0,0.45)", backdropFilter: "blur(6px)",
+                        padding: "4px 12px", borderRadius: "99px",
+                        color: "white", fontWeight: "700", fontSize: "0.85rem",
+                        border: "1px solid rgba(255,255,255,0.25)",
+                        display: "flex", alignItems: "center", gap: "6px"
+                      }}>
+                        <span style={{ fontSize: "1rem" }}>⏳</span>
+                        {msLeft <= 0 ? "Sắp về!" : timeStr}
+                      </div>
+                    </div>
+
+                    {/* Progress track */}
+                    <div style={{
+                      position: "relative", height: "22px", borderRadius: "99px",
+                      background: "rgba(0,0,0,0.3)", border: "2px solid rgba(255,255,255,0.3)",
+                      overflow: "hidden", boxShadow: "inset 0 3px 8px rgba(0,0,0,0.4)"
+                    }}>
+                      {/* Fill */}
+                      <div style={{
+                        position: "absolute", left: 0, top: 0, bottom: 0,
+                        width: `${progress}%`,
+                        background: progress >= 100
+                          ? "linear-gradient(90deg, #7bed9f, #2ed573)"
+                          : `linear-gradient(90deg, color-mix(in srgb, ${accentColor} 60%, white), ${accentColor})`,
+                        borderRadius: "99px",
+                        transition: "width 1s linear",
+                        boxShadow: `0 0 10px ${accentColor}99`
+                      }} />
+                      {/* Shimmer */}
+                      <div style={{
+                        position: "absolute", top: "3px", left: "6px", right: "6px", height: "6px",
+                        background: "linear-gradient(to right, transparent 0%, rgba(255,255,255,0.55) 50%, transparent 100%)",
+                        borderRadius: "99px", pointerEvents: "none",
+                        animation: "shimmerSlide 2s ease-in-out infinite"
+                      }} />
+                      {/* % text */}
+                      <div style={{
+                        position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                        color: "white", fontWeight: "800", fontSize: "0.8rem",
+                        textShadow: "0 1px 3px rgba(0,0,0,0.7)"
+                      }}>
+                        {Math.round(progress)}%
+                      </div>
+                    </div>
+
+
+                    <style>{`
+                    @keyframes shimmerSlide {
+                      0% { transform: translateX(-100%); }
+                      100% { transform: translateX(200%); }
+                    }
+                  `}</style>
+                  </div>
+                );
+
+              })() : (
+
+                <div style={{ padding: "0 20px 40px", display: "flex", justifyContent: "center", gap: "28px", alignItems: "center" }}>
+                  {/* Care Button (Happiness) */}
+                  <div style={{ position: "relative" }}>
+                    <button
+                      onClick={() => setDetailMode("normal")}
+                      style={{
+                        width: "76px", height: "76px", borderRadius: "50%",
+                        background: `linear-gradient(to top, ${getStatusColor(care.happiness)} ${care.happiness}%, #f1f2f6 ${care.happiness}%)`,
+                        border: "4px solid #2f3542",
+                        boxShadow: "0 8px 16px rgba(0,0,0,0.3), inset 0 8px 12px rgba(255,255,255,0.6)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        position: "relative", overflow: "hidden", padding: 0,
+                        opacity: 1
+                      }}
+                    >
+                      <Smile size={36} color="#2f3542" strokeWidth={2.5} style={{ zIndex: 1, filter: "drop-shadow(0 2px 2px rgba(255,255,255,0.5))" }} />
+
+                      {/* Inner Glass Highlight */}
+                      <div style={{ position: "absolute", top: 2, left: 10, right: 10, height: "30%", background: "linear-gradient(to bottom, rgba(255,255,255,0.8), transparent)", borderRadius: "40px 40px 0 0", pointerEvents: "none" }}></div>
+                    </button>
+                    <div style={{ position: "absolute", top: "-10px", left: "50%", transform: "translateX(-50%)", background: "white", padding: "2px 8px", borderRadius: "99px", fontSize: "0.75rem", fontWeight: "bold", color: "#2f3542", border: "2px solid #2f3542", zIndex: 2 }}>
+                      {Math.round(care.happiness)}%
+                    </div>
+                  </div>
+
+                  {/* Feed Button (Fullness) */}
+                  <div style={{ position: "relative", transform: "translateY(-16px)" }}>
+                    <button
+                      onClick={() => { setDetailMode(detailMode === "feed" ? "normal" : "feed"); setFoodPage(0); }}
+                      style={{
+                        width: "84px", height: "84px", borderRadius: "50%",
+                        background: `linear-gradient(to top, ${getStatusColor(care.fullness)} ${care.fullness}%, #f1f2f6 ${care.fullness}%)`,
+                        border: "4px solid #2f3542",
+                        boxShadow: "0 8px 16px rgba(0,0,0,0.3), inset 0 8px 12px rgba(255,255,255,0.6)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        position: "relative", overflow: "hidden", padding: 0
+                      }}
+                    >
+                      <Utensils size={40} color="#2f3542" strokeWidth={2.5} style={{ zIndex: 1, filter: "drop-shadow(0 2px 2px rgba(255,255,255,0.5))" }} />
+
+                      {/* Inner Glass Highlight */}
+                      <div style={{ position: "absolute", top: 2, left: 10, right: 10, height: "30%", background: "linear-gradient(to bottom, rgba(255,255,255,0.8), transparent)", borderRadius: "40px 40px 0 0", pointerEvents: "none" }}></div>
+                    </button>
+                    <div style={{ position: "absolute", top: "-10px", left: "50%", transform: "translateX(-50%)", background: "white", padding: "2px 8px", borderRadius: "99px", fontSize: "0.8rem", fontWeight: "bold", color: "#2f3542", border: "2px solid #2f3542", zIndex: 2 }}>
+                      {Math.round(care.fullness)}%
+                    </div>
+                  </div>
+
+                  {/* Bathe Button (Cleanliness) */}
+                  <div style={{ position: "relative" }}>
+                    <button
+                      disabled={batheCooldown > 0}
+                      onClick={() => setDetailMode("bathe")}
+                      style={{
+                        width: "76px", height: "76px", borderRadius: "50%",
+                        background: `linear-gradient(to top, ${getStatusColor(care.cleanliness)} ${care.cleanliness}%, #f1f2f6 ${care.cleanliness}%)`,
+                        border: "4px solid #2f3542",
+                        boxShadow: "0 8px 16px rgba(0,0,0,0.3), inset 0 8px 12px rgba(255,255,255,0.6)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        position: "relative", overflow: "hidden", padding: 0,
+                        opacity: batheCooldown > 0 ? 0.7 : 1
+                      }}
+                    >
+                      <Bath size={36} color="#2f3542" strokeWidth={2.5} style={{ zIndex: 1, filter: "drop-shadow(0 2px 2px rgba(255,255,255,0.5))" }} />
+
+                      {/* Inner Glass Highlight */}
+                      <div style={{ position: "absolute", top: 2, left: 10, right: 10, height: "30%", background: "linear-gradient(to bottom, rgba(255,255,255,0.8), transparent)", borderRadius: "40px 40px 0 0", pointerEvents: "none" }}></div>
+
+                      {batheCooldown > 0 && <span style={{ fontSize: "0.7rem", background: "rgba(0,0,0,0.6)", color: "white", padding: "2px 8px", borderRadius: "8px", position: "absolute", bottom: "8px", zIndex: 2, fontWeight: "bold" }}>{formatCD(batheCooldown)}</span>}
+                    </button>
+                    <div style={{ position: "absolute", top: "-10px", left: "50%", transform: "translateX(-50%)", background: "white", padding: "2px 8px", borderRadius: "99px", fontSize: "0.75rem", fontWeight: "bold", color: "#2f3542", border: "2px solid #2f3542", zIndex: 2 }}>
+                      {Math.round(care.cleanliness)}%
+                    </div>
+                  </div>
+                </div>
+              )}
+
+
+              {/* Feeding Table */}
+              <AnimatePresence>
+                {detailMode === "feed" && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 50 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 50 }}
+                    transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                    style={{
+                      position: "absolute",
+                      bottom: "170px", // Just above the bottom buttons
+                      left: 0, right: 0,
+                      height: "180px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexWrap: "wrap",
+                      padding: "0 20px",
+                      gap: "24px",
+                      zIndex: 10
+                    }}
+                  >
+                    {(() => {
+                      const availableFoods = FOODS.map(f => ({ ...f, qty: user?.petFoods?.find(x => x.foodId === f.id)?.quantity || 0 })).filter(f => f.qty > 0 && !f.id.startsWith("med_"));
+                      if (availableFoods.length === 0) {
+                        return (
+                          <div style={{ textAlign: "center", width: "100%", color: "#d35400", fontWeight: "bold" }}>
+                            Hết thức ăn rồi! Bạn hãy vào Cửa hàng để mua thêm nhé.
+                          </div>
+                        );
+                      }
+
+                      const totalPages = Math.ceil(availableFoods.length / 3);
+                      // Ensure foodPage is within bounds
+                      const validPage = Math.min(foodPage, Math.max(0, totalPages - 1));
+
+                      return (
+                        <div style={{ display: "flex", alignItems: "center", width: "100%", justifyContent: "space-between", position: "relative" }}>
+                          <button
+                            onClick={() => setFoodPage(Math.max(0, validPage - 1))}
+                            disabled={validPage === 0}
+                            style={{ zIndex: 10, background: "rgba(255,255,255,0.8)", border: "2px solid #ccc", borderRadius: "50%", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", opacity: validPage === 0 ? 0.5 : 1 }}
+                          >
+                            <ChevronRight size={24} style={{ transform: "rotate(180deg)" }} />
+                          </button>
+
+                          <div style={{ flex: 1, overflow: "visible", margin: "0 10px", minWidth: 0 }}>
+                            <motion.div
+                              animate={{ x: `-${validPage * (100 / totalPages)}%` }}
+                              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                              style={{ display: "flex", width: `${totalPages * 100}%` }}
+                            >
+                              {Array.from({ length: totalPages }).map((_, pageIndex) => (
+                                <div key={pageIndex} style={{
+                                  width: `${100 / totalPages}%`,
+                                  display: "flex", gap: "24px", justifyContent: "center", flexShrink: 0,
+                                  opacity: pageIndex === validPage ? 1 : 0,
+                                  pointerEvents: pageIndex === validPage ? "auto" : "none",
+                                  transition: "opacity 0.3s"
+                                }}>
+                                  {availableFoods.slice(pageIndex * 3, (pageIndex + 1) * 3).map(f => (
+                                    <div key={f.id} style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", minWidth: "80px" }}>
+                                      {/* Plate */}
+                                      <div style={{
+                                        position: "absolute", bottom: "-12px",
+                                        width: "96px", height: "30px",
+                                        background: "linear-gradient(to bottom, #fdfbfb 0%, #ebedee 100%)",
+                                        borderRadius: "50%",
+                                        border: "2px solid #e0e0e0",
+                                        boxShadow: "inset 0 -6px 10px rgba(0,0,0,0.15), inset 0 2px 4px rgba(255,255,255,0.8), 0 6px 12px rgba(0,0,0,0.3)",
+                                        zIndex: 1
+                                      }}>
+                                        {/* Inner Ring (Plate depth) */}
+                                        <div style={{
+                                          position: "absolute", top: "4px", left: "8px", right: "8px", bottom: "4px",
+                                          borderRadius: "50%",
+                                          border: "1px solid rgba(0,0,0,0.05)",
+                                          background: "linear-gradient(to top, #fdfbfb 0%, #ebedee 100%)",
+                                          boxShadow: "inset 0 4px 8px rgba(0,0,0,0.1)"
+                                        }}></div>
+                                      </div>
+
+                                      {/* Food Image with Drag */}
+                                      <motion.div
+                                        drag
+                                        dragSnapToOrigin
+                                        onDragEnd={(event, info) => {
+                                          if (info.offset.y < -80) {
+                                            playSFX('eat');
+                                            handleCare(pet._id, "feed", f.id);
+                                          }
+                                        }}
+                                        whileDrag={{ scale: 1.2, zIndex: 50 }}
+                                        style={{ position: "relative", zIndex: 2, cursor: "grab", touchAction: "none" }}
+                                      >
+                                        <LazyImage
+                                          src={`/foods/${f.id}.webp`}
+                                          alt={f.name}
+                                          style={{ width: "64px", height: "64px", objectFit: "contain", filter: "drop-shadow(0 8px 8px rgba(0,0,0,0.3))" }}
+                                          fallback={<div style={{ fontSize: "2.5rem" }}>{f.emoji}</div>}
+                                        />
+                                      </motion.div>
+
+                                      {/* Quantity Badge */}
+                                      <div style={{
+                                        position: "absolute", bottom: "-15px",
+                                        background: "white", color: "black",
+                                        border: "2px solid black", borderRadius: "8px",
+                                        padding: "2px 8px", fontSize: "0.9rem", fontWeight: "bold",
+                                        zIndex: 3, boxShadow: "0 2px 4px rgba(0,0,0,0.2)"
+                                      }}>
+                                        {f.qty}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ))}
+                            </motion.div>
+                          </div>
+
+                          <button
+                            onClick={() => setFoodPage(Math.min(totalPages - 1, validPage + 1))}
+                            disabled={validPage >= totalPages - 1}
+                            style={{ zIndex: 10, background: "rgba(255,255,255,0.8)", border: "2px solid #ccc", borderRadius: "50%", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", opacity: validPage >= totalPages - 1 ? 0.5 : 1 }}
+                          >
+                            <ChevronRight size={24} />
+                          </button>
+                        </div>
+                      );
+                    })()}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>{/* end content wrapper */}
+
+            <AnimatePresence>
+              {detailMode === "bathe" && (
+                <BatheMiniGame
+                  pet={pet}
+                  petSrc={getPetImageSrc(pet)}
+                  onClose={() => setDetailMode("normal")}
+                  onComplete={() => {
+                    handleCare(pet._id, "bathe");
+                    setDetailMode("normal");
+                  }}
+                  playSFX={playSFX}
+                />
+              )}
+            </AnimatePresence>
+          </motion.div>
+        );
+      })()}
+
+      {/* Modals (BottomSheet style) */}
+      <AnimatePresence>
+        {modal && (
+          <div style={{ position: "fixed", inset: 0, zIndex: 999, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)" }} onClick={() => { if (modal.type === "dead" || modal.type === "reward") return; setModal(null); }} />
+
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              style={{
+                background: "var(--bg-main)",
+                width: "100%",
+                maxHeight: modal.type === "combatPlayback" ? "100vh" : "85vh",
+                height: modal.type === "combatPlayback" ? "100vh" : "auto",
+                borderTopLeftRadius: modal.type === "combatPlayback" ? 0 : "28px",
+                borderTopRightRadius: modal.type === "combatPlayback" ? 0 : "28px",
+                position: "relative", zIndex: 1, display: "flex", flexDirection: "column", boxShadow: "0 -4px 24px rgba(0,0,0,0.1)"
+              }}
+            >
+              {/* Drag handle */}
+              {!modal.type === "combatPlayback" && (
+                <div style={{ width: "40px", height: "5px", background: "rgba(0,0,0,0.1)", borderRadius: "3px", margin: "12px auto" }}></div>
+              )}
+
+              <div style={{ overflowY: "auto", padding: modal.type === "combatPlayback" ? (modal.type === "petDetail" ? "20px 20px 40px" : 0) : "16px 20px 40px", flex: 1, display: modal.type === "combatPlayback" ? "flex" : "block", flexDirection: "column" }}>
+
+                {/* 2. Modal: Cửa Hàng & Siêu Thị */}
+                {modal.type === "shop" && (
+                  <div>
+                    <div style={{ position: "sticky", top: "-16px", background: "var(--bg-main)", zIndex: 10, margin: "-16px -20px 20px -20px", padding: "16px 20px 10px 20px", borderBottom: "1px solid rgba(0,0,0,0.05)", borderTopLeftRadius: "24px", borderTopRightRadius: "24px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: modal.foodOnly ? 0 : "20px" }}>
+                        <h2 style={{ fontFamily: "var(--font-heading)", color: "var(--color-primary)", fontSize: "1.6rem", margin: 0 }}>{modal.foodOnly ? "Cửa Hàng Thực Phẩm" : `Cửa Hàng (Vườn: ${pets.length}/${MAX_PETS})`}</h2>
+                        <button onClick={() => setModal(null)} style={{ background: "transparent", border: "none", color: "var(--text-secondary)" }}><X size={24} /></button>
+                      </div>
+
+                      {!modal.foodOnly && (
+                        <div style={{ display: "flex", background: "rgba(0,0,0,0.05)", padding: "4px", borderRadius: "16px" }}>
+                          <button
+                            onClick={() => setShopTab("pets")}
+                            style={{ flex: 1, padding: "10px", borderRadius: "12px", border: "none", background: shopTab === "pets" ? "white" : "transparent", color: shopTab === "pets" ? "var(--text-primary)" : "var(--text-secondary)", fontWeight: "bold", boxShadow: shopTab === "pets" ? "var(--shadow-sm)" : "none", transition: "all 0.2s" }}
+                          >
+                            Thú Cưng
+                          </button>
+                          <button
+                            onClick={() => setShopTab("foods")}
+                            style={{ flex: 1, padding: "10px", borderRadius: "12px", border: "none", background: shopTab === "foods" ? "white" : "transparent", color: shopTab === "foods" ? "var(--text-primary)" : "var(--text-secondary)", fontWeight: "bold", boxShadow: shopTab === "foods" ? "var(--shadow-sm)" : "none", transition: "all 0.2s" }}
+                          >
+                            Thực Phẩm
+                          </button>
+                          <button
+                            onClick={() => setShopTab("items")}
+                            style={{ flex: 1, padding: "10px", borderRadius: "12px", border: "none", background: shopTab === "items" ? "white" : "transparent", color: shopTab === "items" ? "var(--text-primary)" : "var(--text-secondary)", fontWeight: "bold", boxShadow: shopTab === "items" ? "var(--shadow-sm)" : "none", transition: "all 0.2s" }}
+                          >
+                            Vật Phẩm
+                          </button>
+                          <button
+                            onClick={() => setShopTab("skins")}
+                            style={{ flex: 1, padding: "10px", borderRadius: "12px", border: "none", background: shopTab === "skins" ? "white" : "transparent", color: shopTab === "skins" ? "var(--text-primary)" : "var(--text-secondary)", fontWeight: "bold", boxShadow: shopTab === "skins" ? "var(--shadow-sm)" : "none", transition: "all 0.2s" }}
+                          >
+                            Trang Phục
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {shopTab === "pets" && (
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px" }}>
+                        {SPECIES.map((s) => (
+                          <ShopPetCard key={s.id} s={s} pets={pets} isBuying={isBuying} handleBuy={handleBuy} />
+                        ))}
+                      </div>
+                    )}
+
+                    {shopTab === "foods" && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                        {FOODS.map((f) => (
+                          <ShopFoodCard key={f.id} f={f} user={user} isBuying={isBuying} handleBuyFood={handleBuyFood} />
+                        ))}
+                      </div>
+                    )}
+
+                    {shopTab === "items" && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                        {ITEMS.map((item) => (
+                          <ShopItemCard key={item.id} item={item} isBuying={isBuying} handleBuyItem={handleBuyItem} />
+                        ))}
+                      </div>
+                    )}
+
+                    {shopTab === "skins" && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                        {PET_SKINS.map((skin) => (
+                          <ShopSkinCard key={skin.id} skin={skin} user={user} isBuying={isBuying} handleBuySkin={handleBuySkin} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 3. Modal: Chọn Thực Phẩm Để Ăn */}
+                {modal.type === "feed" && (
+                  <div>
+                    <div style={{ position: "sticky", top: "-16px", background: "var(--bg-main)", zIndex: 10, margin: "-16px -20px 20px -20px", padding: "16px 20px 10px 20px", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                        <h3 style={{ margin: 0, fontSize: "1.4rem", fontWeight: "800", color: "var(--text-primary)" }}>Tủ Lạnh</h3>
+                        <button onClick={() => setModal(null)} style={{ background: "transparent", border: "none", color: "var(--text-secondary)" }}><X size={24} /></button>
+                      </div>
+                      <p style={{ fontSize: "0.95rem", color: "var(--text-secondary)", marginBottom: "20px" }}>Chọn thực phẩm để cho thú cưng ăn.</p>
+
+                      {(() => {
+                        const p = pets.find(x => x._id === modal.petId);
+                        if (!p) return null;
+                        const currentFullness = getCurrentCare(p, now).fullness;
+                        return (
+                          <div style={{ marginBottom: "0", background: "rgba(242, 177, 85, 0.1)", padding: "12px 16px", borderRadius: "16px", border: "1px solid rgba(242, 177, 85, 0.3)" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.95rem", fontWeight: "800", marginBottom: "8px", color: "var(--text-primary)" }}>
+                              <span>Độ no của {p.name}</span>
+                              <span style={{ color: currentFullness < CARE_THRESHOLD ? "#ff4757" : "#f2b155" }}>{currentFullness}/100</span>
+                            </div>
+                            <div style={{ background: "rgba(0,0,0,0.06)", borderRadius: "10px", height: "14px", overflow: "hidden", boxShadow: "inset 0 1px 3px rgba(0,0,0,0.1)" }}>
+                              <div style={{ background: currentFullness < CARE_THRESHOLD ? "#ff4757" : "#f2b155", height: "100%", width: `${Math.min(100, currentFullness)}%`, transition: "width 0.4s cubic-bezier(0.4, 0, 0.2, 1)" }}></div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                      {(() => {
+                        const availableFoods = FOODS.map(f => ({ ...f, qty: user?.petFoods?.find(x => x.foodId === f.id)?.quantity || 0 })).filter(f => f.qty > 0 && !f.id.startsWith("med_"));
+                        if (availableFoods.length === 0) {
+                          return (
+                            <div style={{ textAlign: "center", padding: "30px 20px", background: "white", borderRadius: "20px" }}>
+                              <div style={{ fontSize: "3rem", marginBottom: "12px" }}>🛒</div>
+                              <h4 style={{ margin: 0, color: "var(--text-primary)" }}>Tủ lạnh đang trống</h4>
+                              <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", marginBottom: "16px" }}>Vào cửa hàng để mua thức ăn cho bé nhé!</p>
+                              <button className="btn btn-primary" style={{ padding: "10px 24px", borderRadius: "16px" }} onClick={() => { setModal({ type: "shop" }); setShopTab("foods"); }}>Đi chợ ngay</button>
+                            </div>
+                          );
+                        }
+                        return availableFoods.map(f => (
+                          <div key={f.id} style={{ display: "flex", alignItems: "center", gap: "12px", background: "white", padding: "12px", borderRadius: "20px", border: "1px solid rgba(0,0,0,0.05)" }}>
+                            <div style={{ fontSize: "2rem", width: "56px", height: "56px", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.03)", borderRadius: "16px" }}>
+                              <LazyImage
+                                src={`/foods/${f.id}.webp`}
+                                alt={f.name}
+                                style={{ width: 40, height: 40, objectFit: 'contain' }}
+                                fallback={<div>{f.emoji}</div>}
+                              />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: "800", fontSize: "1.05rem", color: "var(--text-primary)" }}>{f.name}</div>
+                              <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "4px" }}>
+                                Hồi: <span style={{ color: "#f2b155", fontWeight: "bold" }}>+{f.fullness} No</span>
+                                {f.happiness > 0 && <span style={{ marginLeft: "8px", color: "#f26989", fontWeight: "bold" }}>+{f.happiness} Vui</span>}
+                              </div>
+                              <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: "2px" }}>Kho: {f.qty}</div>
+                            </div>
+                            <div style={{ textAlign: "right" }}>
+                              <button className="btn btn-primary" disabled={isCaring} style={{ padding: "8px 16px", fontSize: "0.9rem", borderRadius: "16px", opacity: isCaring ? 0.7 : 1, cursor: isCaring ? "not-allowed" : "pointer" }} onClick={() => handleCare(modal.petId, "feed", f.id)}>
+                                Dùng
+                              </button>
+                            </div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  </div>
+                )}
+
+                {/* 3.1. Modal: Chọn Thuốc Chữa Bệnh */}
+                {modal.type === "heal" && (
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                      <h3 style={{ margin: 0, fontSize: "1.4rem", fontWeight: "800", color: "var(--text-primary)" }}>Tủ Thuốc</h3>
+                      <button onClick={() => setModal(null)} style={{ background: "transparent", border: "none", color: "var(--text-secondary)" }}><X size={24} /></button>
+                    </div>
+                    <p style={{ fontSize: "0.95rem", color: "var(--text-secondary)", marginBottom: "20px" }}>Chọn thuốc để chữa bệnh cho thú cưng.</p>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                      {(() => {
+                        const availableMeds = FOODS.filter(f => f.id.startsWith("med_")).map(f => ({ ...f, qty: user?.petFoods?.find(x => x.foodId === f.id)?.quantity || 0 })).filter(f => f.qty > 0);
+                        if (availableMeds.length === 0) {
+                          return (
+                            <div style={{ textAlign: "center", padding: "30px 20px", background: "white", borderRadius: "20px" }}>
+                              <div style={{ fontSize: "3rem", marginBottom: "12px" }}>🏥</div>
+                              <h4 style={{ margin: 0, color: "var(--text-primary)" }}>Tủ thuốc đang trống</h4>
+                              <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", marginBottom: "16px" }}>Vào cửa hàng để mua thuốc nhé!</p>
+                              <button className="btn btn-primary" style={{ padding: "10px 24px", borderRadius: "16px" }} onClick={() => { setModal({ type: "shop" }); setShopTab("foods"); }}>Tới Cửa Hàng</button>
+                            </div>
+                          );
+                        }
+                        return availableMeds.map(f => {
+                          const p = pets.find(x => x._id === modal.petId);
+                          let cd = 0;
+                          if (f.id === 'med_normal' && p?.lastNormalMedicine) {
+                            cd = Math.max(0, 6 * 3600000 - (now - new Date(p.lastNormalMedicine).getTime()));
+                          } else if (f.id === 'med_elixir' && p?.lastElixir) {
+                            cd = Math.max(0, 24 * 3600000 - (now - new Date(p.lastElixir).getTime()));
+                          }
+                          const formatCD = (ms) => {
+                            const h = Math.floor(ms / 3600000);
+                            const m = Math.floor((ms % 3600000) / 60000);
+                            return `${h}h${m}m`;
+                          };
+
+                          return (
+                            <div key={f.id} style={{ display: "flex", alignItems: "center", gap: "12px", background: "white", padding: "12px", borderRadius: "20px", border: "1px solid rgba(0,0,0,0.05)" }}>
+                              <div style={{ fontSize: "2rem", width: "56px", height: "56px", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.03)", borderRadius: "16px" }}>
+                                <LazyImage src={`/foods/${f.id}.webp`} alt={f.name} style={{ width: 40, height: 40, objectFit: 'contain' }} fallback={<div>{f.emoji}</div>} />
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: "800", fontSize: "1.05rem", color: "var(--text-primary)" }}>{f.name}</div>
+                                <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "4px" }}>
+                                  {f.id === 'med_normal' ? `Tỷ lệ khỏi: ${Math.round((p?.sickMedicineChance || 0.25) * 100)}% (Tối đa 75%)` : "Tỷ lệ khỏi: 90%"}
+                                </div>
+                                <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: "2px" }}>Kho: {f.qty}</div>
+                              </div>
+                              <div style={{ textAlign: "right" }}>
+                                <button className="btn btn-primary" disabled={isCaring || cd > 0} style={{ padding: "8px 16px", fontSize: "0.9rem", borderRadius: "16px", background: cd > 0 ? "#ccc" : "linear-gradient(to right, #ff4757, #ff6b81)", opacity: (isCaring || cd > 0) ? 0.7 : 1, cursor: (isCaring || cd > 0) ? "not-allowed" : "pointer", boxShadow: cd > 0 ? "none" : "0 4px 12px rgba(255, 71, 87, 0.3)" }} onClick={() => handleCare(modal.petId, "heal", f.id)}>
+                                  {cd > 0 ? formatCD(cd) : "Uống"}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                )}
+                {/* 3c. Modal: Chọn trang phục */}
+                {modal.type === "equipSkin" && (() => {
+                  const pet = pets.find(p => p._id === modal.petId);
+                  const allSkins = PET_SKINS.filter(s => s.speciesId === modal.speciesId);
+                  return (
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                        <h2 style={{ fontFamily: "var(--font-heading)", color: "var(--color-primary)", fontSize: "1.6rem", margin: 0 }}>Đổi trang phục</h2>
+                        <button onClick={() => setModal(null)} style={{ background: "transparent", border: "none", color: "var(--text-secondary)" }}><X size={24} /></button>
+                      </div>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                        <div className="card" style={{ padding: "16px", textAlign: "center", cursor: "pointer", border: !pet?.activeSkin ? "2px solid var(--color-primary)" : "2px solid transparent", background: !pet?.activeSkin ? "rgba(255,107,129,0.05)" : "white" }} onClick={() => handleEquipSkin(modal.petId, null)}>
+                          <LazyImage src={`/pets/${modal.speciesId}.webp`} alt="Mặc định" style={{ width: 48, height: 48, objectFit: 'contain', margin: '0 auto' }} fallback={<div style={{ fontSize: "2rem" }}>🐾</div>} />
+                          <div style={{ fontWeight: "bold", marginTop: "8px", color: !pet?.activeSkin ? "var(--color-primary)" : "inherit" }}>Mặc định</div>
+                        </div>
+                        {allSkins.map(skin => {
+                          const isOwned = user?.unlockedSkins?.includes(skin.id);
+                          const isActive = pet?.activeSkin === skin.id;
+                          return (
+                            <div key={skin.id} className="card" style={{ padding: "16px", textAlign: "center", cursor: "pointer", border: isActive ? "2px solid var(--color-primary)" : "2px solid transparent", background: isActive ? "rgba(255,107,129,0.05)" : "white", position: "relative" }} onClick={() => isOwned ? handleEquipSkin(modal.petId, skin.id) : handleBuySkin(skin.id)}>
+                              <div style={{ opacity: isOwned ? 1 : 0.4 }}>
+                                <LazyImage src={`/pets/skins/${skin.id}.webp`} alt={skin.name} style={{ width: 48, height: 48, objectFit: 'contain', margin: '0 auto' }} fallback={<div>🎨</div>} />
+                                <div style={{ fontWeight: "bold", marginTop: "8px", color: isActive ? "var(--color-primary)" : "inherit" }}>{skin.name}</div>
+                              </div>
+                              {!isOwned && (
+                                <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", background: "rgba(255,255,255,0.9)", padding: "6px 12px", borderRadius: "12px", fontWeight: "900", color: "#e74c3c", display: "flex", alignItems: "center", gap: "4px", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}>
+                                  <Heart size={16} fill="#e74c3c" /> {skin.price}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {allSkins.length === 0 && (
+                        <div style={{ textAlign: "center", color: "var(--text-secondary)", marginTop: "16px" }}>
+                          Loài này hiện chưa có trang phục nào.
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* 4. Modal: Bản đồ */}
+                {modal.type === "map" && (
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                      <h2 style={{ fontFamily: "var(--font-heading)", color: "var(--text-primary)", fontSize: "1.6rem", margin: 0 }}>Thám Hiểm</h2>
+                      <button onClick={() => setModal(null)} style={{ background: "transparent", border: "none", color: "var(--text-secondary)" }}><X size={24} /></button>
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                      {DESTINATIONS.map((d) => (
+                        <div key={d.id} className="card" style={{ padding: "16px", borderLeft: `6px solid ${d.color}`, position: "relative", overflow: "hidden", minHeight: "150px", display: "flex", flexDirection: "column" }}>
+
+                          {/* Map Background */}
+                          <div style={{
+                            position: "absolute", inset: 0,
+                            backgroundImage: `url('/maps/${d.id}.png')`,
+                            backgroundSize: "cover", backgroundPosition: "center",
+                            opacity: 1, zIndex: 0
+                          }} />
+
+                          {/* Fade Overlay for text readability */}
+                          <div style={{
+                            position: "absolute", inset: 0,
+                            background: "linear-gradient(to right, rgba(255,255,255,0.95) 30%, rgba(255,255,255,0.4) 100%)",
+                            zIndex: 1
+                          }} />
+
+                          <div style={{ position: "relative", zIndex: 2, display: "flex", flex: 1, flexDirection: "column" }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: "900", fontSize: "1.2rem", color: "var(--text-primary)" }}>{d.name}</div>
+                              <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "4px", marginBottom: "12px", fontWeight: "600", maxWidth: "80%" }}>{d.desc}</p>
+
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", fontSize: "0.8rem" }}>
+                                <span style={{ display: "flex", alignItems: "center", gap: "4px", background: "white", padding: "4px 8px", borderRadius: "12px", color: "var(--color-primary)", fontWeight: "bold", boxShadow: "0 2px 4px rgba(0,0,0,0.05)" }}>
+                                  <Timer size={12} /> {formatDurationHours(d.durationHours)}
+                                </span>
+                                <span style={{ display: "flex", alignItems: "center", gap: "4px", background: "white", padding: "4px 8px", borderRadius: "12px", color: "#f2b155", fontWeight: "bold", boxShadow: "0 2px 4px rgba(0,0,0,0.05)" }}>
+                                  <Heart size={12} fill="#f2b155" /> {d.rewardMin}-{d.rewardMax}
+                                </span>
+                                <span style={{ display: "flex", alignItems: "center", gap: "4px", background: "white", padding: "4px 8px", borderRadius: "12px", color: "#8f6fff", fontWeight: "bold", boxShadow: "0 2px 4px rgba(0,0,0,0.05)" }}>
+                                  <Brain size={12} /> ĐK: {d.statRec} đ
+                                </span>
+                              </div>
+                            </div>
+
+                            <button
+                              className="btn btn-primary"
+                              style={{ width: "100%", marginTop: "16px", background: d.color, boxShadow: `0 4px 12px ${d.color}66`, textShadow: "0 1px 2px rgba(0,0,0,0.2)" }}
+                              onClick={() => {
+                                const readyPets = pets.filter((p) => isEligibleForExpedition(p, now));
+                                if (!readyPets.length) {
+                                  addToast("Không có thú cưng rảnh rỗi hoặc đủ điều kiện!", "error");
+                                } else {
+                                  setSelectedDest(d);
+                                  setModal({ type: "selectPet", dest: d });
+                                }
+                              }}
+                            >
+                              <MapPin size={16} /> Bắt đầu thám hiểm
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 5. Modal: Chọn thú cưng đi thám hiểm */}
+                {modal.type === "selectPet" && (
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                      <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: "800", color: "var(--text-primary)" }}>Cử Đi Thám Hiểm</h3>
+                      <button onClick={() => setModal({ type: "map" })} style={{ background: "transparent", border: "none", color: "var(--text-secondary)" }}><X size={24} /></button>
+                    </div>
+
+                    <div style={{ background: "rgba(0,0,0,0.03)", borderRadius: "16px", padding: "16px", marginBottom: "20px", fontSize: "0.95rem", color: "var(--text-secondary)" }}>
+                      Chọn thú cưng đi đến <strong>{modal.dest.name}</strong>. Yêu cầu Điểm tổng hợp ≥ {modal.dest.statRec}.
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                      {pets.filter(p => isEligibleForExpedition(p, now)).map(pet => {
+                        const score = statScoreOf(pet);
+                        const canGo = score >= modal.dest.statRec;
+
+                        const speciesDef = SPECIES.find(s => s.id === pet.speciesId);
+                        const baseDanger = modal.dest.baseDanger || 0;
+                        const fragility = speciesDef ? (speciesDef.fragility || 1.0) : 1.0;
+                        const deathChance = Math.max(0, (baseDanger * fragility * (1 - pet.level * 0.05)) / 2);
+                        const deathPct = (deathChance * 100).toFixed(1);
+
+                        return (
+                          <div key={pet._id} style={{ display: "flex", alignItems: "center", gap: "12px", background: "white", padding: "12px", borderRadius: "20px", border: "1px solid rgba(0,0,0,0.05)", opacity: canGo ? 1 : 0.5 }}>
+                            <PetAvatar pet={pet} size="small" />
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: "800", fontSize: "1.1rem", color: "var(--text-primary)" }}>{pet.name}</div>
+                              <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                                Điểm tổng: {score.toFixed(1)} | Tử vong: <span style={{ color: '#ff4757', fontWeight: 'bold' }}>{deathPct}%</span>
+                              </div>
+                            </div>
+                            {canGo ? (
+                              <button className="btn btn-primary" style={{ padding: "8px 16px", fontSize: "0.9rem", background: modal.dest.color, boxShadow: `0 4px 12px ${modal.dest.color}66`, borderRadius: "16px" }} onClick={() => startExpedition(pet._id, modal.dest.id)}>
+                                Đi
+                              </button>
+                            ) : (
+                              <div style={{ fontSize: "0.8rem", color: "#ff4757", fontWeight: "bold", textAlign: "center" }}>Không đủ<br />điều kiện</div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* 6. Modal: Thành viên mới */}
+                {modal.type === "reveal" && (
+                  <div style={{ textAlign: "center", paddingTop: "20px" }}>
+                    <h2 style={{ fontFamily: "var(--font-heading, 'Nunito', sans-serif)", color: "var(--text-primary)", marginBottom: "24px", fontSize: "2rem", fontWeight: "900" }}>
+                      Thành viên mới!
+                    </h2>
+                    <div style={{ display: "flex", justifyContent: "center", marginBottom: "24px" }}>
+                      <PetAvatar pet={modal.pet} size="big" />
+                    </div>
+                    <h3 style={{ fontSize: "1.6rem", fontWeight: "900", color: "var(--text-primary)", marginBottom: "12px" }}>
+                      {modal.pet.name}
+                    </h3>
+                    <div style={{ marginBottom: "24px", display: "flex", justifyContent: "center" }}><RarityBadge rarity={modal.pet.rarity} /></div>
+                    <div style={{ display: "flex", gap: "12px", marginBottom: "32px", background: "rgba(0,0,0,0.02)", padding: "16px", borderRadius: "20px" }}>
+                      <StatBar icon={Sword} label="STR" value={modal.pet.stats.str} color="#ff4757" />
+                      <StatBar icon={Wind} label="AGI" value={modal.pet.stats.agi} color="#4db8ff" />
+                      <StatBar icon={Brain} label="INT" value={modal.pet.stats.int} color="#8f6fff" />
+                      <StatBar icon={Clover} label="LUK" value={modal.pet.stats.luk} color="#7fd8a6" />
+                    </div>
+                    <button className="btn btn-primary" style={{ width: "100%", padding: "16px", fontSize: "1.2rem", borderRadius: "20px" }} onClick={() => setModal(null)}>Tuyệt vời!</button>
+                  </div>
+                )}
+
+                {/* 6.5. Modal: Nhận thưởng */}
+                {modal.type === "reward" && (
+                  <div style={{ textAlign: "center", paddingTop: "10px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+
+
+
+                    <h2 style={{ fontFamily: "var(--font-heading, 'Nunito', sans-serif)", color: "var(--color-primary)", marginBottom: "4px", fontSize: "2.4rem", fontWeight: "900", textShadow: "0 2px 10px rgba(242, 105, 137, 0.2)" }}>
+                      Thành Công!
+                    </h2>
+                    <p style={{ color: "var(--text-secondary)", fontSize: "1.05rem", marginBottom: "28px", padding: "0 20px", lineHeight: 1.5 }}>
+                      Bé <strong style={{ color: "var(--color-primary)", fontSize: "1.15rem" }}>{modal.pet.name}</strong> đã tìm thấy kho báu sau chuyến đi dài!
+                    </p>
+
+                    {/* Reward Card */}
+                    <div style={{ width: "100%", background: "linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.5) 100%)", backdropFilter: "blur(20px)", padding: "28px 20px", borderRadius: "32px", boxShadow: "0 20px 40px rgba(242, 105, 137, 0.15), inset 0 2px 4px rgba(255,255,255,0.8)", border: "2px solid rgba(255,255,255,0.6)", marginBottom: "32px" }}>
+
+                      {/* Coins/Hearts */}
+                      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "12px" }}>
+                        <div style={{ background: "rgba(242, 177, 85, 0.15)", padding: "16px 32px", borderRadius: "24px", display: "flex", alignItems: "center", gap: "12px", border: "1px solid rgba(242, 177, 85, 0.4)", boxShadow: "inset 0 4px 12px rgba(255,255,255,0.8)" }}>
+                          <Heart fill="#f2b155" color="#f2b155" size={36} style={{ filter: "drop-shadow(0 4px 12px rgba(242, 177, 85, 0.5))", animation: "pulseAura 1.5s infinite alternate" }} />
+                          <span style={{ fontSize: "3rem", fontWeight: "900", color: "#f2b155", textShadow: "0 4px 16px rgba(242, 177, 85, 0.4)", lineHeight: 1 }}>
+                            +{modal.data.coins}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Foods */}
+                      {modal.foundFoods && modal.foundFoods.length > 0 && (
+                        <>
+                          <div style={{ margin: "24px 0", height: "1px", background: "linear-gradient(90deg, transparent, rgba(0,0,0,0.08), transparent)" }}></div>
+                          <h4 style={{ fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: "1.5px", color: "var(--text-muted)", marginBottom: "16px", fontWeight: "800" }}>Chiến lợi phẩm</h4>
+                          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "10px" }}>
+                            {modal.foundFoods.map((ff, i) => {
+                              const fd = FOODS.find(f => f.id === ff.foodId);
+                              return fd ? (
+                                <div key={i} style={{ display: "flex", alignItems: "center", gap: "6px", background: "white", padding: "8px 16px", borderRadius: "20px", boxShadow: "0 4px 12px rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.03)" }}>
+                                  <LazyImage src={`/foods/${fd.id}.webp`} alt={fd.name} style={{ width: 28, height: 28, objectFit: 'contain' }} fallback={<span style={{ fontSize: "1.6rem" }}>{fd.emoji}</span>} />
+                                  <span style={{ fontWeight: "900", color: "var(--text-primary)", fontSize: "1.2rem" }}>x{ff.quantity}</span>
+                                </div>
+                              ) : null;
+                            })}
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {modal.leveled && (
+                      <div style={{ background: "linear-gradient(135deg, #7fd8a6 0%, #2d985a 100%)", padding: "12px 24px", borderRadius: "24px", color: "white", fontWeight: "900", display: "inline-flex", alignItems: "center", gap: "10px", fontSize: "1.3rem", boxShadow: "0 8px 24px rgba(45, 152, 90, 0.4)", animation: "bounceY 2s infinite alternate", border: "2px solid rgba(255,255,255,0.4)", marginBottom: "24px" }}>
+                        <Sparkles size={24} color="#fff" fill="#fff" /> Lên cấp {modal.pet.level}!
+                      </div>
+                    )}
+
+                    <button className="btn btn-primary" style={{ width: "100%", padding: "18px", fontSize: "1.3rem", fontWeight: "900", borderRadius: "24px", background: "linear-gradient(135deg, #f26989 0%, #d94c73 100%)", boxShadow: "0 10px 28px rgba(242, 105, 137, 0.4)", border: "none", color: "white", textTransform: "uppercase", letterSpacing: "1px" }} onClick={() => setModal(null)}>
+                      Bỏ túi ngay!
+                    </button>
+                  </div>
+                )}
+
+                {/* 7. Modal: Tử vong */}
+                {modal.type === "dead" && (
+                  <div style={{ textAlign: "center", paddingTop: "20px" }}>
+                    <div style={{ fontSize: "4rem", marginBottom: "16px", animation: "floatY 2s ease-in-out infinite" }}>🪦</div>
+                    <h2 style={{ fontFamily: "var(--font-heading)", color: "#ff4757", marginBottom: "16px", fontSize: "1.8rem" }}>
+                      Tin buồn...
+                    </h2>
+                    <p style={{ fontSize: "1.1rem", color: "var(--text-secondary)", marginBottom: "24px" }}>
+                      Trong chuyến thám hiểm vừa qua, <strong>{modal.petName}</strong> đã gặp phải nguy hiểm bất ngờ và không thể quay trở về...
+                    </p>
+                    <button className="btn btn-primary" style={{ width: "100%", padding: "16px", fontSize: "1.1rem", borderRadius: "20px", background: "linear-gradient(to right, #636e72, #2d3436)", boxShadow: "0 8px 24px rgba(0,0,0,0.2)" }} onClick={() => setModal(null)}>Vĩnh biệt...</button>
+                  </div>
+                )}
+
+                {/* 8. Modal: Dev Mode */}
+                {modal.type === "devMode" && (
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                      <h2 style={{ fontFamily: "var(--font-heading)", color: "var(--text-primary)", fontSize: "1.6rem", margin: 0 }}>🛠️ Dev Mode</h2>
+                      <button onClick={() => setModal(null)} style={{ background: "transparent", border: "none", color: "var(--text-secondary)" }}><X size={24} /></button>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                      <button className="btn btn-primary" onClick={() => handleDevAction("add_hearts")}>💰 Nhận 5000 Tim</button>
+                      <button className="btn btn-primary" onClick={() => handleDevAction("add_food")}>🍖 Thêm tất cả Thức ăn (x5)</button>
+                      <button className="btn btn-primary" onClick={() => handleDevAction("level_up")}>⭐ Thăng cấp tất cả Thú cưng</button>
+                      <button className="btn btn-primary" onClick={() => handleDevAction("skip_expedition")}>⏩ Hoàn thành Thám hiểm ngay</button>
+                      <button className="btn btn-primary" onClick={() => handleDevAction("make_sick")}>🤒 Cho tất cả thú cưng ốm</button>
+                      <button className="btn btn-primary" onClick={() => handleDevAction("reset_cooldown")}>⏳ Reset thời gian chờ (Cooldown)</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 9. Modal: Thách đấu Combat */}
+                {modal.type === "teamCombatChallenge" && (
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                      <h2 style={{ fontFamily: "var(--font-heading)", color: "var(--text-primary)", fontSize: "1.4rem", margin: 0 }}>⚔️ Đội Hình Tác Chiến</h2>
+                      <button onClick={() => setModal(null)} style={{ background: "transparent", border: "none", color: "var(--text-secondary)" }}><X size={24} /></button>
+                    </div>
+
+                    <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", marginBottom: "16px" }}>Chọn tối đa 5 thú cưng để xuất chiến. Vị trí 1-2 là Tiền đạo (chịu sát thương vật lý).</p>
+
+                    <div style={{ display: "flex", gap: "8px", marginBottom: "24px" }}>
+                      {/* Team My */}
+                      <div style={{ flex: 1, minWidth: 0, background: "rgba(127, 216, 166, 0.1)", borderRadius: "16px", padding: "8px", border: "2px solid #7fd8a6" }}>
+                        <h4 style={{ color: "#2d985a", textAlign: "center", marginBottom: "8px", fontSize: "0.9rem" }}>Phe Bạn (Công)</h4>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                          {[0, 1, 2, 3, 4].map(idx => {
+                            const selectedId = attackTeamSelection[idx];
+                            const p = pets.find(x => x._id === selectedId);
+                            return (
+                              <div key={idx} style={{ height: 50, background: "white", borderRadius: "12px", border: "1px dashed #7fd8a6", display: "flex", alignItems: "center", padding: "0 6px", gap: "6px", minWidth: 0 }} onClick={() => {
+                                if (p) setAttackTeamSelection(prev => prev.filter(id => id !== p._id));
+                              }}>
+                                <div style={{ width: 24, height: 24, flexShrink: 0, borderRadius: "50%", background: idx < 2 ? "#ff7675" : "#74b9ff", color: "white", fontSize: "0.7rem", display: "flex", justifyContent: "center", alignItems: "center", fontWeight: "bold" }}>{idx + 1}</div>
+                                {p ? (
+                                  <>
+                                    <LazyImage src={getPetImageSrc(p)} alt={p.name} style={{ width: 28, height: 28, flexShrink: 0, objectFit: 'contain' }} fallback={<span style={{ fontSize: "1.2rem", flexShrink: 0 }}>{p.emoji}</span>} />
+                                    <div style={{ fontSize: "0.75rem", fontWeight: "bold", color: "var(--text-primary)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                                  </>
+                                ) : <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Trống...</div>}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Team Partner (Defense) */}
+                      <div style={{ flex: 1, minWidth: 0, background: "rgba(242, 105, 137, 0.1)", borderRadius: "16px", padding: "8px", border: "2px solid #f26989" }}>
+                        <h4 style={{ color: "#d94c73", textAlign: "center", marginBottom: "8px", fontSize: "0.9rem" }}>Phe Gấu (Thủ)</h4>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                          {[0, 1, 2, 3, 4].map(idx => {
+                            // Nếu partner có defenseTeam, hiển thị theo đó. Nếu không hiển thị top 5
+                            let p;
+                            if (partnerDefenseTeam.length > 0) {
+                              const defId = partnerDefenseTeam[idx];
+                              p = partnerPets.find(x => x._id === defId);
+                            } else {
+                              const top5 = [...partnerPets].sort((a, b) => (b.stats.str + b.stats.agi + b.stats.int + b.stats.luk) - (a.stats.str + a.stats.agi + a.stats.int + a.stats.luk)).slice(0, 5);
+                              p = top5[idx];
+                            }
+
+                            return (
+                              <div key={idx} style={{ height: 50, background: "white", borderRadius: "12px", border: "1px solid #f26989", display: "flex", alignItems: "center", padding: "0 6px", gap: "6px", minWidth: 0, opacity: (p && (isPetBusyForCombat(p, now) || p.hp <= 0)) ? 0.4 : 1, filter: (p && (isPetBusyForCombat(p, now) || p.hp <= 0)) ? "grayscale(100%)" : "none" }}>
+                                <div style={{ width: 24, height: 24, flexShrink: 0, borderRadius: "50%", background: idx < 2 ? "#ff7675" : "#74b9ff", color: "white", fontSize: "0.7rem", display: "flex", justifyContent: "center", alignItems: "center", fontWeight: "bold" }}>{idx + 1}</div>
+                                {p ? (
+                                  <>
+                                    <LazyImage src={getPetImageSrc(p)} alt={p.name} style={{ width: 28, height: 28, flexShrink: 0, objectFit: 'contain' }} fallback={<span style={{ fontSize: "1.2rem", flexShrink: 0 }}>{p.emoji}</span>} />
+                                    <div style={{ fontSize: "0.75rem", fontWeight: "bold", color: "var(--text-primary)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                      {p.name} <span style={{ color: "#ff4757" }}>{p.isSick ? "(Ốm)" : p.hp <= 0 ? "(Mệt)" : isPetBusyForCombat(p, now) ? "(Đi vắng)" : ""}</span>
+                                    </div>
+                                  </>
+                                ) : <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Trống...</div>}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    <h4 style={{ color: "var(--text-primary)", marginBottom: "8px" }}>Chọn linh thú (Bấm để thêm)</h4>
+                    <div style={{ display: "flex", gap: "12px", overflowX: "auto", paddingBottom: "12px", marginBottom: "16px" }}>
+                      {pets.filter(p => !attackTeamSelection.includes(p._id)).map(p => {
+                        const isBusy = isPetBusyForCombat(p, now);
+                        const isTired = p.care?.happiness < 30 || p.care?.fullness < 30;
+                        const isSick = p.isSick;
+                        const disabled = isBusy || isTired;
+
+                        return (
+                          <div key={p._id} style={{ position: "relative", minWidth: 60, height: 60, background: "var(--bg-glass-strong)", borderRadius: "16px", display: "flex", justifyContent: "center", alignItems: "center", cursor: disabled ? "not-allowed" : "pointer", boxShadow: "0 4px 12px rgba(0,0,0,0.05)", opacity: disabled ? 0.6 : 1, filter: disabled ? "grayscale(100%)" : "none" }} onClick={() => {
+                            if (disabled) {
+                              if (isSick) addToast("Linh thú đang bị ốm!", "error");
+                              else if (isBusy) addToast("Linh thú đang đi thám hiểm!", "error");
+                              else if (isTired) addToast("Linh thú không đủ thể lực!", "error");
+                              return;
+                            }
+                            if (attackTeamSelection.length < 5) setAttackTeamSelection(prev => [...prev, p._id]);
+                            else addToast("Đội hình tối đa 5 thú cưng!", "error");
+                          }}>
+                            <LazyImage src={getPetImageSrc(p)} alt={p.name} style={{ width: 40, height: 40, objectFit: 'contain' }} fallback={<span style={{ fontSize: "1.8rem" }}>{p.emoji}</span>} />
+                            {disabled && (
+                              <div style={{ position: "absolute", bottom: -8, left: "50%", transform: "translateX(-50%)", background: "#ff4757", color: "white", fontSize: "0.6rem", padding: "2px 4px", borderRadius: "4px", whiteSpace: "nowrap", fontWeight: "bold" }}>
+                                {isSick ? "Bị ốm" : isBusy ? "Đi vắng" : "Mệt"}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    <button
+                      className="btn btn-primary"
+                      style={{ width: "100%", padding: "16px", fontSize: "1.1rem", borderRadius: "20px", opacity: (combatCooldown > 0 || isCombating) ? 0.6 : 1 }}
+                      disabled={combatCooldown > 0 || isCombating}
+                      onClick={handleCombat}
+                    >
+                      {combatCooldown > 0
+                        ? `⚔️ ĐẠI CHIẾN ĐANG HỒI (${Math.floor(combatCooldown / 3600000)}h ${Math.floor((combatCooldown % 3600000) / 60000)}m)`
+                        : "⚔️ BẮT ĐẦU ĐẠI CHIẾN!"}
+                    </button>
+                  </div>
+                )}
+
+                {/* 11. Modal: Thiết lập Đội Thủ */}
+                {modal.type === "defenseTeamSetup" && (
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                      <h2 style={{ fontFamily: "var(--font-heading)", color: "var(--text-primary)", fontSize: "1.4rem", margin: 0 }}>🛡️ Lập Đội Thủ</h2>
+                      <button onClick={() => setModal(null)} style={{ background: "transparent", border: "none", color: "var(--text-secondary)" }}><X size={24} /></button>
+                    </div>
+
+                    <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", marginBottom: "16px" }}>Thiết lập 5 thú cưng để phòng thủ khi Gấu sang thách đấu. Vị trí 1-2 là Tiền đạo (chịu đòn trước).</p>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "24px", background: "rgba(0,198,255,0.1)", padding: "16px", borderRadius: "16px" }}>
+                      {[0, 1, 2, 3, 4].map(idx => {
+                        const selectedId = attackTeamSelection[idx];
+                        const p = pets.find(x => x._id === selectedId);
+                        return (
+                          <div key={idx} style={{ height: 60, background: "white", borderRadius: "12px", border: "1px dashed #00c6ff", display: "flex", alignItems: "center", padding: "0 12px", gap: "12px" }} onClick={() => {
+                            if (p) setAttackTeamSelection(prev => prev.filter(id => id !== p._id));
+                          }}>
+                            <div style={{ width: 28, height: 28, borderRadius: "50%", background: idx < 2 ? "#ff7675" : "#74b9ff", color: "white", fontSize: "0.8rem", display: "flex", justifyContent: "center", alignItems: "center", fontWeight: "bold" }}>{idx + 1}</div>
+                            {p ? (
+                              <>
+                                <LazyImage src={getPetImageSrc(p)} alt={p.name} style={{ width: 40, height: 40, objectFit: 'contain' }} fallback={<span style={{ fontSize: "1.5rem" }}>{p.emoji}</span>} />
+                                <div style={{ fontSize: "1rem", fontWeight: "bold", color: "var(--text-primary)", flex: 1 }}>{p.name}</div>
+                              </>
+                            ) : <div style={{ fontSize: "0.9rem", color: "var(--text-secondary)" }}>Bấm linh thú bên dưới để thêm vào ô này...</div>}
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    <h4 style={{ color: "var(--text-primary)", marginBottom: "8px" }}>Kho linh thú của bạn</h4>
+                    <div style={{ display: "flex", gap: "12px", overflowX: "auto", paddingBottom: "12px", marginBottom: "16px" }}>
+                      {pets.filter(p => !attackTeamSelection.includes(p._id)).map(p => (
+                        <div key={p._id} style={{ minWidth: 60, height: 60, background: "var(--bg-glass-strong)", borderRadius: "16px", display: "flex", justifyContent: "center", alignItems: "center", cursor: "pointer", boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }} onClick={() => {
+                          if (attackTeamSelection.length < 5) setAttackTeamSelection(prev => [...prev, p._id]);
+                          else addToast("Đội hình tối đa 5 thú cưng!", "error");
+                        }}>
+                          <LazyImage src={getPetImageSrc(p)} alt={p.name} style={{ width: 40, height: 40, objectFit: 'contain' }} fallback={<span style={{ fontSize: "1.8rem" }}>{p.emoji}</span>} />
+                        </div>
+                      ))}
+                    </div>
+
+                    <button className="btn btn-primary" style={{ width: "100%", padding: "16px", fontSize: "1.1rem", borderRadius: "20px", background: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)", border: "none", boxShadow: "0 4px 15px rgba(0,198,255,0.4)" }} onClick={() => handleSaveDefenseTeam(attackTeamSelection)}>💾 LƯU ĐỘI THỦ</button>
+                  </div>
+                )}
+
+                {/* 10. Modal: Playback */}
+                {modal.type === "combatPlayback" && (
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "url('/arena-bg-dark.webp') center/cover", overflow: "hidden", position: "relative" }}>
+                    <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.3)" }} />
+                    <h3 style={{ position: "relative", zIndex: 1, textAlign: "center", padding: "calc(env(safe-area-inset-top, 20px) + 20px) 16px 16px", color: "white", textShadow: "0 2px 8px rgba(0,0,0,0.8)", fontSize: "1.8rem", fontWeight: "900", textTransform: "uppercase", letterSpacing: "2px" }}>Đại Chiến Tác Chiến</h3>
+
+                    <div style={{ position: "relative", zIndex: 1, display: "flex", flex: 1, alignItems: "center", justifyContent: "center", padding: "20px 0" }}>
+                      {/* Team A */}
+                      <div style={{ flex: 1, display: "flex", justifyContent: "center", gap: "25px", minWidth: 0 }}>
+                        {/* Hậu vệ */}
+                        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: "15px" }}>
+                          {combatTeamA.filter(p => p.slot >= 3).map(p => (
+                            <PetCombatSprite key={p._id} pet={p} currentLog={currentDamageLog} />
+                          ))}
+                        </div>
+                        {/* Tiền đạo */}
+                        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: "40px" }}>
+                          {combatTeamA.filter(p => p.slot <= 2).map(p => (
+                            <PetCombatSprite key={p._id} pet={p} currentLog={currentDamageLog} />
+                          ))}
+                        </div>
+                      </div>
+
+                      <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", textAlign: "center", fontWeight: "900", color: "#ff4757", fontSize: "1.8rem", textShadow: "0 2px 8px rgba(0,0,0,0.8)", zIndex: 0, opacity: 0.5 }}>VS</div>
+
+                      {/* Team B */}
+                      <div style={{ flex: 1, display: "flex", justifyContent: "center", gap: "25px", minWidth: 0 }}>
+                        {/* Tiền đạo */}
+                        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: "40px" }}>
+                          {combatTeamB.filter(p => p.slot <= 2).map(p => (
+                            <PetCombatSprite key={p._id} pet={p} currentLog={currentDamageLog} />
+                          ))}
+                        </div>
+                        {/* Hậu vệ */}
+                        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: "15px" }}>
+                          {combatTeamB.filter(p => p.slot >= 3).map(p => (
+                            <PetCombatSprite key={p._id} pet={p} currentLog={currentDamageLog} />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ position: "relative", zIndex: 1, background: "rgba(0,0,0,0.6)", color: "white", padding: "16px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
+                      <div style={{ fontSize: "1.1rem", fontWeight: "bold", minHeight: "24px" }}>
+                        {currentDamageLog?.msg || "Trận đấu chuẩn bị bắt đầu..."}
+                      </div>
+
+                      <button
+                        onClick={handleNextTurn}
+                        style={{
+                          padding: "12px 40px",
+                          fontSize: "1.2rem",
+                          fontWeight: "bold",
+                          borderRadius: "30px",
+                          background: "linear-gradient(135deg, #ff9f43, #ff6b6b)",
+                          color: "white",
+                          border: "3px solid white",
+                          boxShadow: "0 8px 24px rgba(255, 107, 107, 0.5)",
+                          cursor: "pointer",
+                          textTransform: "uppercase",
+                          animation: "pulseCombatBtn 2s infinite"
+                        }}
+                      >
+                        {playbackIdx >= combatLogs?.length ? "Kết Thúc" : "Tiếp Theo ⏭️"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 11. Modal: Kết quả Combat */}
+                {modal.type === "combatLogs" && combatResult && (
+                  <div>
+                    <h2 style={{ fontFamily: "var(--font-heading)", color: combatResult.isWin ? "var(--color-primary)" : "#ff4757", fontSize: "2rem", margin: "0 0 16px", textAlign: "center" }}>
+                      {combatResult.isWin ? "ĐẠI THẮNG!" : "THẤT BẠI..."}
+                    </h2>
+
+                    <div style={{ display: "flex", gap: "12px", justifyContent: "center", marginBottom: "20px" }}>
+                      <div style={{ background: "#4db8ff22", color: "#4db8ff", padding: "8px 16px", borderRadius: "20px", fontWeight: "bold", textAlign: "center" }}>
+                        EXP Cả Đội<br />
+                        <span style={{ fontSize: "1.5rem" }}>+{combatResult.expGain}</span>
+                      </div>
+                      {combatResult.reward > 0 && (
+                        <div style={{ background: "#f2698922", color: "var(--color-primary)", padding: "8px 16px", borderRadius: "20px", fontWeight: "bold", textAlign: "center" }}>
+                          Quà Tặng<br />
+                          <span style={{ fontSize: "1.5rem" }}>+{combatResult.reward} ❤️</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {combatResult.leveledPets && combatResult.leveledPets.length > 0 && (
+                      <p style={{ textAlign: "center", color: "#f2b155", fontWeight: "bold", marginBottom: "16px", animation: "pulseAura 1s infinite alternate" }}>
+                        🎉 Đã thăng cấp: {combatResult.leveledPets.join(", ")}! 🎉
+                      </p>
+                    )}
+
+                    <p style={{ textAlign: "center", fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "24px" }}>
+                      *Lưu ý: Toàn đội đã tiêu hao rất nhiều thể lực (Độ Vui vẻ & Độ No). Hãy chăm sóc các bé nhé!
+                    </p>
+
+                    <button className="btn btn-primary" style={{ width: "100%", padding: "16px", fontSize: "1.1rem", borderRadius: "20px" }} onClick={() => setModal(null)}>Trở về Vườn</button>
+                  </div>
+                )}
+
+                {/* 12. Modal: Lịch Sử Đại Chiến */}
+                {modal.type === "combatHistory" && (
+                  <div style={{ padding: "8px 0" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                      <h2 style={{ fontFamily: "var(--font-heading)", color: "var(--text-primary)", fontSize: "1.4rem", margin: 0 }}>📜 Lịch Sử Đại Chiến</h2>
+                      <button onClick={() => setModal(null)} style={{ background: "transparent", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}><X size={24} /></button>
+                    </div>
+
+                    <div style={{ maxHeight: "60vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: "12px", paddingRight: "4px" }}>
+                      {combatHistoryList.length === 0 ? (
+                        <div style={{ textAlign: "center", padding: "30px", color: "var(--text-secondary)" }}>
+                          Chưa có trận chiến nào được ghi nhận.
+                        </div>
+                      ) : (
+                        combatHistoryList.map(h => {
+                          const isMeAttacker = h.attackerId === user._id;
+                          const didIWin = isMeAttacker ? h.isAttackerWin : !h.isAttackerWin;
+
+                          let bgColor = didIWin ? "rgba(46, 204, 113, 0.1)" : "rgba(231, 76, 60, 0.1)";
+                          let borderColor = didIWin ? "#2ecc71" : "#e74c3c";
+                          let textColor = didIWin ? "#27ae60" : "#c0392b";
+
+                          let message = "";
+                          if (isMeAttacker) {
+                            message = h.isAttackerWin
+                              ? `Bạn đã càn quét Đội Thủ của Gấu! 🏆 +${h.reward} tim`
+                              : `Bạn đã thất bại khi công thành! ☠️`;
+                          } else {
+                            message = h.isAttackerWin
+                              ? `Gấu đã đánh tan Đội Thủ của bạn! 💔 Bị cướp ${h.reward} tim`
+                              : `Đội Thủ của bạn đã phòng ngự xuất sắc trước đợt tấn công của Gấu! 🛡️`;
+                          }
+
+                          // Format time
+                          const dateObj = new Date(h.createdAt);
+                          const timeStr = dateObj.toLocaleString('vi-VN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+                          return (
+                            <div key={h._id} style={{ padding: "12px", borderRadius: "16px", background: bgColor, borderLeft: `4px solid ${borderColor}`, display: "flex", flexDirection: "column", gap: "4px" }}>
+                              <div style={{ fontSize: "0.95rem", fontWeight: "bold", color: textColor }}>{message}</div>
+                              <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{timeStr}</div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function GlobalStyle() {
+  return (
+    <style dangerouslySetInnerHTML={{
+      __html: `
+      body, html {
+        overflow: hidden;
+      }
+      .garden-wrap {
+        background-image: url('/garden-bg.webp');
+        background-size: cover;
+        background-position: center bottom;
+        background-repeat: no-repeat;
+        height: 100vh;
+        width: 100vw;
+        position: relative;
+        overflow: hidden;
+      }
+      .garden-wrap::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.4) 100%);
+        pointer-events: none;
+      }
+      .garden-area {
+        position: absolute;
+        top: 130px;
+        bottom: 100px;
+        left: 0;
+        right: 0;
+      }
+      .garden-pet {
+        position: absolute;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        cursor: pointer;
+        transition: filter 0.2s;
+        transform: translateX(-50%);
+      }
+      .garden-pet:active {
+        filter: brightness(0.8);
+      }
+      .pet-float { 
+        animation: floatY 4s ease-in-out infinite; 
+      }
+      @keyframes floatY { 
+        0%, 100% { transform: translateX(-50%) translateY(0); } 
+        50% { transform: translateX(-50%) translateY(-15px); } 
+      }
+      @keyframes bounceY {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-15px); }
+      }
+      @keyframes auraSpin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+      @keyframes auraPulse {
+        0%, 100% { opacity: 0.4; transform: scale(1); }
+        50% { opacity: 0.8; transform: scale(1.15); }
+      }
+      @keyframes contourFire {
+        0% { filter: drop-shadow(0 0 2px rgba(255,255,255,0.8)) drop-shadow(0 -4px 8px #f1c40f) drop-shadow(0 -8px 16px #e74c3c); transform: translateY(0); }
+        50% { filter: drop-shadow(0 0 4px #fff) drop-shadow(0 -8px 12px #f39c12) drop-shadow(0 -16px 24px #d35400) drop-shadow(0 -24px 32px #c0392b); transform: translateY(-4px); }
+        100% { filter: drop-shadow(0 0 2px rgba(255,255,255,0.8)) drop-shadow(0 -4px 8px #f1c40f) drop-shadow(0 -8px 16px #e74c3c); transform: translateY(0); }
+      }
+      
+      /* Cải thiện thanh cuộn cho Modal */
+      ::-webkit-scrollbar { width: 4px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 99px; }
+
+      .dirt-overlay {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 3;
+        -webkit-mask-size: contain;
+        -webkit-mask-position: center;
+        -webkit-mask-repeat: no-repeat;
+        mask-size: contain;
+        mask-position: center;
+        mask-repeat: no-repeat;
+        background-image: 
+          radial-gradient(ellipse at 35% 45%, rgba(101,67,33,0.85) 0%, transparent 18%),
+          radial-gradient(circle at 65% 65%, rgba(80,50,20,0.8) 0%, transparent 15%),
+          radial-gradient(circle at 45% 75%, rgba(120,80,40,0.85) 0%, transparent 22%),
+          radial-gradient(ellipse at 60% 35%, rgba(90,60,25,0.8) 0%, transparent 14%),
+          radial-gradient(circle at 25% 60%, rgba(110,70,30,0.7) 0%, transparent 20%),
+          radial-gradient(circle at 75% 45%, rgba(70,40,15,0.85) 0%, transparent 12%);
+      }
+    `}} />
+  );
+}

@@ -1,0 +1,279 @@
+.bubble-shooter-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #ffd1ff, #fad0c4, #ff9a9e);
+  display: flex;
+  flex-direction: column;
+  color: #333;
+}
+
+.bubble-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: calc(60px + env(safe-area-inset-top)) 16px 24px;
+  max-width: 500px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.bubble-header {
+  display: none;
+}
+
+/* ── Header ── */
+.hc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 400px;
+  margin-bottom: 20px;
+  z-index: 10;
+}
+.hc-back-btn, .hc-restart-btn {
+  background: rgba(255,255,255,0.4);
+  border: 1px solid rgba(255,255,255,0.8);
+  color: #ff4757;
+  width: 40px; height: 40px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background 0.3s, transform 0.2s;
+  box-shadow: 0 4px 10px rgba(255, 105, 180, 0.2);
+}
+.hc-back-btn:hover, .hc-restart-btn:hover { 
+  background: rgba(255,255,255,0.8); 
+  transform: scale(1.05);
+}
+.hc-title {
+  font-size: 1.5rem; font-weight: 900;
+  text-shadow: 0 2px 5px rgba(255, 105, 180, 0.3);
+  background: linear-gradient(45deg, #ff6b81 0%, #ff4757 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-family: 'Poppins', sans-serif;
+}
+
+/* ── Stats Bar ── */
+.hc-stats {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 400px;
+  background: rgba(255,255,255,0.6);
+  border-radius: 16px;
+  padding: 12px 20px;
+  margin-bottom: 20px;
+  z-index: 10;
+  box-shadow: 0 4px 15px rgba(255, 105, 180, 0.2);
+  border: 2px solid rgba(255,255,255,0.8);
+  backdrop-filter: blur(10px);
+}
+.hc-stat-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.hc-stat-box span {
+  font-size: 0.75rem; color: #ff6b81; margin-bottom: 4px; font-weight: bold; letter-spacing: 1px;
+}
+.hc-stat-box strong {
+  font-size: 1.4rem; font-weight: 900; font-family: 'Poppins', sans-serif;
+}
+.hc-stat-box.xu strong {
+  color: #f39c12;
+  text-shadow: 0 2px 4px rgba(243, 156, 18, 0.3);
+}
+
+.score-text {
+  color: #ff4757;
+  text-shadow: 0 2px 4px rgba(255, 71, 87, 0.3);
+}
+
+.level-text {
+  color: #a29bfe;
+  text-shadow: 0 2px 4px rgba(162, 155, 254, 0.3);
+}
+
+.canvas-wrapper {
+  position: relative;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 20px;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.bubble-canvas {
+  display: block;
+  touch-action: none;
+}
+
+.bubble-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  z-index: 10;
+}
+
+.bubble-overlay h2 {
+  font-size: 2.5rem;
+  color: #ff4757;
+  margin-bottom: 16px;
+  text-shadow: 0 2px 10px rgba(255, 71, 87, 0.3);
+  font-family: 'Poppins', sans-serif;
+}
+
+.bubble-overlay p {
+  color: #555;
+  font-size: 1.1rem;
+  line-height: 1.6;
+  margin-bottom: 24px;
+  font-weight: 500;
+}
+
+.btn-start-bubble {
+  background: linear-gradient(135deg, #ff9a9e, #fecfef);
+  color: #d63031;
+  border: none;
+  padding: 12px 32px;
+  border-radius: 30px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 6px 15px rgba(255, 105, 180, 0.4);
+  transition: all 0.2s ease;
+  min-width: 140px;
+}
+
+.btn-start-bubble:active {
+  transform: scale(0.95);
+  box-shadow: 0 2px 8px rgba(255, 105, 180, 0.4);
+}
+
+.btn-secondary {
+  background: white;
+  color: #ff6b81;
+  border: 2px solid #ff9a9e;
+  box-shadow: 0 4px 15px rgba(255, 105, 180, 0.2);
+}
+
+/* ── Confirmation Modals ── */
+.bs-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 5, 30, 0.65);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: bs-fade-in 0.2s ease;
+}
+
+@keyframes bs-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.bs-modal {
+  background: linear-gradient(145deg, rgba(60, 20, 100, 0.95), rgba(30, 10, 60, 0.98));
+  border: 1.5px solid rgba(196, 181, 253, 0.4);
+  border-radius: 24px;
+  padding: 32px 28px 24px;
+  width: min(360px, 90vw);
+  text-align: center;
+  box-shadow: 0 24px 60px rgba(109, 40, 217, 0.5), inset 0 1px 0 rgba(255,255,255,0.1);
+  animation: bs-pop-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes bs-pop-in {
+  from { transform: scale(0.8); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+.bs-modal-icon {
+  font-size: 2.8rem;
+  margin-bottom: 10px;
+  filter: drop-shadow(0 4px 8px rgba(167, 139, 250, 0.5));
+}
+
+.bs-modal h3 {
+  color: #e9d5ff;
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 0 0 10px;
+  font-family: 'Poppins', sans-serif;
+}
+
+.bs-modal p {
+  color: rgba(233, 213, 255, 0.75);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  margin: 0 0 22px;
+}
+
+.bs-modal-coins {
+  color: #fbbf24;
+  font-size: 1.05rem;
+}
+
+.bs-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.bs-modal-btn {
+  padding: 10px 20px;
+  border-radius: 50px;
+  border: none;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  font-family: 'Poppins', sans-serif;
+}
+
+.bs-modal-btn:hover {
+  transform: translateY(-2px);
+}
+
+.bs-modal-btn:active {
+  transform: scale(0.96);
+}
+
+.bs-modal-btn--cancel {
+  background: rgba(255,255,255,0.1);
+  color: #c4b5fd;
+  border: 1.5px solid rgba(196, 181, 253, 0.35);
+}
+
+.bs-modal-btn--cancel:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+.bs-modal-btn--confirm {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: #1a0050;
+  box-shadow: 0 4px 16px rgba(251, 191, 36, 0.4);
+}
+
+.bs-modal-btn--danger {
+  background: linear-gradient(135deg, #f87171, #ef4444);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
+}
+

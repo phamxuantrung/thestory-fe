@@ -1,0 +1,50 @@
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@imgly/background-removal": "^1.7.0",
+    "axios": "^1.18.0",
+    "canvas-confetti": "^1.9.4",
+    "emoji-picker-react": "^4.19.1",
+    "framer-motion": "^12.40.0",
+    "gsap": "^3.15.0",
+    "kaplay": "^3001.0.19",
+    "leaflet": "^1.9.4",
+    "lucide-react": "^1.21.0",
+    "matter-js": "^0.20.0",
+    "pulltorefreshjs": "^0.1.22",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "react-easy-crop": "^6.2.0",
+    "react-leaflet": "^5.0.0",
+    "react-router-dom": "^7.18.0",
+    "socket.io-client": "^4.8.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@tailwindcss/vite": "^4.3.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "autoprefixer": "^10.5.0",
+    "eslint": "^10.3.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
+    "postcss": "^8.5.15",
+    "sharp": "^0.35.3",
+    "tailwindcss": "^4.3.1",
+    "vite": "^8.0.12",
+    "vite-plugin-pwa": "^1.3.0",
+    "workbox-core": "^7.4.1",
+    "workbox-precaching": "^7.4.1"
+  }
+}

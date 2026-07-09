@@ -1,0 +1,350 @@
+/* ===== Block Blast Game CSS ===== */
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap');
+
+.blockblast-container {
+  font-family: 'Nunito', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: max(40px, env(safe-area-inset-top)) 16px 32px;
+  position: relative;
+  overflow: hidden;
+  background: #0d0d1e;
+  color: white;
+  user-select: none;
+}
+
+/* ── Background Blobs ── */
+.blockblast-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.bb-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.25;
+}
+.bb-blob-1 { width: 360px; height: 360px; background: #f26989; top: -100px; left: -100px; animation: blobDrift 8s ease-in-out infinite alternate; }
+.bb-blob-2 { width: 300px; height: 300px; background: #8f6fff; bottom: -80px; right: -80px; animation: blobDrift 10s ease-in-out infinite alternate-reverse; }
+.bb-blob-3 { width: 200px; height: 200px; background: #4db8ff; top: 40%; left: 50%; animation: blobDrift 12s ease-in-out infinite alternate; }
+@keyframes blobDrift {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(30px, 20px) scale(1.1); }
+}
+
+/* ── Header ── */
+.bb-header {
+  position: relative; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; max-width: 420px;
+  padding: 16px 0 8px;
+}
+.bb-back-btn, .bb-restart-btn {
+  width: 40px; height: 40px; border-radius: 50%; border: none;
+  background: rgba(255,255,255,0.12); color: white; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s;
+}
+.bb-back-btn:hover, .bb-restart-btn:hover { background: rgba(255,255,255,0.22); }
+.bb-title {
+  font-size: 1.4rem; font-weight: 900; letter-spacing: 1px;
+  background: linear-gradient(135deg, #f26989, #8f6fff, #4db8ff);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+
+/* ── Score Row ── */
+.bb-score-row {
+  position: relative; z-index: 10;
+  display: flex; gap: 16px; margin-bottom: 8px;
+  width: 100%; max-width: 420px; justify-content: center;
+}
+.bb-score-card {
+  flex: 1;
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px; padding: 10px 16px; text-align: center; backdrop-filter: blur(4px);
+}
+.bb-score-label { font-size: 0.7rem; color: rgba(255,255,255,0.55); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
+.bb-score-value { font-size: 1.3rem; font-weight: 900; color: white; }
+
+/* ── Xu Bar ── */
+.bb-xu-bar {
+  position: relative; z-index: 10;
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(253, 203, 110, 0.12);
+  border: 1px solid rgba(253, 203, 110, 0.3);
+  border-radius: 20px; padding: 6px 14px;
+  margin-bottom: 8px; max-width: 420px; width: 100%;
+  font-size: 0.85rem;
+}
+.bb-xu-icon { font-size: 1rem; }
+.bb-xu-label { color: rgba(255,255,255,0.55); font-weight: 700; }
+.bb-xu-value {
+  font-size: 1.1rem; font-weight: 900; color: #fdcb6e;
+  text-shadow: 0 0 10px rgba(253,203,110,0.5);
+  min-width: 28px; text-align: right;
+}
+.bb-xu-hint { font-size: 0.68rem; color: rgba(255,255,255,0.3); margin-left: 2px; }
+
+
+/* ── Combo Text ── */
+.bb-combo-text {
+  position: relative; z-index: 20;
+  font-size: 1rem; font-weight: 900; color: #fdcb6e;
+  text-shadow: 0 0 20px rgba(253,203,110,0.8);
+  margin-bottom: 4px; letter-spacing: 2px;
+}
+
+/* ── Grid ── */
+.bb-grid-wrap {
+  position: relative; z-index: 10;
+  padding: 8px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px; backdrop-filter: blur(8px); margin-bottom: 14px;
+}
+.bb-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows:    repeat(8, 1fr);
+  gap: 3px;
+  width:  min(360px, calc(100vw - 64px));
+  height: min(360px, calc(100vw - 64px));
+}
+
+/* ── Grid Cell ── */
+.bb-cell {
+  border-radius: 10px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.05);
+  cursor: default;
+  transition: background 0.1s, transform 0.1s;
+  position: relative;
+}
+.bb-cell.filled {
+  border: none;
+  box-shadow: inset 2px 2px 6px rgba(255,255,255,0.5), inset -2px -3px 6px rgba(0,0,0,0.2), 0 3px 6px rgba(0,0,0,0.25);
+}
+.bb-cell.filled::after {
+  content: '';
+  position: absolute;
+  top: 12%; left: 15%;
+  width: 35%; height: 25%;
+  background: white;
+  border-radius: 50%;
+  transform: rotate(-20deg);
+  opacity: 0.5;
+}
+.bb-cell.hovered {
+  transform: scale(1.05);
+  opacity: 0.9;
+  border: none;
+  box-shadow: inset 2px 2px 6px rgba(255,255,255,0.5), inset -2px -3px 6px rgba(0,0,0,0.2), 0 0 12px rgba(255,255,255,0.5);
+}
+.bb-cell.invalid {
+  background: rgba(255,71,87,0.3) !important;
+  border-color: rgba(255,71,87,0.5);
+}
+
+/* ── CLEARING ANIMATION ── */
+/* Phase 1 (0–200ms): bright flash + scale up */
+/* Phase 2 (200–480ms): shrink + fade out */
+.bb-cell.clearing {
+  animation: cellClear 0.48s ease-in forwards;
+  z-index: 5;
+}
+
+@keyframes cellClear {
+  0%   { transform: scale(1);    opacity: 1;   filter: brightness(1);   }
+  15%  { transform: scale(1.25); opacity: 1;   filter: brightness(3.5) saturate(2); box-shadow: 0 0 20px currentColor; }
+  40%  { transform: scale(1.15); opacity: 0.8; filter: brightness(2.5); }
+  70%  { transform: scale(0.6);  opacity: 0.4; filter: brightness(1);   }
+  100% { transform: scale(0);    opacity: 0;   filter: brightness(1);   }
+}
+
+/* ── PURE LINE: golden explosion ── */
+.bb-cell.clearing.pure {
+  animation: pureClear 0.55s ease-in forwards;
+  z-index: 6;
+}
+
+@keyframes pureClear {
+  0%   { transform: scale(1);    opacity: 1;   filter: brightness(1) saturate(1);   background-color: inherit; }
+  10%  { transform: scale(1.35); opacity: 1;   filter: brightness(5) saturate(3) hue-rotate(20deg);
+         box-shadow: 0 0 30px #fdcb6e, 0 0 60px #fff; }
+  30%  { transform: scale(1.2);  opacity: 1;   filter: brightness(3) saturate(2);
+         background-color: #fdcb6e !important;
+         box-shadow: 0 0 20px #fdcb6e; }
+  60%  { transform: scale(0.7);  opacity: 0.6; filter: brightness(2); background-color: #ffeaa7 !important; }
+  100% { transform: scale(0);    opacity: 0;   filter: brightness(1); }
+}
+
+/* Pure shimmer: left-to-right gold wave */
+.bb-cell.clearing.pure::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,236,100,0.95) 50%, transparent 100%);
+  animation: goldShimmer 0.35s ease-out forwards;
+}
+@keyframes goldShimmer {
+  0%   { opacity: 0; transform: translateX(-100%); }
+  25%  { opacity: 1; }
+  100% { opacity: 0; transform: translateX(100%); }
+}
+
+/* Shimmer wave across cleared rows/cols */
+.bb-cell.clearing::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.8) 50%, transparent 100%);
+  animation: shimmerWave 0.3s ease-out forwards;
+}
+
+@keyframes shimmerWave {
+  0%   { opacity: 0; transform: translateX(-100%); }
+  30%  { opacity: 1; }
+  100% { opacity: 0; transform: translateX(100%);  }
+}
+
+/* Make cells relative for ::after to work */
+.bb-cell { position: relative; }
+
+/* ── Drag Ghost ── */
+.bb-drag-ghost {
+  position: fixed;
+  z-index: 999;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0.9;
+  filter: drop-shadow(0 4px 16px rgba(0,0,0,0.5));
+  transition: none;
+}
+
+/* ── Piece Tray ── */
+.bb-tray { position: relative; z-index: 10; display: flex; gap: 12px; justify-content: center; margin-bottom: 14px; }
+.bb-piece-slot {
+  width: 90px; height: 90px;
+  background: rgba(255,255,255,0.06); border: 2px solid rgba(255,255,255,0.1);
+  border-radius: 16px; display: flex; align-items: center; justify-content: center;
+  cursor: grab; transition: transform 0.15s, border-color 0.2s, background 0.2s;
+}
+.bb-piece-slot:active { cursor: grabbing; }
+.bb-piece-slot.dragging-out { opacity: 0.3; transform: scale(0.9); }
+.bb-piece-slot.empty { opacity: 0.2; cursor: default; }
+.bb-piece-preview { display: flex; flex-direction: column; gap: 3px; align-items: center; }
+.bb-preview-row { display: flex; gap: 3px; }
+.bb-preview-cell { border-radius: 4px; }
+
+/* ── Controls Row ── */
+.bb-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 360px;
+  margin-bottom: 10px;
+  position: relative;
+  z-index: 10;
+}
+
+/* ── Hint ── */
+.bb-hint {
+  font-size: 0.8rem; color: rgba(255,255,255,0.4);
+  margin: 0; text-align: left;
+}
+
+/* ── Refresh Button ── */
+.bb-refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  border-radius: 12px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'Nunito', sans-serif;
+}
+.bb-refresh-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+.bb-refresh-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+
+/* ── Claim Button ── */
+.bb-claim-btn {
+  position: relative; z-index: 10;
+  display: flex; align-items: center; gap: 8px;
+  background: linear-gradient(135deg, #f26989, #d94c73);
+  color: white; border: none; border-radius: 20px;
+  padding: 12px 28px; font-size: 1rem; font-weight: 800;
+  cursor: pointer; box-shadow: 0 8px 24px rgba(242,105,137,0.5);
+  margin-bottom: 8px; font-family: 'Nunito', sans-serif;
+}
+.bb-claim-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ── Reward Toast ── */
+.bb-reward-toast {
+  position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+  z-index: 999; background: linear-gradient(135deg, #7fd8a6, #2d985a);
+  color: white; padding: 12px 24px; border-radius: 20px;
+  font-size: 1rem; font-weight: 800; box-shadow: 0 8px 24px rgba(45,152,90,0.5);
+  white-space: nowrap;
+}
+
+/* ── Game Over ── */
+.bb-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.bb-game-over-card {
+  background: linear-gradient(135deg, #1a1a3e, #0d0d1e);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 28px 28px 0 0; padding: 32px 24px 40px;
+  width: 100%; max-width: 420px; text-align: center;
+}
+.bb-go-emoji { font-size: 3.5rem; margin-bottom: 8px; }
+.bb-go-title {
+  font-size: 2rem; font-weight: 900;
+  background: linear-gradient(135deg, #f26989, #8f6fff);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  margin-bottom: 16px;
+}
+.bb-go-score {
+  display: flex; flex-direction: column; align-items: center;
+  background: rgba(255,255,255,0.07); border-radius: 16px;
+  padding: 16px; margin-bottom: 16px;
+}
+.bb-go-score-label { font-size: 0.8rem; color: rgba(255,255,255,0.5); letter-spacing: 1px; text-transform: uppercase; }
+.bb-go-score-value { font-size: 2.5rem; font-weight: 900; color: #fdcb6e; }
+.bb-go-reward { font-size: 1rem; color: rgba(255,255,255,0.7); margin-bottom: 20px; }
+.bb-go-reward span { color: #f26989; font-weight: 900; font-size: 1.2rem; }
+.bb-go-btn {
+  width: 100%; padding: 16px;
+  background: linear-gradient(135deg, #f26989, #d94c73);
+  color: white; border: none; border-radius: 20px;
+  font-size: 1.1rem; font-weight: 900; cursor: pointer;
+  box-shadow: 0 8px 24px rgba(242,105,137,0.4);
+  margin-bottom: 10px; font-family: 'Nunito', sans-serif; letter-spacing: 1px;
+}
+.bb-go-exit {
+  background: transparent; border: 1px solid rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.6); width: 100%; padding: 12px;
+  border-radius: 16px; font-size: 0.95rem; font-weight: 700;
+  cursor: pointer; font-family: 'Nunito', sans-serif;
+}

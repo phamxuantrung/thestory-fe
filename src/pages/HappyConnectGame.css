@@ -1,0 +1,256 @@
+/* ===== Happy Connect Game CSS ===== */
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap');
+
+.hc-container {
+  font-family: 'Nunito', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: max(60px, calc(env(safe-area-inset-top) + 20px)) 16px 32px;
+  position: relative;
+  overflow: hidden;
+  background: #0f0c29;
+  background: linear-gradient(to bottom, #0f0c29, #302b63, #24243e);
+  color: white;
+  user-select: none;
+}
+
+/* ── Header ── */
+.hc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 400px;
+  margin-bottom: 20px;
+  z-index: 10;
+}
+.hc-back-btn, .hc-restart-btn {
+  background: rgba(255,255,255,0.1);
+  border: none; color: white;
+  width: 40px; height: 40px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+.hc-back-btn:hover, .hc-restart-btn:hover { background: rgba(255,255,255,0.2); }
+.hc-title {
+  font-size: 1.5rem; font-weight: 900;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+  background: linear-gradient(45deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ── Stats Bar ── */
+.hc-stats {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 400px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 12px 20px;
+  margin-bottom: 20px;
+  z-index: 10;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+.hc-stat-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.hc-stat-box span {
+  font-size: 0.75rem; color: rgba(255,255,255,0.6); margin-bottom: 4px;
+}
+.hc-stat-box strong {
+  font-size: 1.4rem; font-weight: 900;
+}
+.hc-stat-box.moves strong {
+  color: #55efc4;
+}
+.hc-stat-box.xu strong {
+  color: #fdcb6e;
+}
+
+/* ── Board Wrap ── */
+.hc-board-wrap {
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 7 / 9; /* COLS / ROWS */
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 12px;
+  border: 2px solid rgba(255,255,255,0.1);
+  position: relative;
+  z-index: 10;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+  margin-bottom: 20px;
+}
+
+.hc-grid {
+  position: absolute;
+  inset: 0;
+}
+
+.hc-path-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* ── Cells & Items ── */
+.hc-cell-container {
+  position: absolute;
+  padding: 4px; /* Gap between items */
+}
+
+.hc-item {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  box-sizing: border-box;
+  background: rgba(255,255,255,0.1);
+  box-shadow: inset 0 2px 4px rgba(255,255,255,0.2);
+  transition: transform 0.1s ease;
+  user-select: none;
+}
+
+.hc-icon {
+  font-size: 1.8rem;
+  pointer-events: none;
+}
+
+.hc-item.selected {
+  transform: scale(1.15);
+  z-index: 10;
+}
+
+.hc-item.popping {
+  animation: pop 0.3s ease-out forwards;
+}
+@keyframes pop {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.8; filter: brightness(2); }
+  100% { transform: scale(0); opacity: 0; }
+}
+
+.hc-path-index {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: white;
+  color: black;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 900;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+/* ── Hint ── */
+.hc-hint {
+  font-size: 0.9rem;
+  color: rgba(255,255,255,0.6);
+  text-align: center;
+}
+
+/* ── Game Over Overlay ── */
+.hc-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.85);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(5px);
+}
+.hc-game-over-card {
+  background: #1e1e2f;
+  padding: 30px; border-radius: 24px;
+  text-align: center; width: 90%; max-width: 340px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.hc-game-over-card h2 {
+  font-size: 2rem; color: #ff6b81; margin: 0 0 10px;
+}
+.hc-go-score { font-size: 1.2rem; color: rgba(255,255,255,0.7); margin-bottom: 5px; }
+.hc-go-xu { font-size: 1.1rem; color: #fdcb6e; margin-bottom: 20px; }
+.hc-go-xu strong { font-size: 1.4rem; }
+
+/* ── Level Up Card ── */
+.hc-levelup-card {
+  background: linear-gradient(135deg, #a29bfe, #74b9ff);
+  padding: 40px; border-radius: 24px;
+  text-align: center;
+  box-shadow: 0 10px 40px rgba(116, 185, 255, 0.6);
+  border: 2px solid white;
+}
+.hc-levelup-card h2 {
+  font-size: 2.5rem; color: white; margin: 0 0 5px;
+  text-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+.hc-levelup-card p {
+  font-size: 1.5rem; color: white; margin: 0 0 20px; font-weight: 800;
+}
+.hc-lu-bonus {
+  display: inline-block;
+  background: white; color: #a29bfe;
+  padding: 10px 20px; border-radius: 20px;
+  font-size: 1.2rem; font-weight: 900;
+}
+
+/* ── Bomb Indicator ── */
+.hc-bomb-indicator {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.8rem;
+  opacity: 0.8;
+  pointer-events: none;
+  animation: hc-bomb-pulse 1.5s infinite alternate;
+  text-shadow: 0 0 10px rgba(255,255,255,0.8);
+}
+
+@keyframes hc-bomb-pulse {
+  from { transform: translate(-50%, -50%) scale(0.9); opacity: 0.6; }
+  to { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+}
+
+.hc-go-actions {
+  display: flex; flex-direction: column; gap: 10px;
+}
+.hc-btn-primary {
+  background: linear-gradient(135deg, #ff6b81, #ff4757);
+  border: none; color: white;
+  padding: 14px; border-radius: 12px;
+  font-size: 1.1rem; font-weight: 800; cursor: pointer;
+}
+.hc-btn-secondary {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.2); color: white;
+  padding: 14px; border-radius: 12px;
+  font-size: 1.1rem; font-weight: 700; cursor: pointer;
+}
+
+/* ── Reward Toast ── */
+.hc-reward-toast {
+  position: fixed;
+  bottom: 80px;
+  background: rgba(253, 203, 110, 0.95);
+  color: #d35400;
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-weight: 800;
+  box-shadow: 0 4px 15px rgba(253, 203, 110, 0.4);
+  z-index: 200;
+}

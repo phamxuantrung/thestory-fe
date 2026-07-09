@@ -1,0 +1,554 @@
+import { useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../hooks/useAuth';
+import { authService } from '../services/authService';
+import { showToast } from '../components/Toast';
+import Header from '../components/Header';
+import BottomNav from '../components/BottomNav';
+import Avatar from '../components/Avatar';
+import { LogOut, User, Camera, KeyRound, Save, X, Image as ImageIcon, Crop } from 'lucide-react';
+import Cropper from 'react-easy-crop';
+import { getCroppedImg } from '../utils/cropImage';
+import './ProfilePage.css';
+
+const PRESET_AVATARS = [
+  'https://api.dicebear.com/7.x/notionists/svg?seed=Love1&backgroundColor=fce7f3',
+  'https://api.dicebear.com/7.x/notionists/svg?seed=Love2&backgroundColor=e0e7ff',
+  'https://api.dicebear.com/7.x/notionists/svg?seed=Love3&backgroundColor=dcfce7',
+  'https://api.dicebear.com/7.x/notionists/svg?seed=Love4&backgroundColor=fef3c7',
+  'https://api.dicebear.com/7.x/notionists/svg?seed=Love5&backgroundColor=fee2e2',
+  'https://api.dicebear.com/7.x/notionists/svg?seed=Love6&backgroundColor=dbeafe',
+  'https://api.dicebear.com/7.x/notionists/svg?seed=Love7&backgroundColor=f3e8ff',
+  'https://api.dicebear.com/7.x/notionists/svg?seed=Love8&backgroundColor=ffedd5',
+];
+
+const ProfilePage = () => {
+  const { user, logout, updateUser } = useAuth();
+  const [activeModal, setActiveModal] = useState(null); // 'name', 'avatar', 'password', 'logout'
+  const [loading, setLoading] = useState(false);
+
+  // Name Edit
+  const [editName, setEditName] = useState(user?.displayName || '');
+
+  // Birthday Edit
+  const [editBirthday, setEditBirthday] = useState(user?.birthday ? user.birthday.split('T')[0] : '');
+
+  // Bio Edit
+  const [editBio, setEditBio] = useState(user?.bio || '');
+
+  // Password Edit
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  // Avatar Edit
+  const [selectedAvatarUrl, setSelectedAvatarUrl] = useState('');
+  const fileInputRef = useRef(null);
+
+  // Crop State
+  const [cropImageSrc, setCropImageSrc] = useState(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+
+  const handleUpdateName = async () => {
+    if (!editName.trim()) return showToast('Tên không được để trống', 'error');
+    setLoading(true);
+    try {
+      const res = await authService.updateMe({ displayName: editName });
+      if (res.success) {
+        showToast('Cập nhật tên thành công', 'success');
+        setActiveModal(null);
+        updateUser({ displayName: editName });
+      } else {
+        showToast(res.message, 'error');
+      }
+    } catch (e) {
+      showToast(e.response?.data?.message || 'Có lỗi xảy ra', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateBirthday = async () => {
+    if (!editBirthday) return showToast('Vui lòng chọn ngày sinh', 'error');
+    setLoading(true);
+    try {
+      const res = await authService.updateMe({ birthday: editBirthday });
+      if (res.success) {
+        showToast('Cập nhật sinh nhật thành công', 'success');
+        setActiveModal(null);
+        updateUser({ birthday: editBirthday });
+      } else {
+        showToast(res.message, 'error');
+      }
+    } catch (e) {
+      showToast(e.response?.data?.message || 'Có lỗi xảy ra', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateBio = async () => {
+    setLoading(true);
+    try {
+      const res = await authService.updateMe({ bio: editBio });
+      if (res.success) {
+        showToast('Cập nhật mô tả thành công', 'success');
+        setActiveModal(null);
+        updateUser({ bio: editBio });
+      } else {
+        showToast(res.message, 'error');
+      }
+    } catch (e) {
+      showToast(e.response?.data?.message || 'Có lỗi xảy ra', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!oldPassword || !newPassword) return showToast('Vui lòng nhập đủ thông tin', 'error');
+    if (newPassword !== confirmPassword) return showToast('Mật khẩu xác nhận không khớp', 'error');
+
+    setLoading(true);
+    try {
+      const res = await authService.changePassword(oldPassword, newPassword);
+      if (res.success) {
+        showToast('Đổi mật khẩu thành công', 'success');
+        setActiveModal(null);
+        setOldPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        showToast(res.message, 'error');
+      }
+    } catch (e) {
+      showToast(e.response?.data?.message || 'Có lỗi xảy ra', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectPresetAvatar = async (url) => {
+    setLoading(true);
+    try {
+      const res = await authService.updateMe({ avatar: url });
+      if (res.success) {
+        showToast('Cập nhật ảnh đại diện thành công', 'success');
+        setActiveModal(null);
+        updateUser({ avatar: url });
+      }
+    } catch (e) {
+      showToast('Có lỗi xảy ra', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCropImageSrc(reader.result);
+      setActiveModal('crop');
+    };
+    reader.readAsDataURL(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const onCropComplete = (croppedArea, croppedAreaPixels) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  };
+
+  const handleCropConfirm = async () => {
+    if (!cropImageSrc || !croppedAreaPixels) return;
+
+    setLoading(true);
+    try {
+      const croppedBlob = await getCroppedImg(cropImageSrc, croppedAreaPixels);
+      const formData = new FormData();
+      formData.append('avatar', croppedBlob, 'avatar.jpg');
+
+      const res = await authService.uploadAvatar(formData);
+      if (res.success) {
+        showToast('Cập nhật ảnh đại diện thành công', 'success');
+        setActiveModal(null);
+        setCropImageSrc(null);
+        updateUser({ avatar: res.data.avatar });
+      }
+    } catch (e) {
+      showToast(e?.response?.data?.message || 'Có lỗi khi cắt/tải ảnh', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await authService.logout();
+    } catch (e) {
+      console.log(e);
+    }
+    logout();
+  };
+
+  return (
+    <div className="page profile-page">
+      <Header title="Cá nhân" />
+
+      <main className="profile-content">
+        <motion.div
+          className="profile-header-card"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <div className="profile-avatar-wrapper" onClick={() => setActiveModal('avatar')}>
+            <Avatar user={user} className="profile-avatar" />
+            <div className="avatar-edit-badge">
+              <Camera size={16} color="#fff" />
+            </div>
+          </div>
+
+          <h2 className="profile-name">
+            {user?.displayName || user?.username}
+            <button className="edit-name-btn" onClick={() => {
+              setEditName(user?.displayName || '');
+              setActiveModal('name');
+            }}>
+              <User size={16} />
+            </button>
+          </h2>
+          <p className="profile-username">@{user?.username}</p>
+        </motion.div>
+
+        <div className="profile-actions-list">
+          <motion.div
+            className="action-card"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            onClick={() => {
+              setEditBirthday(user?.birthday ? user.birthday.split('T')[0] : '');
+              setActiveModal('birthday');
+            }}
+          >
+            <div className="action-icon" style={{ background: 'linear-gradient(135deg, #a78bfa, #8b5cf6)', boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)', color: 'white' }}>
+              <span className="material-symbols-outlined">cake</span>
+            </div>
+            <div className="action-info">
+              <h3>Sinh nhật</h3>
+              <p>{user?.birthday ? new Date(user.birthday).toLocaleDateString('vi-VN') : 'Thêm ngày sinh của bạn'}</p>
+            </div>
+          </motion.div>
+
+          <motion.div
+            className="action-card"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12 }}
+            onClick={() => {
+              setEditBio(user?.bio || '');
+              setActiveModal('bio');
+            }}
+          >
+            <div className="action-icon" style={{ background: 'linear-gradient(135deg, #10b981, #059669)', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)', color: 'white' }}>
+              <span className="material-symbols-outlined">description</span>
+            </div>
+            <div className="action-info">
+              <h3>Mô tả bản thân</h3>
+              <p>{user?.bio ? (user.bio.length > 30 ? user.bio.substring(0, 30) + '...' : user.bio) : 'Giới thiệu bản thân để AI hiểu bạn hơn'}</p>
+            </div>
+          </motion.div>
+
+          <motion.div
+            className="action-card"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            onClick={async () => {
+              const newAngryStatus = !user?.isAngry;
+              try {
+                const res = await authService.updateMe({ isAngry: newAngryStatus });
+                if (res.success) {
+                  updateUser({ isAngry: newAngryStatus });
+                  showToast(newAngryStatus ? 'Đã bật chế độ dỗi 😠' : 'Đã hết dỗi ☺️', 'success');
+                }
+              } catch (e) { }
+            }}
+          >
+            <div className="action-icon" style={{ background: user?.isAngry ? 'linear-gradient(135deg, #ef4444, #b91c1c)' : 'linear-gradient(135deg, #9ca3af, #6b7280)', boxShadow: user?.isAngry ? '0 4px 12px rgba(239, 68, 68, 0.3)' : 'none', color: 'white' }}>
+              <span className="material-symbols-outlined">{user?.isAngry ? 'mood_bad' : 'mood'}</span>
+            </div>
+            <div className="action-info">
+              <h3>{user?.isAngry ? 'Đang dỗi' : 'Bình thường'}</h3>
+              <p>Nhấn để bật/tắt trạng thái dỗi người ấy</p>
+            </div>
+          </motion.div>
+
+          <motion.div
+            className="action-card"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.18 }}
+            onClick={() => setActiveModal('password')}
+          >
+            <div className="action-icon password-icon">
+              <KeyRound size={24} color="#fff" />
+            </div>
+            <div className="action-info">
+              <h3>Đổi mật khẩu</h3>
+              <p>Bảo vệ tài khoản của bạn</p>
+            </div>
+          </motion.div>
+
+          <motion.div
+            className="action-card logout-card"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            onClick={() => setActiveModal('logout')}
+          >
+            <div className="action-icon logout-icon">
+              <LogOut size={24} color="#fff" />
+            </div>
+            <div className="action-info">
+              <h3>Đăng xuất</h3>
+              <p>Tạm biệt và hẹn gặp lại</p>
+            </div>
+          </motion.div>
+        </div>
+      </main>
+
+      <BottomNav />
+
+      {/* Modals */}
+      <AnimatePresence>
+        {activeModal === 'name' && (
+          <div className="profile-modal-overlay">
+            <motion.div
+              className="profile-modal"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+            >
+              <button className="modal-close" onClick={() => setActiveModal(null)}><X size={20} /></button>
+              <h3>Đổi Tên Hiển Thị</h3>
+              <input
+                type="text"
+                className="profile-input"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Nhập tên mới..."
+              />
+              <button className="profile-btn primary" onClick={handleUpdateName} disabled={loading}>
+                {loading ? 'Đang lưu...' : 'Lưu thay đổi'}
+              </button>
+            </motion.div>
+          </div>
+        )}
+
+        {activeModal === 'birthday' && (
+          <div className="profile-modal-overlay">
+            <motion.div
+              className="profile-modal"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+            >
+              <button className="modal-close" onClick={() => setActiveModal(null)}><X size={20} /></button>
+              <h3>Ngày Sinh Nhật</h3>
+              <input
+                type="date"
+                className="profile-input"
+                value={editBirthday}
+                onChange={(e) => setEditBirthday(e.target.value)}
+                max={new Date().toISOString().split('T')[0]}
+                style={{ WebkitAppearance: 'none', appearance: 'none', maxWidth: '100%' }}
+              />
+              <button className="profile-btn primary" onClick={handleUpdateBirthday} disabled={loading}>
+                {loading ? 'Đang lưu...' : 'Lưu thay đổi'}
+              </button>
+            </motion.div>
+          </div>
+        )}
+
+        {activeModal === 'bio' && (
+          <div className="profile-modal-overlay">
+            <motion.div
+              className="profile-modal"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+            >
+              <button className="modal-close" onClick={() => setActiveModal(null)}><X size={20} /></button>
+              <h3>Mô tả bản thân</h3>
+              <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '12px', textAlign: 'center' }}>
+                Giới thiệu tính cách, sở thích để AI tạo thử thách thú vị hơn.
+              </p>
+              <textarea
+                className="profile-input"
+                value={editBio}
+                onChange={(e) => setEditBio(e.target.value)}
+                placeholder="Ví dụ: Tôi là người hướng nội, thích đọc sách và uống cà phê..."
+                rows={4}
+                maxLength={300}
+                style={{ resize: 'vertical', minHeight: '100px' }}
+              />
+              <div style={{ textAlign: 'right', fontSize: '0.8rem', color: '#999', marginTop: '-12px', marginBottom: '16px' }}>
+                {editBio.length}/300
+              </div>
+              <button className="profile-btn primary" onClick={handleUpdateBio} disabled={loading}>
+                {loading ? 'Đang lưu...' : 'Lưu thay đổi'}
+              </button>
+            </motion.div>
+          </div>
+        )}
+
+        {activeModal === 'password' && (
+          <div className="profile-modal-overlay">
+            <motion.div
+              className="profile-modal"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+            >
+              <button className="modal-close" onClick={() => setActiveModal(null)}><X size={20} /></button>
+              <h3>Đổi Mật Khẩu</h3>
+              <input
+                type="password"
+                className="profile-input"
+                value={oldPassword}
+                onChange={(e) => setOldPassword(e.target.value)}
+                placeholder="Mật khẩu cũ"
+              />
+              <input
+                type="password"
+                className="profile-input"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Mật khẩu mới"
+              />
+              <input
+                type="password"
+                className="profile-input"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Xác nhận mật khẩu mới"
+              />
+              <button className="profile-btn primary" onClick={handleChangePassword} disabled={loading}>
+                {loading ? 'Đang xử lý...' : 'Đổi mật khẩu'}
+              </button>
+            </motion.div>
+          </div>
+        )}
+
+        {activeModal === 'avatar' && (
+          <div className="profile-modal-overlay">
+            <motion.div
+              className="profile-modal avatar-modal"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+            >
+              <button className="modal-close" onClick={() => setActiveModal(null)}><X size={20} /></button>
+              <h3>Chọn Ảnh Đại Diện</h3>
+
+              <div
+                className="avatar-upload-btn"
+                onClick={() => !loading && fileInputRef.current?.click()}
+                style={{ opacity: loading ? 0.7 : 1, pointerEvents: loading ? 'none' : 'auto' }}
+              >
+                {loading ? <div className="spinner" style={{ width: 24, height: 24, borderWidth: 2 }} /> : <ImageIcon size={24} />}
+                <span>{loading ? 'Đang xử lý...' : 'Tải ảnh từ thiết bị'}</span>
+              </div>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                accept="image/*"
+                style={{ display: 'none' }}
+              />
+
+              <div className="avatar-divider"><span>Hoặc chọn ảnh mẫu</span></div>
+
+              <div className="avatar-grid">
+                {PRESET_AVATARS.map((url, idx) => (
+                  <div key={idx} className="avatar-preset-item" onClick={() => handleSelectPresetAvatar(url)}>
+                    <img src={url} alt={`Preset ${idx}`} />
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {activeModal === 'crop' && (
+          <div className="profile-modal-overlay">
+            <motion.div
+              className="profile-modal crop-modal"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+            >
+              <button className="modal-close" onClick={() => { setActiveModal(null); setCropImageSrc(null); }}><X size={20} /></button>
+              <h3>Cắt Ảnh Đại Diện</h3>
+              <div className="crop-container">
+                <Cropper
+                  image={cropImageSrc}
+                  crop={crop}
+                  zoom={zoom}
+                  aspect={1}
+                  cropShape="round"
+                  showGrid={false}
+                  onCropChange={setCrop}
+                  onCropComplete={onCropComplete}
+                  onZoomChange={setZoom}
+                />
+              </div>
+              <div className="crop-controls">
+                <input
+                  type="range"
+                  value={zoom}
+                  min={1}
+                  max={3}
+                  step={0.1}
+                  aria-labelledby="Zoom"
+                  onChange={(e) => setZoom(e.target.value)}
+                  className="zoom-range"
+                />
+              </div>
+              <button className="profile-btn primary crop-confirm-btn" onClick={handleCropConfirm} disabled={loading}>
+                {loading ? 'Đang xử lý...' : 'Lưu ảnh đại diện'}
+              </button>
+            </motion.div>
+          </div>
+        )}
+
+        {activeModal === 'logout' && (
+          <div className="profile-modal-overlay">
+            <motion.div
+              className="profile-modal"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+            >
+              <h3 style={{ color: '#ef4444' }}>Đăng xuất?</h3>
+              <p style={{ textAlign: 'center', marginBottom: '24px', color: '#666' }}>
+                Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng không?
+              </p>
+              <div className="modal-actions-row">
+                <button className="profile-btn secondary" onClick={() => setActiveModal(null)}>Hủy</button>
+                <button className="profile-btn danger" onClick={handleLogout}>Đăng xuất</button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+export default ProfilePage;

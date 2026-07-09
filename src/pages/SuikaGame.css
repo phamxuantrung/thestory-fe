@@ -1,0 +1,274 @@
+/* ===== Suika Game CSS ===== */
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap');
+
+.suika-container {
+  font-family: 'Nunito', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: max(60px, calc(env(safe-area-inset-top) + 20px)) 16px 32px;
+  position: relative;
+  overflow: hidden;
+  background: #fff0f5; /* Light pink background */
+  background: linear-gradient(to bottom, #fff0f5, #ffe4e1);
+  color: #333;
+  user-select: none;
+}
+
+/* ── Header ── */
+.suika-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 400px;
+  margin-bottom: 10px;
+  z-index: 10;
+}
+
+.suika-back-btn, .suika-restart-btn {
+  background: white;
+  border: 2px solid #ffb6c1;
+  color: #ff69b4;
+  width: 40px; height: 40px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s, background 0.2s;
+  box-shadow: 0 4px 0 #ffb6c1;
+}
+
+.suika-back-btn:active, .suika-restart-btn:active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 #ffb6c1;
+}
+
+.suika-title {
+  font-size: 1.8rem; font-weight: 900;
+  color: #ff69b4;
+  text-shadow: 2px 2px 0px #fff;
+}
+
+/* ── Score & Next Box ── */
+.suika-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  width: 100%;
+  max-width: 400px;
+  margin-bottom: 20px;
+  z-index: 10;
+}
+
+.suika-score-box {
+  background: white;
+  border-radius: 20px;
+  padding: 10px 20px;
+  border: 2px solid #ffb6c1;
+  box-shadow: 0 4px 10px rgba(255, 182, 193, 0.3);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  flex: 1;
+  margin-right: 15px;
+}
+
+.suika-score-label {
+  font-size: 0.9rem;
+  color: #ff69b4;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
+.suika-score-value {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #333;
+}
+
+.suika-next-box {
+  background: white;
+  border-radius: 20px;
+  padding: 10px;
+  border: 2px solid #ffb6c1;
+  box-shadow: 0 4px 10px rgba(255, 182, 193, 0.3);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 80px;
+}
+
+.suika-next-label {
+  font-size: 0.8rem;
+  color: #ff69b4;
+  font-weight: 800;
+  margin-bottom: 5px;
+}
+
+.suika-next-icon {
+  width: 40px;
+  height: 40px;
+  position: relative;
+}
+
+/* ── Game Box ── */
+.suika-game-area {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  aspect-ratio: 3 / 4;
+  background: rgba(255, 255, 255, 0.8);
+  border: 4px solid #ffb6c1;
+  border-radius: 0 0 20px 20px; /* Open top */
+  border-top: none;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.05), 0 10px 20px rgba(255, 182, 193, 0.4);
+  touch-action: none; /* Prevent scroll on drag */
+}
+
+.suika-game-area::before {
+  content: '';
+  position: absolute;
+  top: 60px; left: 0; right: 0;
+  height: 2px;
+  border-top: 2px dashed #ffb6c1;
+  opacity: 0.5;
+}
+
+.suika-game-area::after {
+  content: 'DANGER LINE';
+  position: absolute;
+  top: 65px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.7rem;
+  color: #ff69b4;
+  font-weight: 800;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.suika-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ── Modal ── */
+.suika-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.suika-modal-content {
+  background: white;
+  padding: 40px 30px;
+  border-radius: 30px;
+  border: 4px solid #ffb6c1;
+  text-align: center;
+  box-shadow: 0 20px 40px rgba(255, 105, 180, 0.2);
+  max-width: 300px;
+  width: 90%;
+}
+
+.suika-modal-title {
+  font-size: 2rem;
+  font-weight: 900;
+  color: #ff69b4;
+  margin-bottom: 10px;
+}
+
+.suika-modal-score {
+  font-size: 1.2rem;
+  color: #666;
+  margin-bottom: 30px;
+}
+
+.suika-modal-score span {
+  display: block;
+  font-size: 3rem;
+  font-weight: 900;
+  color: #333;
+  margin-top: 5px;
+}
+
+.suika-btn-primary {
+  background: #ff69b4;
+  color: white;
+  border: none;
+  padding: 15px 30px;
+  font-size: 1.2rem;
+  font-weight: 800;
+  border-radius: 20px;
+  cursor: pointer;
+  width: 100%;
+  box-shadow: 0 6px 0 #d81b60;
+  transition: transform 0.2s, box-shadow 0.2s;
+  font-family: 'Nunito', sans-serif;
+}
+
+.suika-btn-primary:active {
+  transform: translateY(6px);
+  box-shadow: 0 0 0 #d81b60;
+}
+
+/* ── Drop Zone ── */
+.suika-drop-zone {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  background: linear-gradient(to bottom, rgba(255, 182, 193, 0.35), rgba(255, 182, 193, 0));
+  border-bottom: 2px dashed rgba(255, 105, 135, 0.5);
+  pointer-events: none;
+  overflow: visible;
+}
+
+.suika-drop-label {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: 800;
+  color: rgba(200, 60, 100, 0.5);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Vertical guide line dropping from cursor */
+.suika-drop-guide {
+  position: absolute;
+  top: 0;
+  bottom: -600px; /* extend far down through the game */
+  width: 1px;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 105, 135, 0.6) 0px,
+    rgba(255, 105, 135, 0.6) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+/* Fruit preview circle following cursor */
+.suika-drop-preview {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  filter: drop-shadow(0 0 8px rgba(255, 105, 135, 0.6));
+  transition: left 0.05s ease-out;
+}
+
