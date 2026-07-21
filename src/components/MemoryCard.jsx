@@ -34,6 +34,25 @@ const formatDate = (dateStr) => {
   });
 };
 
+const LazyImage = ({ src, alt }) => {
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [isError, setIsError] = useState(false);
+
+  return (
+    <div className="carousel-img-wrapper">
+      <div className={`img-skeleton ${isLoaded || isError ? 'img-skeleton-hidden' : ''}`} />
+      <img
+        src={isError ? 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 100 100"><rect width="100%" height="100%" fill="%23fdf2f5"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="14" fill="%23f26989">⚠️</text></svg>' : src}
+        alt={alt}
+        loading="lazy"
+        className={isLoaded || isError ? 'img-loaded' : ''}
+        onLoad={() => setIsLoaded(true)}
+        onError={() => setIsError(true)}
+      />
+    </div>
+  );
+};
+
 const MemoryCard = ({ memory, onDelete, onLike, onClick }) => {
   const { user } = useAuth();
   const [liking, setLiking] = useState(false);
@@ -108,24 +127,7 @@ const MemoryCard = ({ memory, onDelete, onLike, onClick }) => {
           <div className="memory-card-img-carousel" onScroll={handleScroll}>
             {memory.images.map((img, idx) => {
               const src = img.url.startsWith('http') ? img.url : `http://localhost:5000${img.url}`;
-              return (
-                <div key={idx} className="carousel-img-wrapper">
-                  <div className="img-skeleton" />
-                  <img
-                    src={src}
-                    alt={`${memory.title} - ${idx + 1}`}
-                    loading="lazy"
-                    onLoad={(e) => {
-                      e.target.classList.add('img-loaded');
-                      e.target.previousSibling.classList.add('img-skeleton-hidden');
-                    }}
-                    onError={(e) => {
-                      e.target.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 100 100"><rect width="100%" height="100%" fill="%23fdf2f5"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="14" fill="%23f26989">⚠️</text></svg>';
-                      e.target.previousSibling.classList.add('img-skeleton-hidden');
-                    }}
-                  />
-                </div>
-              );
+              return <LazyImage key={idx} src={src} alt={`${memory.title} - ${idx + 1}`} />;
             })}
           </div>
           {memory.images.length > 1 && (
