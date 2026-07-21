@@ -75,7 +75,7 @@ const ProtectedRoute = ({ children }) => {
               letterSpacing: '0.05em'
             }}
           >
-            Đang kết nối trái tim...
+            Đang kết nối trái tim... 100%
           </motion.p>
         </motion.div>
       </div>
