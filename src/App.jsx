@@ -308,7 +308,7 @@ const Preloader = ({ children }) => {
               letterSpacing: '0.05em'
             }}
           >
-            Đang tải dữ liệu... {progress}%
+            Đang kết nối trái tim... {progress}%
           </motion.p>
         </motion.div>
       </div>
