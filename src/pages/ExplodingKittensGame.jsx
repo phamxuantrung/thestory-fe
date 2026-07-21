@@ -37,7 +37,8 @@ const PRELOAD_IMAGES = {
   ALTER_THE_FUTURE: '/cards/alter_the_future.png',
   BTN_DRAW: '/cards/button/1.png',
   BTN_PLAY: '/cards/button/2.png',
-  BTN_END: '/cards/button/3.png'
+  BTN_END: '/cards/button/3.png',
+  BTN_CANCEL: '/cards/button/4.png'
 };
 
 if (typeof window !== 'undefined') {
@@ -85,6 +86,8 @@ const ExplodingKittensGame = () => {
   const [showAlterFuture, setShowAlterFuture] = useState(false);
   const [alterFutureCards, setAlterFutureCards] = useState([]);
   const [selectedAlterIdx, setSelectedAlterIdx] = useState(null);
+  const isDraggingDefuseRef = useRef(false);
+  const recentlyPlayedCardIdsRef = useRef(new Set());
 
   // Global Socket and User
   const socket = useSocket();
@@ -163,6 +166,7 @@ const ExplodingKittensGame = () => {
       }
 
       if (state.state === 'DEFUSING' && state.turnId === socket?.id) {
+        setDefusePos(0); // Mặc định: trên cùng (top of deck = index 0)
         setGameState('DEFUSING');
       } else if (state.state === 'CHALLENGE_NOPE') {
         setGameState('CHALLENGE_NOPE');
@@ -183,7 +187,16 @@ const ExplodingKittensGame = () => {
       if (card.type === 'NOPE') playNopeSound();
       else if (card.type === 'DEFUSE') playDefuseSound();
       else playCardSound();
-      playDiscardAnimation(card, socketId === socket?.id);
+      // Ưu tiên dùng recentlyPlayedCardIds để xác định isMe
+      // vì socket.id có thể thay đổi khi reconnect/polling trên môi trường deploy
+      let isMe = recentlyPlayedCardIdsRef.current.has(card.id);
+      if (isMe) {
+        recentlyPlayedCardIdsRef.current.delete(card.id);
+      } else {
+        // Fallback: so sánh socketId (chỉ đúng trên local/single instance)
+        isMe = socketId === socket?.id;
+      }
+      playDiscardAnimation(card, isMe);
     };
     const onShuffled = () => {
       playShuffleSound();
@@ -298,7 +311,13 @@ const ExplodingKittensGame = () => {
 
     const cardW = Math.max(50, Math.min(80, w / (cards.length + 1)));
     const cardH = cardW * 1.609;
-    const spacing = cardW * 0.82; // Make cards overlap more
+
+    // Ít thẻ → thẻ chồng nhau nhiều hơn (overlap 40%) → nhìn như cầm bài thật, không rời rạc.
+    // Nhiều thẻ → về lại 18% overlap để vừa màn hình.
+    const overlapProgress = Math.min(1, (cards.length - 1) / 10); // 0→1 khi đi từ 1→11 thẻ
+    const spacingRatio = 0.5 + overlapProgress * 0.32; // 0.5 (ít thẻ) → 0.82 (nhiều thẻ)
+    const spacing = cardW * spacingRatio;
+
     const totalW = spacing * (cards.length - 1);
     // Optical adjustment: shift left slightly to balance overlapping visual weight
     const startX = w / 2 - totalW / 2 - (cardW - spacing) / 2;
@@ -542,6 +561,11 @@ const ExplodingKittensGame = () => {
 
       ctx.clearRect(0, 0, width, height);
 
+      // Luôn cập nhật target positions mỗi frame để đảm bảo công thức mới nhất được áp dụng
+      if (!engine.isDragging && !engine.isDraggingOpponentCard) {
+        updateTargetPositions();
+      }
+
       // Interpolate hand cards positions
       cardsInHand.forEach(c => {
         if (!engine.isDragging || engine.draggedCardId !== c.id) {
@@ -552,6 +576,7 @@ const ExplodingKittensGame = () => {
           c.angle += (0 - (c.angle || 0)) * 0.2; // Straighten up when dragged
         }
       });
+
 
       if (!state) {
         animFrameId.current = requestAnimationFrame(render);
@@ -737,6 +762,7 @@ const ExplodingKittensGame = () => {
       engine.playBtnRect = null;
       engine.drawBtnRect = null;
       engine.endBtnRect = null;
+      engine.cancelBtnRect = null;
 
       const btnW = 100;
       const btnSpacing = 16;
@@ -840,10 +866,17 @@ const ExplodingKittensGame = () => {
         // Optionally you could show error text here, but it overlaps cards so we omit it
       }
 
-      // 3. Kết thúc
-      const endRect = drawImageBtn(startBtnX + (btnW + btnSpacing) * 2, 'BTN_END', isMyTurnActive);
-      if (isMyTurnActive) {
-        engine.endBtnRect = endRect;
+      // 3. Kết thúc hoặc Huỷ (khi chờ NOPE)
+      const isNopeChallengeActive = gameState === 'CHALLENGE_NOPE';
+      if (isNopeChallengeActive) {
+        // Cả hai người đều thấy nút Huỷ để thoát khỏi cửa sổ NOPE
+        const cancelRect = drawImageBtn(startBtnX + (btnW + btnSpacing) * 2, 'BTN_CANCEL', true);
+        engine.cancelBtnRect = cancelRect;
+      } else {
+        const endRect = drawImageBtn(startBtnX + (btnW + btnSpacing) * 2, 'BTN_END', isMyTurnActive);
+        if (isMyTurnActive) {
+          engine.endBtnRect = endRect;
+        }
       }
 
       // 6. Draw Player Hand
@@ -1071,6 +1104,8 @@ const ExplodingKittensGame = () => {
           const nopeIndex = engine.cardsInHand.findIndex(c => c.type === 'NOPE');
           if (nopeIndex > -1) engine.cardsInHand.splice(nopeIndex, 1);
         } else {
+          // Lưu lại các card IDs vừa đánh để xác định isMe trong onCardPlayed
+          cardIds.forEach(id => recentlyPlayedCardIdsRef.current.add(id));
           socket.emit('ek:play_cards', { roomId: engine.state.roomId, cardIds });
           engine.cardsInHand = engine.cardsInHand.filter(card => !cardIds.includes(card.id));
         }
@@ -1088,6 +1123,17 @@ const ExplodingKittensGame = () => {
       const { x, y, w, h } = engine.drawBtnRect;
       if (engine.mouseX >= x && engine.mouseX <= x + w && engine.mouseY >= y && engine.mouseY <= y + h) {
         socket.emit('ek:draw_card', { roomId: engine.state.roomId });
+        engine.mouseX = -1000;
+        engine.mouseY = -1000;
+        return;
+      }
+    }
+
+    // Check Cancel Button (Huỷ - khi đang chờ NOPE)
+    if (engine.cancelBtnRect) {
+      const { x, y, w, h } = engine.cancelBtnRect;
+      if (engine.mouseX >= x && engine.mouseX <= x + w && engine.mouseY >= y && engine.mouseY <= y + h) {
+        handleSkipNope();
         engine.mouseX = -1000;
         engine.mouseY = -1000;
         return;
@@ -1258,6 +1304,28 @@ const ExplodingKittensGame = () => {
     setGameState('PLAYING');
   };
 
+  const CARD_PEEK = 15; // Mỗi thẻ peek ra 15px so với thẻ trước (chồng lên nhau)
+
+  const updateDefusePos = (clientX, target) => {
+    const rect = target.getBoundingClientRect();
+    const x = clientX - rect.left;  // Vị trí chuột trong container
+    const dCount = engineRef.current.state?.deckCount ?? 0;
+    if (dCount === 0) { setDefusePos(0); return; }
+
+    let bestPos = 0;
+    let minDistance = Infinity;
+    // Slot i (vị trí đặt bom) nằm ở pixel x = i * CARD_PEEK
+    for (let i = 0; i <= dCount; i++) {
+      const slotX = i * CARD_PEEK;
+      const dist = Math.abs(x - slotX);
+      if (dist < minDistance) {
+        minDistance = dist;
+        bestPos = i;
+      }
+    }
+    setDefusePos(bestPos);
+  };
+
   const closeFutureModal = () => {
     setModalData(null);
   };
@@ -1334,101 +1402,76 @@ const ExplodingKittensGame = () => {
             </p>
 
             <div style={{ background: 'rgba(255, 71, 87, 0.05)', borderRadius: '16px', padding: '10px 0', margin: '0 10px 15px 10px', boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.03)' }}>
-              <div
-                className="ek-defuse-deck-container"
-                style={{ paddingRight: '45px', margin: '0' }}
-                onPointerDown={(e) => {
-                  e.currentTarget.setPointerCapture(e.pointerId);
-                  const updatePos = (clientX, target) => {
-                    const rect = target.getBoundingClientRect();
-                    const x = clientX - rect.left - 30;
-                    const trackWidth = Math.max(1, rect.width - 60 - 45);
-                    const dCount = engineRef.current.state?.deckCount ?? 0;
-                    if (dCount === 0) {
-                      setDefusePos(0);
-                      return;
-                    }
-                    
-                    const denom = Math.max(1, dCount - 1);
-                    let bestPos = 0;
-                    let minDistance = Infinity;
-                    
-                    for (let i = 0; i <= dCount; i++) {
-                      const baseIndex = Math.min(i, dCount - 1);
-                      const p = baseIndex / denom;
-                      let shift = 22.5;
-                      if (i === 0) shift = 0;
-                      if (i === dCount) shift = 45;
-                      
-                      const slotX = p * trackWidth + shift;
-                      const dist = Math.abs(x - slotX);
-                      if (dist < minDistance) {
-                        minDistance = dist;
-                        bestPos = i;
-                      }
-                    }
-                    setDefusePos(bestPos);
-                  };
-                  updatePos(e.clientX, e.currentTarget);
-                  e.currentTarget.onpointermove = (ev) => updatePos(ev.clientX, e.currentTarget);
-                  e.currentTarget.onpointerup = (ev) => {
-                    ev.currentTarget.onpointermove = null;
-                    ev.currentTarget.onpointerup = null;
-                    ev.currentTarget.releasePointerCapture(ev.pointerId);
-                  };
-                }}
-              >
-                <div className="ek-defuse-deck-track" style={{ width: '100%', height: '80px' }}>
-                  {Array.from({ length: (engineRef.current.state?.deckCount ?? 0) }).map((_, i) => {
-                    const dCount = engineRef.current.state?.deckCount ?? 0;
-                    const denom = Math.max(1, dCount - 1);
-                    const p = (i / denom) * 100;
-                    const isShifted = i >= defusePos;
-                    return (
-                      <img
-                        key={i}
-                        src={PRELOAD_IMAGES.CARD_BACK}
-                        className="ek-defuse-card-back"
-                        style={{
-                          left: `calc(${p}% - ${(p / 100) * 60}px)`,
-                          zIndex: dCount - i,
-                          transform: isShifted ? 'translateX(45px)' : 'translateX(0px)',
-                          transition: 'transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1)',
-                          height: '80px', width: 'auto'
-                        }}
-                        alt="deck-card"
-                        draggable="false"
-                      />
-                    );
-                  })}
-                  {(() => {
-                    const dCount = engineRef.current.state?.deckCount ?? 0;
-                    const denom = Math.max(1, dCount - 1);
-                    const baseIndex = Math.min(defusePos, dCount - 1);
-                    const p = (baseIndex / denom) * 100;
+              {(() => {
+                const dCount = engineRef.current.state?.deckCount ?? 0;
+                // Width = N thẻ * CARD_PEEK + chiều rộng thẻ cuối + chỗ cho kitten
+                const containerW = dCount * CARD_PEEK + 60 + 45;
+                return (
+                  <div
+                    className="ek-defuse-deck-container"
+                    style={{ paddingRight: '0', margin: '0 auto', width: `${containerW}px`, maxWidth: '95%', touchAction: 'none', userSelect: 'none', position: 'relative', height: '95px' }}
+                    onPointerDown={(e) => {
+                      e.currentTarget.setPointerCapture(e.pointerId);
+                      isDraggingDefuseRef.current = true;
+                      updateDefusePos(e.clientX, e.currentTarget);
+                    }}
+                    onPointerMove={(e) => {
+                      if (!isDraggingDefuseRef.current) return;
+                      updateDefusePos(e.clientX, e.currentTarget);
+                    }}
+                    onPointerUp={(e) => {
+                      isDraggingDefuseRef.current = false;
+                      e.currentTarget.releasePointerCapture(e.pointerId);
+                    }}
+                    onPointerCancel={() => {
+                      isDraggingDefuseRef.current = false;
+                    }}
+                  >
+                    {Array.from({ length: dCount }).map((_, i) => {
+                      const isShifted = i >= defusePos;
+                      return (
+                        <img
+                          key={i}
+                          src={PRELOAD_IMAGES.CARD_BACK}
+                          className="ek-defuse-card-back"
+                          style={{
+                            left: `${i * CARD_PEEK}px`,
+                            top: '8px',
+                            zIndex: dCount - i,
+                            transform: isShifted ? 'translateX(45px)' : 'translateX(0px)',
+                            transition: 'transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1)',
+                            height: '80px', width: 'auto'
+                          }}
+                          alt="deck-card"
+                          draggable="false"
+                        />
+                      );
+                    })}
+                    {/* Kitten card at defusePos */}
+                    {(() => {
+                      const slotX = defusePos * CARD_PEEK;
+                      return (
+                        <img
+                          src={PRELOAD_IMAGES.EXPLODING_KITTEN}
+                          className="ek-defuse-kitten-card"
+                          style={{
+                            left: `${slotX}px`,
+                            top: '0px',
+                            zIndex: 100,
+                            transform: 'translateY(-8px)',
+                            transition: 'left 0.15s ease-out',
+                            height: '90px', width: 'auto',
+                            position: 'absolute'
+                          }}
+                          alt="Kitten"
+                          draggable="false"
+                        />
+                      );
+                    })()}
+                  </div>
+                );
+              })()}
 
-                    let shift = 22.5; // middle of gap
-                    if (defusePos === 0) shift = 0;
-                    if (defusePos === dCount) shift = 45;
-
-                    return (
-                      <img
-                        src={PRELOAD_IMAGES.EXPLODING_KITTEN}
-                        className="ek-defuse-kitten-card"
-                        style={{
-                          left: `calc(${p}% - ${(p / 100) * 60}px)`,
-                          zIndex: dCount - defusePos,
-                          transform: `translate(${shift}px, -15px)`,
-                          transition: 'left 0.15s ease-out, transform 0.15s ease-out',
-                          height: '90px', width: 'auto'
-                        }}
-                        alt="Kitten"
-                        draggable="false"
-                      />
-                    );
-                  })()}
-                </div>
-              </div>
             </div>
 
             <div style={{ color: '#555', fontSize: '14px', fontWeight: '600', marginBottom: '15px' }}>

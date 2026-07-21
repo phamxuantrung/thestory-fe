@@ -26,6 +26,8 @@ const getAudioCtx = () => {
   return audioCtx;
 };
 
+const cachedEatSound = typeof window !== 'undefined' ? new window.Audio('/eat.mp3') : null;
+
 export const playSFX = (type) => {
   try {
     const ctx = getAudioCtx();
@@ -70,9 +72,11 @@ export const playSFX = (type) => {
       osc.start(now);
       osc.stop(now + 0.5);
     } else if (type === 'eat') {
-      const audio = new window.Audio('/eat.mp3');
-      audio.volume = 0.8;
-      audio.play().catch(e => console.warn("Cannot play eat sound", e));
+      if (cachedEatSound) {
+        const sound = cachedEatSound.cloneNode();
+        sound.volume = 0.8;
+        sound.play().catch(e => console.warn("Cannot play eat sound", e));
+      }
     }
   } catch (e) { console.warn("Audio disabled", e); }
 };
@@ -860,7 +864,7 @@ export default function PetSanctuaryPage() {
   }
 
   async function handleCare(petId, action, foodId = null) {
-    if (isCaring) return;
+    if (isCaring && action !== "feed") return;
     const p = pets.find((x) => x._id === petId);
     if (!p) return;
     if (p.status === "exploring") {
@@ -868,7 +872,38 @@ export default function PetSanctuaryPage() {
       return;
     }
 
-    setIsCaring(true);
+    if (action !== "feed") setIsCaring(true);
+    
+    // Optimistic Update cho feed
+    let previousPets = pets;
+    let previousUserFoods = user?.petFoods || [];
+    
+    if (action === "feed" && foodId) {
+      const foodDef = FOODS.find(f => f.id === foodId);
+      if (foodDef) {
+        setPets(prev => prev.map(x => {
+          if (x._id === petId) {
+            return {
+              ...x,
+              care: {
+                ...x.care,
+                fullness: Math.min(x.care.maxFullness || 100, (x.care.fullness || 0) + foodDef.fullness),
+                happiness: Math.min(x.care.maxHappiness || 100, (x.care.happiness || 0) + foodDef.happiness)
+              }
+            };
+          }
+          return x;
+        }));
+        
+        const existingFood = previousUserFoods.find(f => f.foodId === foodId);
+        if (existingFood && existingFood.quantity > 0) {
+          updateUser({ 
+            petFoods: previousUserFoods.map(f => f.foodId === foodId ? { ...f, quantity: f.quantity - 1 } : f) 
+          });
+        }
+      }
+    }
+
     try {
       const res = await api.post(`/pets/${petId}/care`, { type: action, foodId });
       if (res.data.success) {
@@ -876,16 +911,20 @@ export default function PetSanctuaryPage() {
         if (res.data.petFoods) {
           updateUser({ petFoods: res.data.petFoods });
         }
-        const msg = action === "feed" ? "Cho ăn no nê! 🍖" : action === "play" ? "Đã vuốt ve bé! ❤️" : "Tắm rửa sạch sẽ! 🛁";
-        addToast(msg, "success");
-        if (action === "feed") {
-          // Keep the feed modal open so the user can feed multiple times
+        if (action !== "feed") {
+          const msg = action === "play" ? "Đã vuốt ve bé! ❤️" : "Tắm rửa sạch sẽ! 🛁";
+          addToast(msg, "success");
         }
       }
     } catch (err) {
+      if (action === "feed") {
+        // Hoàn tác optimistic update nếu lỗi
+        setPets(previousPets);
+        updateUser({ petFoods: previousUserFoods });
+      }
       addToast(err.response?.data?.message || "Lỗi chăm sóc", "error");
     } finally {
-      setIsCaring(false);
+      if (action !== "feed") setIsCaring(false);
     }
   }
 
@@ -1586,7 +1625,7 @@ export default function PetSanctuaryPage() {
                 )}
 
                 {/* Pet Image */}
-                <div style={{ position: "relative", transform: detailMode === "feed" ? "translateY(55px)" : "translateY(50px)", transition: "transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <div style={{ position: "relative", transform: detailMode === "feed" ? "translateY(25px)" : "translateY(50px)", transition: "transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)", display: "flex", flexDirection: "column", alignItems: "center" }}>
                   {/* Ground Shadow */}
                   <div style={{ position: "absolute", bottom: "16px", width: "140px", height: "20px", background: "rgba(0,0,0,0.35)", borderRadius: "50%", filter: "blur(4px)", zIndex: 0 }}></div>
                   <div style={{ position: "relative", width: "240px", height: "240px", zIndex: 1 }}>

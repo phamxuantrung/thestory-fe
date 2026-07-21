@@ -7,6 +7,7 @@ export default function BatheMiniGame({ pet, petSrc, onComplete, onClose, playSF
   const [soapProgress, setSoapProgress] = useState(0);
   const [rinseProgress, setRinseProgress] = useState(0);
   const [bubbles, setBubbles] = useState([]); // { x, y, id, scale }
+  const [waterDrops, setWaterDrops] = useState([]); // { id, x, y }
 
   const containerRef = useRef(null);
   const petRef = useRef(null);
@@ -52,16 +53,25 @@ export default function BatheMiniGame({ pet, petSrc, onComplete, onClose, playSF
           lastInteractionTime.current = now;
         }
       } else if (phase === "rinse") {
-        if (now - lastInteractionTime.current > 60) {
+        if (now - lastInteractionTime.current > 40) {
           const localX = clientX - containerRect.left;
           const localY = clientY - containerRect.top;
+
+          setWaterDrops(prev => {
+            const newDrops = [...prev, 
+              { id: now + 'a', x: localX + (Math.random() * 30 - 15), y: localY },
+              { id: now + 'b', x: localX + (Math.random() * 30 - 15), y: localY },
+              { id: now + 'c', x: localX + (Math.random() * 30 - 15), y: localY }
+            ].slice(-40);
+            return newDrops;
+          });
 
           setBubbles(prev => {
             const remaining = prev.filter(b => {
               const dist = Math.hypot(b.x - localX, b.y - localY);
-              return dist > 60; // remove bubbles within 60px radius
+              return dist > 70; // remove bubbles within 70px radius
             });
-            setRinseProgress(rp => Math.min(100, rp + 2.5));
+            setRinseProgress(rp => Math.min(100, rp + 3));
             return remaining;
           });
           lastInteractionTime.current = now;
@@ -73,10 +83,12 @@ export default function BatheMiniGame({ pet, petSrc, onComplete, onClose, playSF
   useEffect(() => {
     if (soapProgress >= 100 && phase === "soap") {
       setPhase("rinse");
+      isDragging.current = false; // Force user to lift finger and press again
       if (playSFX) playSFX('water');
     }
     if (rinseProgress >= 100 && phase === "rinse") {
       setBubbles([]);
+      setWaterDrops([]);
       setPhase("done");
       if (playSFX) playSFX('win');
       setTimeout(() => {
@@ -135,7 +147,6 @@ export default function BatheMiniGame({ pet, petSrc, onComplete, onClose, playSF
         <div style={{ width: "48px" }} />
       </div>
 
-      {/* Progress */}
       <div style={{ position: "absolute", top: "calc(80px + env(safe-area-inset-top))", left: "50%", transform: "translateX(-50%)", zIndex: 10, width: "80%", maxWidth: 400, height: 16, background: "rgba(255,255,255,0.5)", borderRadius: 8, overflow: "hidden", boxShadow: "inset 0 2px 4px rgba(0,0,0,0.1)" }}>
         <motion.div
           initial={{ width: 0 }}
@@ -191,6 +202,27 @@ export default function BatheMiniGame({ pet, petSrc, onComplete, onClose, playSF
             >
               <div style={{ position: "absolute", top: "15%", left: "15%", width: "25%", height: "25%", background: "white", borderRadius: "50%", filter: "blur(1px)", transform: "rotate(-45deg)" }} />
             </motion.div>
+          ))}
+        </AnimatePresence>
+
+        {/* Water Drops */}
+        <AnimatePresence>
+          {waterDrops.map(w => (
+            <motion.div
+              key={w.id}
+              initial={{ y: w.y, x: w.x, opacity: 1, scale: Math.random() * 0.5 + 0.5 }}
+              animate={{ y: w.y + 150, opacity: 0 }}
+              transition={{ duration: 0.4, ease: "easeIn" }}
+              style={{
+                position: "absolute",
+                width: 10, height: 20,
+                background: "linear-gradient(to bottom, rgba(116,185,255,0.2) 0%, rgba(10,189,227,1) 100%)",
+                borderRadius: "50%",
+                zIndex: 6,
+                pointerEvents: "none",
+                filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.2))"
+              }}
+            />
           ))}
         </AnimatePresence>
 
