@@ -27,6 +27,7 @@ import QuestPage from './pages/QuestPage';
 import HeartEarnPage from './pages/HeartEarnPage';
 import PetSanctuaryPage from './pages/PetSanctuaryPage';
 import { ErrorBoundary } from './ErrorBoundary';
+import { EMOJI_REACTIONS, ANIMATED_REACTIONS, STICKERS, MOODS } from './utils/constants';
 
 
 import StoreLayout from './pages/store/StoreLayout';
@@ -229,7 +230,6 @@ const AppRoutes = () => {
   );
 };
 
-import { EMOJI_REACTIONS, ANIMATED_REACTIONS, STICKERS, MOODS } from './utils/constants';
 
 const Preloader = ({ children }) => {
   const [loaded, setLoaded] = useState(false);
