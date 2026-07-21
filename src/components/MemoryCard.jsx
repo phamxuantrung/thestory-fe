@@ -94,7 +94,6 @@ const MemoryCard = ({ memory, onDelete, onLike, onClick }) => {
     <motion.div
       className="memory-card"
       onClick={() => onClick && onClick(memory)}
-      whileTap={{ scale: 0.98 }}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       layout
