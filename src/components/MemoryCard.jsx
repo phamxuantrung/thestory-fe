@@ -101,7 +101,11 @@ const MemoryCard = ({ memory, onDelete, onLike, onClick }) => {
     >
       {/* Image Carousel */}
       {hasImages && (
-        <div className="memory-card-img-container">
+        <div 
+          className="memory-card-img-container"
+          onPointerDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+        >
           <div className="memory-card-img-carousel" onScroll={handleScroll}>
             {memory.images.map((img, idx) => {
               const src = img.url.startsWith('http') ? img.url : `http://localhost:5000${img.url}`;

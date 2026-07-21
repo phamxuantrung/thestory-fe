@@ -276,14 +276,14 @@ const QuestPage = () => {
                                 amIAccepted 
                                   ? {} 
                                   : hasPartnerAccepted 
-                                    ? { background: 'linear-gradient(135deg, #ff758c 0%, #ff7eb3 100%)', animation: 'pulse 2s infinite' } 
+                                    ? { background: 'linear-gradient(135deg, #ff758c 0%, #ff7eb3 100%)', animation: 'quest-pulse 2s infinite' } 
                                     : { background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' }
                               }
                             >
                               {amIAccepted ? (
                                 <><Clock size={20} /> Đã nhận (Chờ người ấy...)</>
                               ) : hasPartnerAccepted ? (
-                                <><Heart size={20} className="animate-bounce" /> Người ấy đang chờ! Nhận ngay</>
+                                <><Heart size={20} className="animate-bounce" /> <span>Gấu đã nhận! Xác nhận ngay</span></>
                               ) : (
                                 <><Star size={20} /> Nhận thử thách ngay</>
                               )}

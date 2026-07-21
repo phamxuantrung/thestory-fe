@@ -243,6 +243,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
+  text-align: center;
   gap: 8px;
   cursor: pointer;
   transition: all 0.2s;
@@ -439,4 +441,10 @@
   padding: 6px 12px;
   border-radius: 20px;
   font-size: 0.85rem;
+}
+
+@keyframes quest-pulse {
+  0% { opacity: 0.85; transform: scale(0.98); }
+  50% { opacity: 1; transform: scale(1.02); }
+  100% { opacity: 0.85; transform: scale(0.98); }
 }

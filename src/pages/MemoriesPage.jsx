@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Plus, Filter, Search, SortDesc, Sparkles, PlaneTakeoff, Heart, PartyPopper, Trophy, Coffee, Star } from 'lucide-react';
@@ -38,19 +38,39 @@ const MemoriesPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
+  const loaderRef = useRef(null);
 
   const fetchMemories = useCallback(async (cat = selectedCategory, pageNum = 1) => {
     try {
       setLoading(true);
-      const params = { sort: '-createdAt', page: pageNum, limit: 10 };
+      const params = { sort: '-createdAt', page: pageNum, limit: 5 };
       if (cat) params.category = cat;
 
       const res = await memoryService.getAll(params);
       if (res.success) {
+        const newMemories = res.data.memories;
+        
+        const imagePromises = [];
+        newMemories.forEach(memory => {
+          if (memory.images && memory.images.length > 0) {
+            memory.images.forEach(img => {
+              const src = img.url.startsWith('http') ? img.url : `http://localhost:5000${img.url}`;
+              imagePromises.push(new Promise((resolve) => {
+                const image = new Image();
+                image.onload = resolve;
+                image.onerror = resolve; // Resolve even on error to not block UI
+                image.src = src;
+              }));
+            });
+          }
+        });
+
+        await Promise.all(imagePromises);
+
         if (pageNum === 1) {
-          setMemories(res.data.memories);
+          setMemories(newMemories);
         } else {
-          setMemories((prev) => [...prev, ...res.data.memories]);
+          setMemories((prev) => [...prev, ...newMemories]);
         }
         setHasMore(pageNum < res.data.pagination.pages);
         setPage(pageNum);
@@ -64,7 +84,31 @@ const MemoriesPage = () => {
 
   useEffect(() => {
     fetchMemories(selectedCategory, 1);
+    memoryService.markAsRead().catch(console.error);
   }, [selectedCategory]);
+
+  useEffect(() => {
+    if (loading || !hasMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          fetchMemories(selectedCategory, page + 1);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (loaderRef.current) {
+      observer.observe(loaderRef.current);
+    }
+
+    return () => {
+      if (loaderRef.current) {
+        observer.unobserve(loaderRef.current);
+      }
+    };
+  }, [loading, hasMore, page, selectedCategory, fetchMemories]);
 
   const handleCategoryChange = (cat) => {
     setSelectedCategory(cat);
@@ -123,7 +167,7 @@ const MemoriesPage = () => {
       {/* Content */}
       <div className="page-content memories-content">
         {loading && memories.length === 0 ? (
-          <div className="flex items-center justify-center" style={{ padding: '60px 0' }}>
+          <div className="flex items-center justify-center" style={{ minHeight: '60vh', width: '100%' }}>
             <div className="spinner" />
           </div>
         ) : filteredMemories.length === 0 ? (
@@ -159,14 +203,10 @@ const MemoriesPage = () => {
           </AnimatePresence>
         )}
 
-        {hasMore && !loading && (
-          <motion.button
-            className="btn btn-ghost load-more-btn"
-            onClick={() => fetchMemories(selectedCategory, page + 1)}
-            whileTap={{ scale: 0.97 }}
-          >
-            Xem thêm
-          </motion.button>
+        {hasMore && (
+          <div ref={loaderRef} className="flex items-center justify-center" style={{ padding: '20px 0', opacity: loading ? 1 : 0 }}>
+            {loading && <div className="spinner" />}
+          </div>
         )}
       </div>
 

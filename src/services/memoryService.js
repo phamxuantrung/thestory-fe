@@ -6,6 +6,16 @@ export const memoryService = {
     return res.data;
   },
 
+  getUnreadCount: async () => {
+    const res = await api.get('/memories/unread-count');
+    return res.data;
+  },
+
+  markAsRead: async () => {
+    const res = await api.post('/memories/mark-read');
+    return res.data;
+  },
+
   getById: async (id) => {
     const res = await api.get(`/memories/${id}`);
     return res.data;

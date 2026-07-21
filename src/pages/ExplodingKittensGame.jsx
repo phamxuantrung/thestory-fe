@@ -606,7 +606,7 @@ const ExplodingKittensGame = () => {
         ctx.setLineDash([]);
       }
 
-      const isStealing = gameState === 'ACTION_STEAL' && state.pendingAction?.sourceId === socket?.id;
+      const isStealing = state.state === 'ACTION_STEAL' && state.pendingAction?.sourceId === socket?.id;
 
       let hoveredOppIdx = -1;
       if (isStealing && !engine.isDraggingOpponentCard) {
@@ -827,7 +827,7 @@ const ExplodingKittensGame = () => {
         return { x: x - w / 2, y: btnY - h / 2, w, h };
       };
 
-      const isMyTurnActive = state.turnId === socket?.id && gameState === 'PLAYING';
+      const isMyTurnActive = state.turnId === socket?.id && state.state === 'PLAYING';
 
       // 1. Rút bài
       const drawRect = drawImageBtn(startBtnX, 'BTN_DRAW', isMyTurnActive);
@@ -837,7 +837,7 @@ const ExplodingKittensGame = () => {
 
       // 2. Dùng thẻ (Pink)
       const nopeChallengeData = engine.nopeChallenge;
-      const isNopeChallengeTarget = gameState === 'CHALLENGE_NOPE' && nopeChallengeData?.targetId === socket?.id;
+      const isNopeChallengeTarget = state.state === 'CHALLENGE_NOPE' && nopeChallengeData?.targetId === socket?.id;
 
       let isValidPlay = false;
       let nopeRatio = null;
@@ -867,7 +867,7 @@ const ExplodingKittensGame = () => {
       }
 
       // 3. Kết thúc hoặc Huỷ (khi chờ NOPE)
-      const isNopeChallengeActive = gameState === 'CHALLENGE_NOPE';
+      const isNopeChallengeActive = state.state === 'CHALLENGE_NOPE';
       if (isNopeChallengeActive) {
         // Cả hai người đều thấy nút Huỷ để thoát khỏi cửa sổ NOPE
         const cancelRect = drawImageBtn(startBtnX + (btnW + btnSpacing) * 2, 'BTN_CANCEL', true);
@@ -893,7 +893,7 @@ const ExplodingKittensGame = () => {
       }
 
       // Draw non-dragged, non-popped-up cards first
-      const shouldDimHand = !isMyTurn && gameState !== 'CHALLENGE';
+      const shouldDimHand = !isMyTurn && state.state !== 'CHALLENGE_NOPE';
       if (shouldDimHand) {
         ctx.save();
         ctx.globalAlpha = 0.7;
@@ -936,7 +936,7 @@ const ExplodingKittensGame = () => {
       }
 
       // Draw dragged OPPONENT card on top of everything
-      if (gameState === 'ACTION_STEAL' && state.pendingAction?.sourceId === socket?.id && engine.isDraggingOpponentCard) {
+      if (state.state === 'ACTION_STEAL' && state.pendingAction?.sourceId === socket?.id && engine.isDraggingOpponentCard) {
         ctx.save();
         ctx.shadowColor = '#fff';
         ctx.shadowBlur = 20;
@@ -947,7 +947,7 @@ const ExplodingKittensGame = () => {
       }
 
       // Draw ACTION_STEAL overlay
-      if (gameState === 'ACTION_STEAL' && state.pendingAction?.sourceId === socket?.id) {
+      if (state.state === 'ACTION_STEAL' && state.pendingAction?.sourceId === socket?.id) {
         ctx.save();
         ctx.fillStyle = 'rgba(0,0,0,0.5)';
         ctx.beginPath();
@@ -964,7 +964,7 @@ const ExplodingKittensGame = () => {
 
       // Draw NOPE waiting overlay
       const nopeChallengeDataRender = engine.nopeChallenge;
-      if (gameState === 'CHALLENGE_NOPE' && nopeChallengeDataRender && nopeChallengeDataRender.targetId !== socket?.id) {
+      if (state.state === 'CHALLENGE_NOPE' && nopeChallengeDataRender && nopeChallengeDataRender.targetId !== socket?.id) {
         const overlayW = 340;
         const overlayH = 80;
         const overlayX = width / 2 - overlayW / 2;
@@ -1089,7 +1089,7 @@ const ExplodingKittensGame = () => {
     // Check deck tap (Only allow drawing if it's their turn and playing)
     const deckDist = Math.hypot(engine.mouseX - engine.deckPos.x, engine.mouseY - engine.deckPos.y);
     if (deckDist < 40) {
-      if (gameState === 'PLAYING' && engine.state.turnId === socket?.id) {
+      if (engine.state?.state === 'PLAYING' && engine.state.turnId === socket?.id) {
         socket?.emit('ek:draw_card', { roomId: engine.state.roomId });
       }
       return;
@@ -1152,7 +1152,7 @@ const ExplodingKittensGame = () => {
     }
 
     // Check opponent hand drag (only when ACTION_STEAL)
-    const isStealing = gameState === 'ACTION_STEAL' && engine.state?.pendingAction?.sourceId === socket?.id;
+    const isStealing = engine.state?.state === 'ACTION_STEAL' && engine.state?.pendingAction?.sourceId === socket?.id;
     if (isStealing) {
       const opp = engine.state.opponent || {};
       const oppHandCount = opp.handCount || 0;
