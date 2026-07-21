@@ -236,41 +236,59 @@ const Preloader = ({ children }) => {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
+    let fakeProgress = 0;
+    const interval = setInterval(() => {
+      fakeProgress += Math.floor(Math.random() * 15) + 5;
+      if (fakeProgress >= 100) {
+        fakeProgress = 100;
+        clearInterval(interval);
+      }
+      setProgress(fakeProgress);
+    }, 100);
+
     const urlsToPreload = [
       ...Object.values(ANIMATED_REACTIONS),
       ...STICKERS.map(s => s.url),
       ...MOODS.map(m => m.emojiUrl)
     ];
 
-    if (urlsToPreload.length === 0) {
-      setLoaded(true);
-      return;
-    }
-
+    let actualFinished = false;
     let loadedCount = 0;
     const total = urlsToPreload.length;
 
-    urlsToPreload.forEach(url => {
-      const img = new Image();
-      img.src = url;
-      img.onload = () => {
-        loadedCount++;
-        setProgress(Math.round((loadedCount / total) * 100));
-        if (loadedCount === total) setLoaded(true);
-      };
-      img.onerror = () => {
-        loadedCount++;
-        setProgress(Math.round((loadedCount / total) * 100));
-        if (loadedCount === total) setLoaded(true);
-      };
-    });
+    if (total === 0) {
+      actualFinished = true;
+    } else {
+      urlsToPreload.forEach(url => {
+        const img = new Image();
+        img.src = url;
+        const onLoadOrError = () => {
+          loadedCount++;
+          if (loadedCount === total) actualFinished = true;
+        };
+        img.onload = onLoadOrError;
+        img.onerror = onLoadOrError;
+      });
+    }
 
-    // Fallback: don't block forever if something takes too long
+    const checkCompletion = setInterval(() => {
+      if (fakeProgress >= 100 && actualFinished) {
+        clearInterval(checkCompletion);
+        setTimeout(() => setLoaded(true), 300);
+      }
+    }, 100);
+
     const timeout = setTimeout(() => {
+      clearInterval(interval);
+      clearInterval(checkCompletion);
       setLoaded(true);
     }, 5000);
 
-    return () => clearTimeout(timeout);
+    return () => {
+      clearInterval(interval);
+      clearInterval(checkCompletion);
+      clearTimeout(timeout);
+    };
   }, []);
 
   if (!loaded) {
