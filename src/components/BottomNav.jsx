@@ -67,11 +67,18 @@ const BottomNav = () => {
       }
     };
 
+    const handleDeletedMemory = (data) => {
+      if (data && data.createdBy && String(data.createdBy) === String(user._id)) return;
+      setUnreadMemoriesCount(prev => Math.max(0, prev - 1));
+    };
+
     socket.on('chat:message', handleNewMessage);
     socket.on('memory:new', handleNewMemory);
+    socket.on('memory:deleted', handleDeletedMemory);
     return () => {
       socket.off('chat:message', handleNewMessage);
       socket.off('memory:new', handleNewMemory);
+      socket.off('memory:deleted', handleDeletedMemory);
     };
   }, [socket, user, location.pathname]);
 

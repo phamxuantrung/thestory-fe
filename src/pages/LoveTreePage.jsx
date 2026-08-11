@@ -381,13 +381,16 @@ const LoveTreePage = () => {
       }
     } catch (e) {
       if (e.response?.data?.needsStreakDecision) {
-        const wantsToReset = window.confirm(
-          "Chuỗi của bạn đã bị gãy! \n\nHãy mở Túi Vật Phẩm để dùng Khiên khôi phục.\nHoặc nhấn OK để BỎ QUA chuỗi cũ và bắt đầu đếm lại từ 0."
+        const wantsToRestore = window.confirm(
+          "Chuỗi của bạn đã bị gãy do quên chăm sóc!\n\nNhấn 'OK' (Đồng ý) để mở Túi Vật Phẩm và dùng Khiên bảo vệ.\nNhấn 'Cancel' (Hủy) nếu bạn muốn bỏ qua chuỗi cũ và cày lại từ đầu."
         );
-        if (wantsToReset) {
-          handleResetStreak(action);
-        } else {
+        if (wantsToRestore) {
           setShowItemMenu(true);
+        } else {
+          const reallyReset = window.confirm("Bạn có chắc chắn muốn HỦY chuỗi cũ và đếm lại từ 1 không?");
+          if (reallyReset) {
+            handleResetStreak(action);
+          }
         }
       } else if (e.response?.data?.message) {
         showToast(e.response.data.message, 'error');

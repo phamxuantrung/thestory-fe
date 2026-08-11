@@ -90,6 +90,22 @@ const LocateMeButton = ({ onLocationFound }) => {
   );
 };
 
+const AutoLocateOnMount = () => {
+  const map = useMap();
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          map.flyTo([latitude, longitude], 15, { animate: true, duration: 1.5 });
+        },
+        () => {} // Lỗi lấy vị trí thì kệ, dùng center mặc định
+      );
+    }
+  }, [map]);
+  return null;
+};
+
 const LoveMapPage = () => {
   const { user } = useAuth();
   const [locations, setLocations] = useState([]);
@@ -263,6 +279,7 @@ const LoveMapPage = () => {
             url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
           />
           <ZoomControl position="bottomright" />
+          <AutoLocateOnMount />
           <LocateMeButton onLocationFound={handleMapClick} />
           <MapEvents onMapClick={handleMapClick} />
 

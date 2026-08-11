@@ -17,7 +17,10 @@ const CARE_THRESHOLD = 40;
 
 /* --------------------------------- HELPERS --------------------------------- */
 
-const getPetImageSrc = (pet) => pet?.activeSkin ? `/pets/skins/${pet.activeSkin}.webp` : `/pets/${pet?.speciesId}.webp`;
+const getSkinImageSrc = (skinId) => skinId === 'panda_princess' ? `/pets/skins/${skinId}.gif` : `/pets/skins/${skinId}.webp`;
+const getPetImageSrc = (pet) => pet?.activeSkin ? getSkinImageSrc(pet.activeSkin) : `/pets/${pet?.speciesId}.webp`;
+
+const EVENT_END_TIME = new Date("2026-08-16T17:48:00+07:00").getTime();
 
 let audioCtx = null;
 const getAudioCtx = () => {
@@ -221,9 +224,18 @@ function getPseudoRandomPos(idStr, typeIndex, isFlying) {
 
 /* ------------------------------- SUB-COMPONENTS ------------------------------ */
 
+const globalImageCache = new Set();
+
 const LazyImage = ({ src, alt, style, wrapperStyle, fallback, className, onErrorCallback, onLoadCallback }) => {
-  const [loaded, setLoaded] = useState(false);
+  const imgRef = useRef(null);
+  const [loaded, setLoaded] = useState(() => globalImageCache.has(src));
   const [error, setError] = useState(false);
+  
+  useEffect(() => {
+    if (imgRef.current && imgRef.current.complete) {
+      setLoaded(true);
+    }
+  }, [src]);
 
   return (
     <div style={{ position: "relative", display: "inline-flex", justifyContent: "center", alignItems: "center", ...wrapperStyle }} className={className}>
@@ -232,10 +244,12 @@ const LazyImage = ({ src, alt, style, wrapperStyle, fallback, className, onError
       )}
       {!error && (
         <img
+          ref={imgRef}
           src={src}
           alt={alt}
           style={{ ...style, opacity: loaded ? 1 : 0, transition: "opacity 0.3s ease", position: "relative", zIndex: 1 }}
           onLoad={(e) => {
+            globalImageCache.add(src);
             setLoaded(true);
             if (onLoadCallback) onLoadCallback(e);
           }}
@@ -492,8 +506,7 @@ function ShopFoodCard({ f, user, isBuying, handleBuyFood }) {
       </div>
       <button
         className="btn btn-primary"
-        disabled={isBuying}
-        style={{ padding: "10px 16px", fontSize: "1rem", opacity: isBuying ? 0.7 : 1, cursor: isBuying ? "not-allowed" : "pointer", position: "relative", zIndex: 11 }}
+        style={{ padding: "10px 16px", fontSize: "1rem", cursor: "pointer", position: "relative", zIndex: 11 }}
         onClick={() => handleBuyFood(f)}
       >
         <Heart size={16} fill="white" /> {f.price}
@@ -529,7 +542,7 @@ function ShopItemCard({ item, isBuying, handleBuyItem }) {
       </div>
       <button
         className="btn btn-primary"
-        style={{ padding: "10px 16px", borderRadius: "16px", position: "relative", zIndex: 11 }}
+        style={{ padding: "10px 16px", borderRadius: "16px", position: "relative", zIndex: 11, cursor: "pointer" }}
         onClick={() => handleBuyItem(item.id)}
       >
         <Heart size={16} fill="white" /> {item.price}
@@ -550,7 +563,7 @@ function ShopSkinCard({ skin, user, isBuying, handleBuySkin }) {
       )}
       <div style={{ fontSize: "2.5rem", background: "rgba(0,0,0,0.03)", borderRadius: "20px", width: "64px", height: "64px", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", zIndex: 1 }}>
         <LazyImage
-          src={`/pets/skins/${skin.id}.webp`}
+          src={getSkinImageSrc(skin.id)}
           alt={skin.name}
           style={{ width: 48, height: 48, objectFit: 'contain' }}
           fallback={<div>🎨</div>}
@@ -593,7 +606,7 @@ const ASSETS_TO_PRELOAD = [
   ...SPECIES.map(s => `/pets/${s.id}.webp`),
   ...FOODS.map(f => `/foods/${f.id}.webp`),
   ...ITEMS.map(i => `/items/${i.id}.webp`),
-  ...PET_SKINS.map(s => `/pets/skins/${s.id}.webp`)
+  ...PET_SKINS.map(s => getSkinImageSrc(s.id))
 ];
 
 
@@ -608,6 +621,8 @@ class PetDetailErrorBoundary extends React.Component {
 export default function PetSanctuaryPage() {
   const navigate = useNavigate();
   const { user, updateUser } = useAuth();
+  const currentHeartRef = useRef(user?.heart || 0);
+  useEffect(() => { currentHeartRef.current = user?.heart || 0; }, [user?.heart]);
   const [pets, setPets] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -637,8 +652,29 @@ export default function PetSanctuaryPage() {
   const [partnerShieldUntil, setPartnerShieldUntil] = useState(null);
   const [isCaring, setIsCaring] = useState(false);
   const [isBuying, setIsBuying] = useState(false);
+  const [isRollingGacha, setIsRollingGacha] = useState(false);
+  const [wheelRotation, setWheelRotation] = useState(0);
+  const [eventTimeLeft, setEventTimeLeft] = useState("");
+  const [isEventActive, setIsEventActive] = useState(true);
   const [isCombating, setIsCombating] = useState(false);
   const [preloadingState, setPreloadingState] = useState({ isPreloading: true, progress: 0 });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = Date.now();
+      const diff = EVENT_END_TIME - now;
+      if (diff <= 0) {
+        setIsEventActive(false);
+        setEventTimeLeft("Đã kết thúc");
+      } else {
+        setIsEventActive(true);
+        const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
+        setEventTimeLeft(`${d} ngày ${h} giờ`);
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     let loadedCount = 0;
@@ -653,6 +689,9 @@ export default function PetSanctuaryPage() {
       ASSETS_TO_PRELOAD.forEach(src => {
         const img = new window.Image();
         const onLoadOrError = () => {
+          if (img.complete && img.naturalWidth > 0) {
+             globalImageCache.add(src);
+          }
           loadedCount++;
           setPreloadingState(prev => ({ ...prev, progress: (loadedCount / totalAssets) * 100 }));
           if (loadedCount === totalAssets) {
@@ -844,22 +883,32 @@ export default function PetSanctuaryPage() {
   }
 
   async function handleBuyFood(food) {
-    if (isBuying) return;
-    if (user.heart < food.price) {
+    if (currentHeartRef.current < food.price) {
       addToast("Không đủ Heart!", "error");
       return;
     }
-    setIsBuying(true);
+    
+    // Optimistic Update
+    const previousHeart = currentHeartRef.current;
+    currentHeartRef.current -= food.price;
+    const previousPetFoods = user.petFoods || [];
+    const existingFood = previousPetFoods.find(f => f.foodId === food.id);
+    const newPetFoods = existingFood 
+      ? previousPetFoods.map(f => f.foodId === food.id ? { ...f, quantity: f.quantity + 1 } : f)
+      : [...previousPetFoods, { foodId: food.id, quantity: 1 }];
+      
+    updateUser({ heart: currentHeartRef.current, petFoods: newPetFoods });
+
     try {
       const res = await api.post('/pets/buy-food', { foodId: food.id, amount: 1 });
       if (res.data.success) {
+        currentHeartRef.current = res.data.heart;
         updateUser({ heart: res.data.heart, petFoods: res.data.petFoods });
-        addToast(`Đã mua 1 ${food.name}!`, "success");
       }
     } catch (err) {
+      currentHeartRef.current = previousHeart;
+      updateUser({ heart: previousHeart, petFoods: previousPetFoods });
       addToast(err.response?.data?.message || "Lỗi mua hàng", "error");
-    } finally {
-      setIsBuying(false);
     }
   }
 
@@ -955,14 +1004,86 @@ export default function PetSanctuaryPage() {
   }
 
   async function handleBuyItem(itemId) {
+    const itemDef = ITEMS.find(i => i.id === itemId);
+    if (!itemDef) return;
+    if (currentHeartRef.current < itemDef.price) {
+      addToast("Không đủ Heart!", "error");
+      return;
+    }
+
+    const previousHeart = currentHeartRef.current;
+    currentHeartRef.current -= itemDef.price;
+    let nextAmuletDurability = user.amuletDurability || 0;
+    
+    if (itemId === "amulet_protect") {
+      nextAmuletDurability += itemDef.uses || 3;
+    }
+
+    updateUser({ 
+      heart: currentHeartRef.current,
+      ...(itemId === "amulet_protect" ? { amuletDurability: nextAmuletDurability } : {})
+    });
+
     try {
       const res = await api.post('/pets/buy-item', { itemId });
       if (res.data.success) {
-        updateUser({ heart: res.data.heart, shieldUntil: res.data.shieldUntil });
+        currentHeartRef.current = res.data.heart;
+        updateUser({ 
+          heart: res.data.heart, 
+          shieldUntil: res.data.shieldUntil,
+          amuletDurability: res.data.amuletDurability
+        });
         addToast(res.data.message, "success");
       }
     } catch (err) {
+      currentHeartRef.current = previousHeart;
+      updateUser({ heart: previousHeart, amuletDurability: user.amuletDurability });
       addToast(err.response?.data?.message || "Mua vật phẩm thất bại", "error");
+    }
+  }
+
+  async function handleGachaRoll() {
+    if (isRollingGacha) return;
+    
+    const vnDate = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    const hasFreeGacha = user?.lastFreeGachaDate !== vnDate;
+
+    if (!hasFreeGacha && currentHeartRef.current < 200) {
+      addToast("Không đủ Heart!", "error");
+      return;
+    }
+    
+    setIsRollingGacha(true);
+    setModal(prev => ({ ...prev, gachaReward: null, rolling: true }));
+
+    try {
+      const res = await api.post('/pets/gacha');
+      if (res.data.success) {
+        const targetSlot = res.data.slotIndex || 7;
+        const currentMod = wheelRotation % 360;
+        const targetAngle = 360 - (targetSlot * 45 + 22.5);
+        const newRotation = wheelRotation + (360 * 5) + (targetAngle - currentMod);
+        
+        setWheelRotation(newRotation);
+
+        setTimeout(() => {
+          updateUser({ 
+            heart: res.data.heart, 
+            petFoods: res.data.petFoods,
+            unlockedSkins: res.data.unlockedSkins,
+            gachaPity: res.data.gachaPity,
+            lastFreeGachaDate: res.data.lastFreeGachaDate
+          });
+          currentHeartRef.current = res.data.heart;
+          setModal(prev => ({ ...prev, gachaReward: res.data.reward, rolling: false }));
+        }, 4000);
+      }
+    } catch (err) {
+      addToast(err.response?.data?.message || "Lỗi sự kiện", "error");
+      setModal(prev => ({ ...prev, rolling: false }));
+      setIsRollingGacha(false);
+    } finally {
+      setTimeout(() => setIsRollingGacha(false), 4000);
     }
   }
 
@@ -1038,9 +1159,13 @@ export default function PetSanctuaryPage() {
           setMyDefenseTeam(prev => prev.filter(id => id !== petId));
           setModal({ type: "dead", petName: res.data.petName });
         } else {
-          updateUser({ heart: res.data.heart });
+          updateUser({ heart: res.data.heart, amuletDurability: res.data.amuletDurability });
           setPets((prev) => prev.map((x) => (x._id === petId ? res.data.pet : x)));
-          setModal({ type: "reward", data: res.data.reward, pet: res.data.pet, leveled: res.data.leveled, foundFoods: res.data.foundFoods });
+          if (res.data.savedByAmulet) {
+             setModal({ type: "savedByAmulet", pet: res.data.pet });
+          } else {
+             setModal({ type: "reward", data: res.data.reward, pet: res.data.pet, leveled: res.data.leveled, foundFoods: res.data.foundFoods });
+          }
         }
       }
     } catch (err) {
@@ -1144,13 +1269,18 @@ export default function PetSanctuaryPage() {
           return `${mins} phút`;
         };
 
-        if (viewMode === "my" && user?.shieldUntil && new Date(user.shieldUntil).getTime() > now) {
-          const msLeft = new Date(user.shieldUntil).getTime() - now;
-          return (
-            <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top, 0px) + 125px)", left: "50%", transform: "translateX(-50%)", zIndex: 10, background: "rgba(255,255,255,0.9)", borderRadius: "20px", padding: "6px 16px", display: "flex", alignItems: "center", gap: "6px", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", color: "#0984e3", fontWeight: "bold", fontSize: "0.85rem", backdropFilter: "blur(4px)", border: "1px solid rgba(9, 132, 227, 0.2)", whiteSpace: "nowrap" }}>
-              <Shield size={16} color="#0984e3" fill="#74b9ff" /> Đang được bảo vệ ({formatTimeLeft(msLeft)})
-            </div>
-          );
+        if (viewMode === "my") {
+          const hasShield = user?.shieldUntil && new Date(user.shieldUntil).getTime() > now;
+          
+          if (hasShield) {
+            return (
+              <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top, 0px) + 125px)", left: "50%", transform: "translateX(-50%)", zIndex: 10, display: "flex", flexDirection: "column", gap: "4px", alignItems: "center" }}>
+                <div style={{ background: "rgba(255,255,255,0.9)", borderRadius: "20px", padding: "6px 16px", display: "flex", alignItems: "center", gap: "6px", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", color: "#0984e3", fontWeight: "bold", fontSize: "0.85rem", backdropFilter: "blur(4px)", border: "1px solid rgba(9, 132, 227, 0.2)", whiteSpace: "nowrap" }}>
+                  <Shield size={16} color="#0984e3" fill="#74b9ff" /> Đang được bảo vệ ({formatTimeLeft(new Date(user.shieldUntil).getTime() - now)})
+                </div>
+              </div>
+            );
+          }
         }
 
         if (viewMode === "partner" && partnerShieldUntil && new Date(partnerShieldUntil).getTime() > now) {
@@ -1341,6 +1471,14 @@ export default function PetSanctuaryPage() {
             >
               <Shield size={26} strokeWidth={2.5} />
             </button>
+            {isEventActive && (
+              <button
+                style={{ width: 56, height: 56, borderRadius: "20px", background: "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.7))", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.8)", boxShadow: "0 8px 32px rgba(31, 38, 135, 0.1), inset 0 2px 4px rgba(255,255,255,0.8)", display: "flex", justifyContent: "center", alignItems: "center", cursor: "pointer", color: "#e84393", transition: "all 0.2s" }}
+                onClick={() => setModal({ type: "gacha" })}
+              >
+                <Gift size={26} strokeWidth={2.5} />
+              </button>
+            )}
           </div>
           <div style={{ position: "absolute", bottom: 20, right: 20, zIndex: 10, display: "flex", flexDirection: "column", gap: "14px", alignItems: "flex-end" }}>
             {/* Dev Mode button removed */}
@@ -1967,19 +2105,19 @@ export default function PetSanctuaryPage() {
               style={{
                 background: "var(--bg-main)",
                 width: "100%",
-                maxHeight: modal.type === "combatPlayback" ? "100vh" : "85vh",
-                height: modal.type === "combatPlayback" ? "100vh" : "auto",
-                borderTopLeftRadius: modal.type === "combatPlayback" ? 0 : "28px",
-                borderTopRightRadius: modal.type === "combatPlayback" ? 0 : "28px",
+                maxHeight: (modal.type === "combatPlayback" || modal.type === "gacha") ? "100vh" : "85vh",
+                height: (modal.type === "combatPlayback" || modal.type === "gacha") ? "100vh" : "auto",
+                borderTopLeftRadius: (modal.type === "combatPlayback" || modal.type === "gacha") ? 0 : "28px",
+                borderTopRightRadius: (modal.type === "combatPlayback" || modal.type === "gacha") ? 0 : "28px",
                 position: "relative", zIndex: 1, display: "flex", flexDirection: "column", boxShadow: "0 -4px 24px rgba(0,0,0,0.1)"
               }}
             >
               {/* Drag handle */}
-              {!modal.type === "combatPlayback" && (
+              {(modal.type !== "combatPlayback" && modal.type !== "gacha") && (
                 <div style={{ width: "40px", height: "5px", background: "rgba(0,0,0,0.1)", borderRadius: "3px", margin: "12px auto" }}></div>
               )}
 
-              <div style={{ overflowY: "auto", padding: modal.type === "combatPlayback" ? (modal.type === "petDetail" ? "20px 20px 40px" : 0) : "16px 20px 40px", flex: 1, display: modal.type === "combatPlayback" ? "flex" : "block", flexDirection: "column" }}>
+              <div style={{ overflowY: "auto", padding: (modal.type === "combatPlayback" || modal.type === "gacha") ? (modal.type === "petDetail" ? "20px 20px 40px" : "20px 20px 40px") : "16px 20px 40px", flex: 1, display: modal.type === "combatPlayback" ? "flex" : "block", flexDirection: "column" }}>
 
                 {/* 2. Modal: Cửa Hàng & Siêu Thị */}
                 {modal.type === "shop" && (
@@ -2046,7 +2184,7 @@ export default function PetSanctuaryPage() {
 
                     {shopTab === "skins" && (
                       <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                        {PET_SKINS.map((skin) => (
+                        {PET_SKINS.filter(s => !s.isGacha).map((skin) => (
                           <ShopSkinCard key={skin.id} skin={skin} user={user} isBuying={isBuying} handleBuySkin={handleBuySkin} />
                         ))}
                       </div>
@@ -2205,14 +2343,14 @@ export default function PetSanctuaryPage() {
                           const isOwned = user?.unlockedSkins?.includes(skin.id);
                           const isActive = pet?.activeSkin === skin.id;
                           return (
-                            <div key={skin.id} className="card" style={{ padding: "16px", textAlign: "center", cursor: "pointer", border: isActive ? "2px solid var(--color-primary)" : "2px solid transparent", background: isActive ? "rgba(255,107,129,0.05)" : "white", position: "relative" }} onClick={() => isOwned ? handleEquipSkin(modal.petId, skin.id) : handleBuySkin(skin.id)}>
+                            <div key={skin.id} className="card" style={{ padding: "16px", textAlign: "center", cursor: "pointer", border: isActive ? "2px solid var(--color-primary)" : "2px solid transparent", background: isActive ? "rgba(255,107,129,0.05)" : "white", position: "relative" }} onClick={() => isOwned ? handleEquipSkin(modal.petId, skin.id) : (skin.isGacha ? addToast("Vật phẩm này chỉ có thể nhận qua Sự kiện Vòng Quay!", "info") : handleBuySkin(skin.id))}>
                               <div style={{ opacity: isOwned ? 1 : 0.4 }}>
-                                <LazyImage src={`/pets/skins/${skin.id}.webp`} alt={skin.name} style={{ width: 48, height: 48, objectFit: 'contain', margin: '0 auto' }} fallback={<div>🎨</div>} />
+                                <LazyImage src={getSkinImageSrc(skin.id)} alt={skin.name} style={{ width: 48, height: 48, objectFit: 'contain', margin: '0 auto' }} fallback={<div>🎨</div>} />
                                 <div style={{ fontWeight: "bold", marginTop: "8px", color: isActive ? "var(--color-primary)" : "inherit" }}>{skin.name}</div>
                               </div>
                               {!isOwned && (
-                                <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", background: "rgba(255,255,255,0.9)", padding: "6px 12px", borderRadius: "12px", fontWeight: "900", color: "#e74c3c", display: "flex", alignItems: "center", gap: "4px", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}>
-                                  <Heart size={16} fill="#e74c3c" /> {skin.price}
+                                <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", background: "rgba(255,255,255,0.9)", padding: "6px 12px", borderRadius: "12px", fontWeight: "900", color: "#e74c3c", display: "flex", alignItems: "center", gap: "4px", boxShadow: "0 4px 12px rgba(0,0,0,0.15)", whiteSpace: "nowrap" }}>
+                                  {skin.isGacha ? "Hữu hạn" : <><Heart size={16} fill="#e74c3c" /> {skin.price}</>}
                                 </div>
                               )}
                             </div>
@@ -2306,6 +2444,19 @@ export default function PetSanctuaryPage() {
                     <div style={{ background: "rgba(0,0,0,0.03)", borderRadius: "16px", padding: "16px", marginBottom: "20px", fontSize: "0.95rem", color: "var(--text-secondary)" }}>
                       Chọn thú cưng đi đến <strong>{modal.dest.name}</strong>. Yêu cầu Điểm tổng hợp ≥ {modal.dest.statRec}.
                     </div>
+                    
+                    {(!user?.amuletDurability || user.amuletDurability <= 0) && (
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(45, 152, 90, 0.05)", borderRadius: "16px", padding: "12px 16px", marginBottom: "20px", border: "1px dashed rgba(45, 152, 90, 0.4)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                          <span style={{ fontSize: "1.8rem" }}>📿</span>
+                          <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                            <div style={{ fontWeight: "800", color: "#2d985a", fontSize: "0.95rem", marginBottom: "2px" }}>Bùa Hộ Mệnh (200 <Heart size={10} fill="currentColor" style={{display:'inline', marginBottom: '-1px'}}/>)</div>
+                            Bảo vệ 3 lần tử vong khi thám hiểm
+                          </div>
+                        </div>
+                        <button className="btn btn-primary" style={{ padding: "8px 16px", background: "linear-gradient(135deg, #7fd8a6, #2d985a)", fontSize: "0.9rem", border: "none", boxShadow: "0 4px 12px rgba(45, 152, 90, 0.3)" }} onClick={() => handleBuyItem("amulet_protect")}>Mua</button>
+                      </div>
+                    )}
 
                     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                       {pets.filter(p => isEligibleForExpedition(p, now)).map(pet => {
@@ -2325,6 +2476,7 @@ export default function PetSanctuaryPage() {
                               <div style={{ fontWeight: "800", fontSize: "1.1rem", color: "var(--text-primary)" }}>{pet.name}</div>
                               <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
                                 Điểm tổng: {score.toFixed(1)} | Tử vong: <span style={{ color: '#ff4757', fontWeight: 'bold' }}>{deathPct}%</span>
+                                {user?.amuletDurability > 0 && <span style={{ color: '#2d985a', fontWeight: 'bold', marginLeft: '6px' }}>📿 Bảo vệ</span>}
                               </div>
                             </div>
                             {canGo ? (
@@ -2436,6 +2588,20 @@ export default function PetSanctuaryPage() {
                   </div>
                 )}
 
+                {/* 7b. Modal: Saved By Amulet */}
+                {modal.type === "savedByAmulet" && (
+                  <div style={{ textAlign: "center", paddingTop: "20px" }}>
+                    <div style={{ fontSize: "4rem", marginBottom: "16px", animation: "floatY 2s ease-in-out infinite" }}>📿</div>
+                    <h2 style={{ fontFamily: "var(--font-heading)", color: "#2d985a", marginBottom: "16px", fontSize: "1.8rem" }}>
+                      Thoát nạn thần kỳ!
+                    </h2>
+                    <p style={{ fontSize: "1.1rem", color: "var(--text-secondary)", marginBottom: "24px" }}>
+                      Trong chuyến thám hiểm vừa qua, <strong>{modal.pet?.name}</strong> đã gặp nguy hiểm trí mạng, nhưng <strong>Bùa Hộ Mệnh</strong> đã phát sáng và cứu mạng bé thành công! Hiện tại bé đang bị ốm.
+                    </p>
+                    <button className="btn btn-primary" style={{ width: "100%", padding: "16px", fontSize: "1.1rem", borderRadius: "20px", background: "linear-gradient(135deg, #7fd8a6 0%, #2d985a 100%)", boxShadow: "0 8px 24px rgba(45, 152, 90, 0.4)", border: "none", color: "white" }} onClick={() => setModal(null)}>Phù... May quá!</button>
+                  </div>
+                )}
+
                 {/* 8. Modal: Dev Mode */}
                 {modal.type === "devMode" && (
                   <div>
@@ -2494,24 +2660,25 @@ export default function PetSanctuaryPage() {
                         <h4 style={{ color: "#d94c73", textAlign: "center", marginBottom: "8px", fontSize: "0.9rem" }}>Phe Gấu (Thủ)</h4>
                         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                           {[0, 1, 2, 3, 4].map(idx => {
-                            // Nếu partner có defenseTeam, hiển thị theo đó. Nếu không hiển thị top 5
                             let p;
-                            if (partnerDefenseTeam.length > 0) {
-                              const defId = partnerDefenseTeam[idx];
-                              p = partnerPets.find(x => x._id === defId);
-                            } else {
-                              const top5 = [...partnerPets].sort((a, b) => (b.stats.str + b.stats.agi + b.stats.int + b.stats.luk) - (a.stats.str + a.stats.agi + a.stats.int + a.stats.luk)).slice(0, 5);
-                              p = top5[idx];
+                            if (idx < attackTeamSelection.length) {
+                              if (partnerDefenseTeam.length > 0) {
+                                const defId = partnerDefenseTeam[idx];
+                                p = partnerPets.find(x => x._id === defId);
+                              } else {
+                                const topPets = [...partnerPets].sort((a, b) => (b.stats.str + b.stats.agi + b.stats.int + b.stats.luk) - (a.stats.str + a.stats.agi + a.stats.int + a.stats.luk));
+                                p = topPets[idx];
+                              }
                             }
 
                             return (
-                              <div key={idx} style={{ height: 50, background: "white", borderRadius: "12px", border: "1px solid #f26989", display: "flex", alignItems: "center", padding: "0 6px", gap: "6px", minWidth: 0, opacity: (p && (isPetBusyForCombat(p, now) || p.hp <= 0)) ? 0.4 : 1, filter: (p && (isPetBusyForCombat(p, now) || p.hp <= 0)) ? "grayscale(100%)" : "none" }}>
+                              <div key={idx} style={{ height: 50, background: "white", borderRadius: "12px", border: "1px solid #f26989", display: "flex", alignItems: "center", padding: "0 6px", gap: "6px", minWidth: 0 }}>
                                 <div style={{ width: 24, height: 24, flexShrink: 0, borderRadius: "50%", background: idx < 2 ? "#ff7675" : "#74b9ff", color: "white", fontSize: "0.7rem", display: "flex", justifyContent: "center", alignItems: "center", fontWeight: "bold" }}>{idx + 1}</div>
                                 {p ? (
                                   <>
                                     <LazyImage src={getPetImageSrc(p)} alt={p.name} style={{ width: 28, height: 28, flexShrink: 0, objectFit: 'contain' }} fallback={<span style={{ fontSize: "1.2rem", flexShrink: 0 }}>{p.emoji}</span>} />
                                     <div style={{ fontSize: "0.75rem", fontWeight: "bold", color: "var(--text-primary)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                      {p.name} <span style={{ color: "#ff4757" }}>{p.isSick ? "(Ốm)" : p.hp <= 0 ? "(Mệt)" : isPetBusyForCombat(p, now) ? "(Đi vắng)" : ""}</span>
+                                      {p.name}
                                     </div>
                                   </>
                                 ) : <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Trống...</div>}
@@ -2758,6 +2925,112 @@ export default function PetSanctuaryPage() {
                             </div>
                           );
                         })
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 13. Modal: Gacha Event */}
+                {modal.type === "gacha" && (
+                  <div style={{ padding: "16px 0", display: "flex", flexDirection: "column", height: "100%", flex: 1 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                      <h2 style={{ fontFamily: "var(--font-heading)", color: "#e84393", fontSize: "1.4rem", margin: 0 }}>Sự Kiện: Vòng Quay Công Chúa</h2>
+                      <button onClick={() => { if (!isRollingGacha) setModal(null) }} style={{ background: "transparent", border: "none", color: "var(--text-secondary)", cursor: isRollingGacha ? "not-allowed" : "pointer", opacity: isRollingGacha ? 0.5 : 1 }}><X size={24} /></button>
+                    </div>
+                    <div style={{ textAlign: "left", fontSize: "0.9rem", color: "#fd79a8", fontWeight: "bold", marginBottom: "16px", background: "rgba(253, 121, 168, 0.1)", padding: "4px 12px", borderRadius: "12px", width: "fit-content" }}>
+                      ⏳ Thời gian còn lại: {eventTimeLeft}
+                    </div>
+                    
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "20px", flex: 1 }}>
+                      
+                      {/* Showcase Area */}
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "linear-gradient(135deg, rgba(253, 121, 168, 0.15), rgba(232, 67, 147, 0.05))", padding: "16px", borderRadius: "16px", width: "100%", border: "1px solid rgba(253, 121, 168, 0.3)" }}>
+                        <div style={{ fontSize: "0.85rem", fontWeight: "bold", color: "#e84393", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "1px" }}>Phần Thưởng Đặc Biệt</div>
+                        <div style={{ position: "relative", width: "120px", height: "120px" }}>
+                          <div style={{ position: "absolute", inset: "-20%", background: "radial-gradient(circle, rgba(253, 121, 168, 0.4) 0%, transparent 70%)", animation: "auraPulse 2s ease-in-out infinite", borderRadius: "50%" }}></div>
+                          <LazyImage src={getSkinImageSrc("panda_princess")} alt="Panda Princess" style={{ width: "100%", height: "100%", objectFit: "contain", filter: "drop-shadow(0 0 10px rgba(232, 67, 147, 0.6))", animation: "bounceY 3s ease-in-out infinite", position: "relative", zIndex: 2 }} fallback={<span style={{fontSize: "4rem"}}>🐼</span>} />
+                        </div>
+                        <div style={{ fontSize: "1.1rem", fontWeight: "bold", color: "var(--text-primary)", marginTop: "12px", textShadow: "0 2px 4px rgba(232,67,147,0.2)" }}>Gấu Trúc Công Chúa</div>
+                      </div>
+                      
+                      <div style={{ width: "100%", background: "rgba(0,0,0,0.05)", padding: "12px", borderRadius: "12px", textAlign: "center" }}>
+                        <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "4px" }}>Bảo hiểm (Chắc chắn trúng sau 15 lần):</div>
+                        <div style={{ width: "100%", height: "10px", background: "rgba(0,0,0,0.1)", borderRadius: "5px", overflow: "hidden" }}>
+                          <div style={{ width: `${Math.min(((user?.gachaPity || 0) / 15) * 100, 100)}%`, height: "100%", background: "linear-gradient(90deg, #fd79a8, #e84393)", transition: "width 0.3s" }}></div>
+                        </div>
+                        <div style={{ fontSize: "0.8rem", fontWeight: "bold", color: "#e84393", marginTop: "4px" }}>{user?.gachaPity || 0} / 15</div>
+                      </div>
+
+                      <div style={{ position: "relative", width: "260px", height: "260px", margin: "10px 0" }}>
+                        <div style={{ position: "absolute", top: "-15px", left: "50%", transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "15px solid transparent", borderRight: "15px solid transparent", borderTop: "30px solid #e84393", zIndex: 10, filter: "drop-shadow(0 4px 4px rgba(0,0,0,0.3))" }}></div>
+                        
+                        <div style={{ 
+                          width: "100%", height: "100%", borderRadius: "50%", border: "4px solid #fff",
+                          boxShadow: "0 0 20px rgba(0,0,0,0.1), inset 0 0 20px rgba(0,0,0,0.1)",
+                          background: "conic-gradient(#ff9ff3 0deg 45deg, #ff6b6b 45deg 90deg, #feca57 90deg 135deg, #48dbfb 135deg 180deg, #1dd1a1 180deg 225deg, #ff9f43 225deg 270deg, #ee5253 270deg 315deg, #c8d6e5 315deg 360deg)",
+                          transform: `rotate(${wheelRotation}deg)`,
+                          transition: isRollingGacha ? "transform 4s cubic-bezier(0.1, 0.7, 0.1, 1)" : "none",
+                          position: "relative",
+                          overflow: "hidden"
+                        }}>
+                          {[0, 1, 2, 3, 4, 5, 6, 7].map(i => {
+                             let content = null;
+                             if (i === 0) content = <LazyImage src={getSkinImageSrc("panda_princess")} fallback={<span style={{fontSize: "2rem"}}>🐼</span>} alt="Princess" style={{ width: 40, height: 40, objectFit: "contain", transform: "rotate(180deg)" }} />;
+                             else if (i === 1) content = <LazyImage src="/foods/apple.webp" alt="Apple" style={{ width: 32, height: 32, objectFit: "contain", transform: "rotate(180deg)" }} />;
+                             else if (i === 2) content = <LazyImage src="/foods/cake.webp" alt="Cake" style={{ width: 32, height: 32, objectFit: "contain", transform: "rotate(180deg)" }} />;
+                             else if (i === 3) content = <LazyImage src="/foods/candy.webp" alt="Candy" style={{ width: 32, height: 32, objectFit: "contain", transform: "rotate(180deg)" }} />;
+                             else if (i === 4) content = <LazyImage src="/foods/fish.webp" alt="Fish" style={{ width: 32, height: 32, objectFit: "contain", transform: "rotate(180deg)" }} />;
+                             else if (i === 5) content = <div style={{ transform: "rotate(180deg)", fontSize: "1rem", fontWeight: "bold", color: "#fff", lineHeight: 1.1, textAlign: "center" }}>100<br/>❤️</div>;
+                             else if (i === 6) content = <div style={{ transform: "rotate(180deg)", fontSize: "1rem", fontWeight: "bold", color: "#fff", lineHeight: 1.1, textAlign: "center" }}>200<br/>❤️</div>;
+                             else if (i === 7) content = <div style={{ transform: "rotate(180deg)", fontSize: "0.85rem", fontWeight: "bold", color: "#666", lineHeight: 1.1, textAlign: "center" }}>Trượt</div>;
+
+                             return (
+                               <div key={i} style={{
+                                 position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+                                 transform: `rotate(${i * 45 + 22.5}deg)`,
+                               }}>
+                                 <div style={{ position: "absolute", top: "10px", left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                                   {content}
+                                 </div>
+                               </div>
+                             )
+                          })}
+                        </div>
+                        <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "40px", height: "40px", borderRadius: "50%", background: "#fff", border: "4px solid #f1f2f6", boxShadow: "0 2px 4px rgba(0,0,0,0.1)", zIndex: 5 }}></div>
+                      </div>
+
+                      {!modal.gachaReward && (
+                        <button 
+                          className="btn" 
+                          style={{ width: "100%", padding: "16px", borderRadius: "20px", fontSize: "1.1rem", background: "linear-gradient(135deg, #fd79a8, #e84393)", color: "white", display: "flex", justifyContent: "center", alignItems: "center", gap: "8px", fontWeight: "bold", border: "none", boxShadow: "0 8px 20px rgba(232, 67, 147, 0.3)" }}
+                          onClick={handleGachaRoll}
+                          disabled={isRollingGacha}
+                        >
+                          {isRollingGacha ? "Đang quay..." : (
+                            <><Gift size={24} /> {user?.lastFreeGachaDate !== new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()) ? "Quay Miễn Phí" : "Quay (200 Heart)"}</>
+                          )}
+                        </button>
+                      )}
+
+                      {modal.gachaReward && !modal.rolling && (
+                        <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring" }} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", padding: "16px", width: "100%", background: modal.gachaReward.type === 'skin' ? "linear-gradient(135deg, rgba(253, 121, 168, 0.1), rgba(232, 67, 147, 0.2))" : "rgba(0,0,0,0.03)", borderRadius: "20px", border: modal.gachaReward.type === 'skin' ? "2px solid #e84393" : "none" }}>
+                          
+                          {modal.gachaReward.type === 'skin' && (
+                            <div style={{ fontSize: "2rem" }}>🎉</div>
+                          )}
+                          
+                          <div style={{ fontSize: "1.1rem", fontWeight: "bold", color: modal.gachaReward.type === 'skin' ? "#e84393" : "var(--text-primary)", textAlign: "center" }}>
+                            {modal.gachaReward.message}
+                          </div>
+
+                          <button 
+                            className="btn" 
+                            style={{ width: "100%", padding: "14px", borderRadius: "16px", fontSize: "1rem", background: "#e84393", color: "white", marginTop: "10px" }}
+                            onClick={() => setModal(prev => ({ ...prev, gachaReward: null }))}
+                          >
+                            Tiếp Tục Quay
+                          </button>
+                        </motion.div>
                       )}
                     </div>
                   </div>

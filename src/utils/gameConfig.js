@@ -53,7 +53,8 @@ export const DESTINATIONS = [
 
 export const ITEMS = [
   { id: "shield_1", name: "Khiên Đồng (x1)", emoji: "🛡️", price: 50, type: "shield", durationDays: 1, desc: "Bảo vệ Vườn khỏi bị tấn công trong 1 ngày" },
-  { id: "shield_3", name: "Khiên Vàng (x3)", emoji: "🔰", price: 120, type: "shield", durationDays: 3, desc: "Bảo vệ Vườn khỏi bị tấn công trong 3 ngày" }
+  { id: "shield_3", name: "Khiên Vàng (x3)", emoji: "🔰", price: 120, type: "shield", durationDays: 3, desc: "Bảo vệ Vườn khỏi bị tấn công trong 3 ngày" },
+  { id: "amulet_protect", name: "Bùa Hộ Mệnh", emoji: "📿", price: 200, type: "amulet", uses: 3, desc: "Bảo vệ thú cưng khỏi cái chết khi thám hiểm. Độ bền: 3 mạng." }
 ];
 
 export const MAX_PETS = 5;
@@ -62,6 +63,7 @@ export const PET_SKINS = [
   { id: "panda_king", speciesId: "panda", name: "Gấu trúc Hoàng Đế", price: 150 },
   { id: "panda_strawberry", speciesId: "panda", name: "Gấu trúc Dâu Tây", price: 100 },
   { id: "panda_wizard", speciesId: "panda", name: "Gấu trúc Phù Thủy", price: 100 },
+  { id: "panda_princess", speciesId: "panda", name: "Gấu trúc Công Chúa", price: 2000, isGacha: true },
   { id: "cat_vampire", speciesId: "cat", name: "Mèo Bóng Đêm", price: 150 },
   { id: "cat_kimono_dark", speciesId: "cat", name: "Mèo Kimono Đen", price: 100 },
   { id: "cat_princess", speciesId: "cat", name: "Mèo Công Chúa", price: 120 },

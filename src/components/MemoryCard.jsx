@@ -93,6 +93,12 @@ const MemoryCard = ({ memory, onDelete, onLike, onClick }) => {
     if (!window.confirm('Xóa kỷ niệm này?')) return;
     try {
       await memoryService.delete(memory._id);
+      
+      const socket = (await import('../hooks/useSocket')).getSocket();
+      if (socket) {
+        socket.emit('memory:deleted', { id: memory._id, createdBy: user._id });
+      }
+
       showToast('Đã xóa kỷ niệm');
       onDelete && onDelete(memory._id);
     } catch {

@@ -984,11 +984,11 @@ const HomePage = () => {
         {partner && (
           <motion.section variants={itemVariants} className="seamless-section couple-status-card">
             <div className="couple-avatars-overlap">
-              <div className="overlap-avatar self-avatar z-10">
-                <Avatar user={user} className="avatar-img" />
-              </div>
-              <div className="overlap-avatar partner-avatar z-0">
+              <div className="overlap-avatar partner-avatar z-10">
                 <Avatar user={partner} className="avatar-img" />
+              </div>
+              <div className="overlap-avatar self-avatar z-0">
+                <Avatar user={user} className="avatar-img" />
               </div>
             </div>
 
