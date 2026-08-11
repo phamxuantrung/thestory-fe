@@ -1314,7 +1314,11 @@ export default function PetSanctuaryPage() {
 
               const exploring = pet.status === "exploring";
               const pos = getPseudoRandomPos(pet._id, typeIndex, isFlying);
-              const r = RARITY[pet.rarity] || RARITY.common;
+              const r = { ...(RARITY[pet.rarity] || RARITY.common) };
+              if (pet.activeSkin === "panda_princess") {
+                r.color = "#fd79a8";
+                r.glow = "#fd79a888";
+              }
               const care = getCurrentCare(pet, now);
 
               // Trung bình cộng của 3 chỉ số chăm sóc
